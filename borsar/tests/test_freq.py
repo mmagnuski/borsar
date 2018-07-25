@@ -1,3 +1,4 @@
+import os.path as op
 import numpy as np
 import mne
 from borsar.freq import format_psds

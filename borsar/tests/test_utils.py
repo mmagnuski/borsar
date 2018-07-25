@@ -1,3 +1,4 @@
+import os.path as op
 import numpy as np
 import mne
 from borsar.utils import detect_overlap, get_info
