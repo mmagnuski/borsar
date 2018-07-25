@@ -5,8 +5,8 @@ import mne
 from borsar.channels import (homologous_pairs, get_ch_pos, select_channels,
                              find_channels)
 
-fname = op.join('.', 'data', 'rest_sample_data-raw.fif')
-raw, events = mne.io.read_raw_fif(fname)
+fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
+raw = mne.io.read_raw_fif(fname)
 
 
 def selchan_test_helper(raw, sel, ch_pos):

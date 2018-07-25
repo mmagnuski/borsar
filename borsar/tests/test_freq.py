@@ -5,8 +5,8 @@ from borsar.freq import format_psds
 from borsar.channels import select_channels
 
 
-fname = op.join('.', 'data', 'rest_sample_data-raw.fif')
-raw, events = mne.io.read_raw_fif(fname)
+fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
+raw = mne.io.read_raw_fif(fname)
 
 
 def test_format_psds():
