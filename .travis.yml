@@ -22,7 +22,7 @@ install:
 
 script:
   # Your test script goes here
-  - pytest --cov=./
+  - pytest --cov=borsar tests/
 
 after_success:
   - codecov
