@@ -1,2 +1,3 @@
+[![Build Status](https://travis-ci.org/mmagnuski/borsar.svg?branch=master)](https://travis-ci.org/mmagnuski/borsar)
 :construction:  
 work in progress...
