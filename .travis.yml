@@ -18,7 +18,7 @@ install:
   - source activate test-environment
   - pip install mne
   - pip install codecov
-  - python setup.py install
+  - python setup.py develop
 
 script:
   # Your test script goes here
