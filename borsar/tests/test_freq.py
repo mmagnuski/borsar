@@ -3,7 +3,7 @@ import numpy as np
 import mne
 
 from borsar.utils import create_fake_raw
-from borsar.freq import format_psds
+from borsar.freq import format_psds, compute_rest_psd
 from borsar.channels import select_channels
 
 

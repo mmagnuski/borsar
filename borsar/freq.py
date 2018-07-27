@@ -1,5 +1,5 @@
 import numpy as np
-from .utils import find_range
+from .utils import find_range, valid_windows
 from .channels import select_channels, get_ch_names
 
 
