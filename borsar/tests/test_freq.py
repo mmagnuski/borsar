@@ -1,6 +1,8 @@
 import os.path as op
 import numpy as np
 import mne
+
+from borsar.utils import create_fake_raw
 from borsar.freq import format_psds
 from borsar.channels import select_channels
 
