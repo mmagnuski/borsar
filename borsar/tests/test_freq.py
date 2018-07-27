@@ -29,8 +29,8 @@ def test_compute_rest_psd():
 
     psd2, freq2 = compute_rest_psd(raw, events=events, event_id=1, tmin=0.,
                                    tmax=1.5, winlen=1., step=1.)
-    assert (psd2 == psd[1])
-    assert (freq2 == freq)
+    assert (psd2 == psd[1]).all()
+    assert (freq2 == freq).all()
 
 
 def test_format_psds():
