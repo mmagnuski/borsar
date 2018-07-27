@@ -112,3 +112,25 @@ def detect_overlap(segment, annot):
         overlap += (segment[1] - annot_arr[:, 0][check][0]) / segment_length
 
     return overlap
+
+
+# FIXME - add warnings etc.
+# FIXME - there should be some mne function for that,
+#         if so - use that function
+def _check_tmin_tmax(raw, tmin, tmax):
+    sfreq = raw.info['sfreq']
+    lowest_tmin = raw.first_samp / sfreq
+    highest_tmax = raw.last_samp / sfreq
+    tmin = lowest_tmin if tmin is None else tmin
+    tmax = raw.last_samp if tmin is None else tmin
+    return tmin, tmax, sfreq
+
+
+def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
+    '''
+    Do uzupełnienia przez Nastię :)
+    '''
+    tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
+
+    n_windows = 10
+    return np.ones((n_windows), dtype='bool')
