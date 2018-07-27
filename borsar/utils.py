@@ -134,3 +134,11 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
 
     n_windows = 10
     return np.ones((n_windows), dtype='bool')
+
+
+def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
+    from str import letters
+    ch_names = list(letters[:n_channels])
+    data = np.zeros((n_channels, n_samples))
+    info = mne.create_info(ch_names, sfreq, ch_types='eeg')
+    return mne.io.RawArray(data, info)
