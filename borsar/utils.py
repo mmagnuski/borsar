@@ -146,14 +146,28 @@ def _check_tmin_tmax(raw, tmin, tmax):
     return tmin, tmax, sfreq
 
 
-def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
-    '''
-    Do uzupełnienia przez Nastię :)
-    '''
-    tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
+def valid_windows(raw, tmin, tmax, winlen, step):
 
-    n_windows = 10
-    return np.ones((n_windows), dtype='bool')
+    sfreq = raw.info['sfreq']
+    annot = raw.annotations
+    winlen = int(round(2 * sfreq))
+    step = int(step*sfreq)
+    s_tmin, s_tmax = int(round(tmin*sfreq)), int(round(tmax*sfreq))
+    n_windows = int((s_tmax - s_tmin - (winlen - step))/step)
+    valid = list()
+    from borsar.utils import detect_overlap
+    for win_idx in range(n_windows):
+        segment = [(win_idx + tmin)*step, (win_idx + tmin)*step + winlen]
+        if borsar.utils.detect_overlap(segment, annot, samples = True) > 0.0:
+            valid.append(False)
+        else:
+            valid.append(True) 
+
+    print(np.array(valid))
+    #tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
+
+    #n_windows = 10
+    #return np.ones((n_windows), dtype='bool')
 
 
 def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
