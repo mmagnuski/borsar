@@ -3,7 +3,7 @@ import numpy as np
 
 def find_range(vec, ranges):
     '''
-    Find specified ranges in an ordered vector and retur them as slices.
+    Find specified ranges in an ordered vector and return them as slices.
 
     Parameters
     ----------
@@ -46,7 +46,7 @@ def get_info(inst):
         return inst.info
 
 
-def detect_overlap(segment, annot):
+def detect_overlap(segment, annot, samples=False):
     '''
     Detect what percentage of given segment is overlapping with bad annotations.
 
@@ -66,11 +66,20 @@ def detect_overlap(segment, annot):
     if not isinstance(annot, np.ndarray):
         # if we didn't get numpy array we assume it's mne.Annotation
         # and convert it to N x 2 (N x start, end) array:
-        annot_arr = np.hstack([annot.onset[:, np.newaxis],
-                               annot.onset[:, np.newaxis]
-                               + annot.duration])
+        onset = (annot.onset if not samples else
+                 np.round(annot.onset).astype('int'))
+        duration = (annot.duration if not samples else
+                    np.round(annot.duration).astype('int'))
+        annot_arr = np.hstack([onset[:, np.newaxis], onset[:, np.newaxis]
+                               + duration])
     else:
-        annot_arr = annot
+        if not samples:
+            annot_arr = annot
+        else:
+            in_samples = (annot.dtype is np.dtype('int64') or
+                          annot.dtype is np.dtype('int32'))
+            # FIXME - if not in_samples throw an error or issue a warning
+            annot_arr = annot if in_samples else np.round(annot).astype('int')
 
     # checks for boundary relationships
     ll_beleq = annot_arr[:, 0] <= segment[0]
