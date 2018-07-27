@@ -60,3 +60,19 @@ def test_check_tmin_tmax():
     assert tmin == 0.
     assert tmax == 3.5
     assert sfreq == 10.
+
+
+def test_valid_windows (raw, tmin, tmax, winlen, step):
+
+    from borsar.utils import create_fake_raw
+
+    raw = create_fake_raw(n_channels=4, n_samples=100, sfreq=250.)
+    onset = np.array([2., 50., 90.])
+    duration = np.array([8., 10., 20.])
+    raw.annotations = mne.Annotations(onset, duration, description)
+
+    #test 1
+    valid_windows(raw = raw, tmin = 2., tmax = 60., winlen = 2., step = 1.)
+    output1 = valid_windows
+    output2 = my_array
+    assert (outut1 == output2).all()
