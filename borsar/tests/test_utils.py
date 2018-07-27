@@ -33,3 +33,10 @@ def test_detect_overlap():
     seg = [0.1, 1.1]
     ann = np.array([[0.3, 0.4], [0.55, 0.65], [0.7, 0.8]])
     almost_equal(detect_overlap(seg, ann), 0.3)
+
+    # test detect overlap in samples
+    # as in slices the last sample is not included
+    seg = [5, 12]
+    ann = np.array([[3, 6], [7, 9], [11, 12]])
+    correct_overlap = (1 + 2 + 1) / np.diff(seg)
+    assert(detect_overlap(seg, ann, samples=True), correct_overlap)
