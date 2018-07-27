@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2016 Mikołaj Magnuski
+# Copyright (C) 2018 Mikołaj Magnuski
 # <mmagnuski@swps.edu.pl>
 
 
@@ -15,7 +15,7 @@ MAINTAINER = u'Mikołaj Magnuski'
 MAINTAINER_EMAIL = 'mmagnuski@swps.edu.pl'
 URL = 'https://github.com/mmagnuski/borsar'
 LICENSE = 'BSD (3-clause)'
-DOWNLOAD_URL = 'https://github.com/mmagnuski/mypy'
+DOWNLOAD_URL = 'https://github.com/mmagnuski/borsar'
 VERSION = '0.1dev1'
 
 
