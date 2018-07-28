@@ -46,7 +46,7 @@ def get_info(inst):
         return inst.info
 
 
-def detect_overlap(segment, annot, samples=False):
+def detect_overlap(segment, annot, sfreq=None):
     '''
     Detect what percentage of given segment is overlapping with bad annotations.
 
@@ -62,16 +62,18 @@ def detect_overlap(segment, annot, samples=False):
     overlap : float
         Percentage overlap in 0 - 1 range.
     '''
+    samples = sfreq is not None
+
     # for convenience we accept mne.Annotation objects and numpy arrays:
     if not isinstance(annot, np.ndarray):
         # if we didn't get numpy array we assume it's mne.Annotation
         # and convert it to N x 2 (N x start, end) array:
         onset = (annot.onset if not samples else
-                 np.round(annot.onset).astype('int'))
+                 np.round(annot.onset * sfreq).astype('int'))
         duration = (annot.duration if not samples else
-                    np.round(annot.duration).astype('int'))
+                    np.round(annot.duration * sfreq).astype('int'))
         annot_arr = np.hstack([onset[:, np.newaxis], onset[:, np.newaxis]
-                               + duration])
+                               + duration[:, np.newaxis]])
     else:
         if not samples:
             annot_arr = annot
@@ -79,7 +81,8 @@ def detect_overlap(segment, annot, samples=False):
             in_samples = (annot.dtype is np.dtype('int64') or
                           annot.dtype is np.dtype('int32'))
             # FIXME - if not in_samples throw an error or issue a warning
-            annot_arr = annot if in_samples else np.round(annot).astype('int')
+            annot_arr = (annot if in_samples else
+                         np.round(annot * sfreq).astype('int'))
 
     # checks for boundary relationships
     ll_beleq = annot_arr[:, 0] <= segment[0]
@@ -131,7 +134,7 @@ def _check_tmin_tmax(raw, tmin, tmax):
     lowest_tmin = raw.first_samp / sfreq
     highest_tmax = raw.last_samp / sfreq
     tmin = lowest_tmin if tmin is None else tmin
-    tmax = raw.last_samp if tmin is None else tmin
+    tmax = highest_tmax if tmax is None else tmax
     return tmin, tmax, sfreq
 
 
