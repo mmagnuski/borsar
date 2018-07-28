@@ -39,4 +39,15 @@ def test_detect_overlap():
     seg = [5, 12]
     ann = np.array([[3, 6], [7, 9], [11, 12]])
     correct_overlap = (1 + 2 + 1) / np.diff(seg)
-    assert(detect_overlap(seg, ann, samples=True), correct_overlap)
+    assert(detect_overlap(seg, ann, sfreq=1.) == correct_overlap)
+
+    # another test on samples - this time with mne.Annotation
+    sfreq, seg = 2., [10, 18]
+    descriptions = ['_BAD'] * 3
+    onsets = np.array([6, 9, 14]) / sfreq
+    durations = np.array([2, 3, 3]) / sfreq
+    annot = mne.Annotations(onsets, durations, descriptions)
+    correct_overlap = (2 + 3) / np.diff(seg)[0]
+    assert(detect_overlap(seg, annot, sfreq=sfreq) == correct_overlap)
+
+
