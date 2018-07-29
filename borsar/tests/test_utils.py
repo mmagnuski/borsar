@@ -1,6 +1,7 @@
 import os.path as op
 import numpy as np
 import mne
+
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows)
 

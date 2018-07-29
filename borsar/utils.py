@@ -146,28 +146,23 @@ def _check_tmin_tmax(raw, tmin, tmax):
     return tmin, tmax, sfreq
 
 
-def valid_windows(raw, tmin, tmax, winlen, step):
-
-    sfreq = raw.info['sfreq']
+def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
+    '''
+    Return information on which moving windows overlap with annotations.
+    '''
     annot = raw.annotations
-    winlen = int(round(2 * sfreq))
-    step = int(step*sfreq)
-    s_tmin, s_tmax = int(round(tmin*sfreq)), int(round(tmax*sfreq))
-    n_windows = int((s_tmax - s_tmin - (winlen - step))/step)
-    valid = list()
-    from borsar.utils import detect_overlap
+    tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
+    step = int(round(step * sfreq))
+    winlen = int(round(winlen * sfreq))
+    tmin_smp, tmax_smp = int(round(tmin * sfreq)), int(round(tmax * sfreq))
+    n_windows = int((tmax_smp - tmin_smp - winlen + step) / step)
+    valid = np.zeros(n_windows, dtype='bool')
     for win_idx in range(n_windows):
-        segment = [(win_idx + tmin)*step, (win_idx + tmin)*step + winlen]
-        if borsar.utils.detect_overlap(segment, annot, samples = True) > 0.0:
-            valid.append(False)
-        else:
-            valid.append(True) 
-
-    print(np.array(valid))
-    #tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
-
-    #n_windows = 10
-    #return np.ones((n_windows), dtype='bool')
+        start = tmin_smp + win_idx * step
+        segment = [start, start + winlen]
+        overlap = detect_overlap(segment, annot, sfreq=sfreq)
+        valid[win_idx] = overlap == 0.
+    return valid
 
 
 def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
