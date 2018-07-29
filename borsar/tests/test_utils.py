@@ -48,6 +48,10 @@ def test_detect_overlap():
     correct_overlap = (2 + 3) / np.diff(seg)[0]
     assert(detect_overlap(seg, annot, sfreq=sfreq) == correct_overlap)
 
+    # last test - when mne.Annotations are not present
+    annot = None
+    assert(detect_overlap(seg, annot, sfreq=sfreq) == 0.)
+
 
 def test_check_tmin_tmax():
     raw = create_fake_raw(n_channels=2, n_samples=35, sfreq=10.)
