@@ -56,6 +56,11 @@ def detect_overlap(segment, annot, sfreq=None):
         Two-element list or array of [start, stop] values.
     annot : mne.Annotation of 2d numpy array
         Annotations or 2d array of N x 2 (start, stop) values.
+    sfreq : float
+        Sampling frequency (default: None). If not None segment is assumed to
+        be given in samples. `annot` is transformed to samples using sfreq if
+        it is of mne.Annotations type. If `annot` is np.ndarray then it is
+        transformed to samples only if its dtype is not 'int64' or 'int32'.
 
     Returns
     -------
@@ -66,6 +71,9 @@ def detect_overlap(segment, annot, sfreq=None):
 
     # for convenience we accept mne.Annotation objects and numpy arrays:
     if not isinstance(annot, np.ndarray):
+        if annot is None:
+            return 0.
+
         # if we didn't get numpy array we assume it's mne.Annotation
         # and convert it to N x 2 (N x start, end) array:
         onset = (annot.onset if not samples else
