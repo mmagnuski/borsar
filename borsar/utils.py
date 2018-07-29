@@ -136,11 +136,11 @@ def detect_overlap(segment, annot, sfreq=None):
 
 # FIXME - add warnings etc.
 # FIXME - there should be some mne function for that,
-#         if so - use that function
+#         if so - use that function (check later)
 def _check_tmin_tmax(raw, tmin, tmax):
     sfreq = raw.info['sfreq']
     lowest_tmin = raw.first_samp / sfreq
-    highest_tmax = raw.last_samp / sfreq
+    highest_tmax = (raw.last_samp + 1) / sfreq
     tmin = lowest_tmin if tmin is None else tmin
     tmax = highest_tmax if tmax is None else tmax
     return tmin, tmax, sfreq
