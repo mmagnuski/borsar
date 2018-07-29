@@ -148,12 +148,21 @@ def _check_tmin_tmax(raw, tmin, tmax):
 
 def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
     '''
-    Do uzupełnienia przez Nastię :)
+    Return information on which moving windows overlap with annotations.
     '''
+    annot = raw.annotations
     tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
-
-    n_windows = 10
-    return np.ones((n_windows), dtype='bool')
+    step = int(round(step * sfreq))
+    winlen = int(round(winlen * sfreq))
+    tmin_smp, tmax_smp = int(round(tmin * sfreq)), int(round(tmax * sfreq))
+    n_windows = int((tmax_smp - tmin_smp - winlen + step) / step)
+    valid = np.zeros(n_windows, dtype='bool')
+    for win_idx in range(n_windows):
+        start = tmin_smp + win_idx * step
+        segment = [start, start + winlen]
+        overlap = detect_overlap(segment, annot, sfreq=sfreq)
+        valid[win_idx] = overlap == 0.
+    return valid
 
 
 def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
