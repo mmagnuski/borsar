@@ -1,11 +1,8 @@
 import os.path as op
 import numpy as np
 import mne
-from borsar.utils import detect_overlap, get_info
-
-
-fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
-raw = mne.io.read_raw_fif(fname)
+from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
+                          get_info)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -13,6 +10,7 @@ def almost_equal(val1, val2, error=1e-13):
 
 
 def test_get_info():
+    raw = create_fake_raw(n_channels=2, n_samples=5, sfreq=25.)
     assert raw.info == get_info(raw)
     assert raw.info == get_info(raw.info)
 
@@ -51,3 +49,10 @@ def test_detect_overlap():
     assert(detect_overlap(seg, annot, sfreq=sfreq) == correct_overlap)
 
 
+def test_check_tmin_tmax():
+    raw = create_fake_raw(n_channels=2, n_samples=35, sfreq=10.)
+    tmin, tmax = -1., 4.
+    tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
+    assert tmin == 0.
+    assert tmax == 3.5
+    assert sfreq == 10.

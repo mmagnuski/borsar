@@ -141,8 +141,8 @@ def _check_tmin_tmax(raw, tmin, tmax):
     sfreq = raw.info['sfreq']
     lowest_tmin = raw.first_samp / sfreq
     highest_tmax = (raw.last_samp + 1) / sfreq
-    tmin = lowest_tmin if tmin is None else tmin
-    tmax = highest_tmax if tmax is None else tmax
+    tmin = lowest_tmin if tmin is None or tmin < lowest_tmin else tmin
+    tmax = highest_tmax if tmax is None or tmax > highest_tmax else tmax
     return tmin, tmax, sfreq
 
 
