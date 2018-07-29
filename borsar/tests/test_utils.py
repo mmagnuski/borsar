@@ -2,7 +2,7 @@ import os.path as op
 import numpy as np
 import mne
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
-                          get_info)
+                          get_info, valid_windows)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -62,17 +62,22 @@ def test_check_tmin_tmax():
     assert sfreq == 10.
 
 
-def test_valid_windows (raw, tmin, tmax, winlen, step):
+def test_valid_windows():
+    raw = create_fake_raw(n_channels=1, n_samples=30, sfreq=10.)
 
-    from borsar.utils import create_fake_raw
-
-    raw = create_fake_raw(n_channels=4, n_samples=100, sfreq=250.)
-    onset = np.array([2., 50., 90.])
-    duration = np.array([8., 10., 20.])
+    #                     0    5    10   15   20   25   30
+    #                     |    |    |    |    |    |    |
+    # annot coverage (x): ooooxxxxxooooooxxxooooooooooxx
+    onset = np.array([0.5, 1.5, 28 / 10])
+    duration = np.array([0.5, 3 / 10, 2 / 10])
+    description = ['_BAD'] * 3
     raw.annotations = mne.Annotations(onset, duration, description)
 
-    #test 1
-    valid_windows(raw = raw, tmin = 2., tmax = 60., winlen = 2., step = 1.)
-    output1 = valid_windows
-    output2 = my_array
-    assert (outut1 == output2).all()
+    T, F = True, False
+    answer = valid_windows(raw, winlen=0.4, step=0.2)
+    should_be = np.array([T, F, F, F, F, T, F, F, F, T, T, T, T, F])
+    assert (answer == should_be).all()
+
+    answer = valid_windows(raw, tmin=0.4, tmax=1.8, winlen=0.4, step=0.2)
+    should_be = should_be[2:-6]
+    assert (answer == should_be).all()
