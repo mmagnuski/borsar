@@ -2,6 +2,10 @@ import numpy as np
 
 
 def current_source_density(inst, G, H, smoothing=1.0e-5, head_radius=1.):
+    '''
+    Compute current source density for given mne object instance.
+    ! works in-place !
+    '''
     import mne
     from mne.utils import _get_inst_data
 
