@@ -93,19 +93,47 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                          tmin=tmin, tmax=tmax)
 
 
-def format_psds(psds, freq, info, average_freq=(8, 13),
+def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
                 selection='asy_frontal', log_transform=True):
     '''
-    psds should be subjects x channels x frequencies
+    Format power spectral densities. This includes channel selection, log
+    transform, frequency range selection, averaging frequencies and calculating
+    asymmetry (difference between left-right homologous sites).
+
+    Parameters
+    ----------
+    psds : numpy array
+        psds should be in (subjects, channels, frequencies) or
+        (channels, frequencies) shape.
+    freq : numpy array of shape (n_freqs,)
+        Frequency bins.
+    info : mne.Info
+        Info about the recordings. Used for channel selection.
+    freq_range : tuple or listlike with two elements
+        Lower and higher frequency limits.
+    average_freq : bool
+        Whether to average frequencies.
+    selection : str
+        Type of channel selection. See `borsar.channels.select_channels`.
+    log_transform : bool
+        Whether to log-transform the data.
 
     Returns
     -------
-    psds
-    ch_names
+    psds : numpy array
+        Transformed psds.
+    freq : numpy array
+        Frequency bins.
+    ch_names : list of str
+        Channel names.
     '''
+    if freq_range is not None:
+        rng = find_range(freq, freq_range)
+        psds = psds[..., rng]
+        freq = freq[rng]
     if average_freq:
-        rng = find_range(freq, average_freq)
-        psds = psds[..., rng].mean(axis=-1)
+        psds = psds.mean(axis=-1)
+        freq = freq.mean()
 
     ch_names = get_ch_names(info)
     sel = select_channels(info, selection)
@@ -125,4 +153,4 @@ def format_psds(psds, freq, info, average_freq=(8, 13),
         psds = psds[:, sel]
         ch_names = list(np.array(ch_names)[sel])
 
-    return psds, ch_names
+    return psds, freq, ch_names
