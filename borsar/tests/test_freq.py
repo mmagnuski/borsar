@@ -66,7 +66,7 @@ def test_format_psds():
     # test 4 - div_by_sum, and defaults for transform
     psds, _, _ = format_psds(psd_data, freqs, info, freq_range=(6, 8),
                              average_freq=True, selection='asy_pairs',
-                             div_by_sum=True)
+                             div_by_sum=True, transform=False)
     rgt, lft = (psd_data[:, sel['right']][..., 1:3].mean(axis=-1),
                 psd_data[:, sel['left']][..., 1:3].mean(axis=-1))
     should_be = (rgt - lft) / (rgt + lft)
