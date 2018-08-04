@@ -44,21 +44,30 @@ def test_format_psds():
     # test 1
     sel = select_channels(info, select='frontal')
     psds, _, _ = format_psds(psd_data, freqs, info, average_freq=True,
-                          selection='frontal')
+                             selection='frontal')
     assert (psds == np.log(psd_data[..., 2:].mean(axis=-1)[:, sel])).all()
 
     # test 2
     sel = select_channels(info, select='asy_pairs')
     psds, _, _ = format_psds(psd_data, freqs, info, freq_range=None,
-                          average_freq=None, selection='asy_pairs')
+                             average_freq=False, selection='asy_pairs')
     should_be = (np.log(psd_data[:, sel['right']]) -
                  np.log(psd_data[:, sel['left']]))
     assert (psds == should_be).all()
 
     # test 3
     psds, _, _ = format_psds(psd_data, freqs, info, freq_range=(6, 8),
-                          average_freq=False, selection='asy_pairs',
-                          log_transform=False)
+                             average_freq=False, selection='asy_pairs',
+                             transform=None)
     should_be = (psd_data[:, sel['right']][..., 1:3] -
                  psd_data[:, sel['left']][..., 1:3])
+    assert (psds == should_be).all()
+
+    # test 4 - div_by_sum, and defaults for transform
+    psds, _, _ = format_psds(psd_data, freqs, info, freq_range=(6, 8),
+                             average_freq=True, selection='asy_pairs',
+                             div_by_sum=True, transform=False)
+    rgt, lft = (psd_data[:, sel['right']][..., 1:3].mean(axis=-1),
+                psd_data[:, sel['left']][..., 1:3].mean(axis=-1))
+    should_be = (rgt - lft) / (rgt + lft)
     assert (psds == should_be).all()

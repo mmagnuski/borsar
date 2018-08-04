@@ -94,7 +94,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 
 
 def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
-                selection='asy_frontal', log_transform=True):
+                selection='asy_frontal', transform='log', div_by_sum=False):
     '''
     Format power spectral densities. This includes channel selection, log
     transform, frequency range selection, averaging frequencies and calculating
@@ -115,8 +115,14 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
         Whether to average frequencies.
     selection : str
         Type of channel selection. See `borsar.channels.select_channels`.
-    log_transform : bool
-        Whether to log-transform the data.
+    transform : str or None
+        Type of transformation applied to the data. 'log': log-transform;
+        None: no transformation.
+    div_by_sum : bool
+        Used only when selection implies asymmetry ('asy' is in `selection`).
+        If True the asymmetry difference is divided by the sum of
+        the homologous channels: (ch_right - ch_left) / (ch_right + ch_left).
+        Defaults to False.
 
     Returns
     -------
@@ -138,14 +144,18 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
     ch_names = get_ch_names(info)
     sel = select_channels(info, selection)
 
-    if log_transform:
+    if transform == 'log':
         psds = np.log(psds)
 
     if 'asy' in selection:
         # compute asymmetry
-        lft = psds[:, sel['left']]
         rgt = psds[:, sel['right']]
+        lft = psds[:, sel['left']]
         psds = rgt - lft
+        if div_by_sum:
+            psds /= rgt + lft
+
+        # create right-left channel names
         ch_names = ['{}-{}'.format(ch1, ch2) for ch1, ch2 in
                     zip(np.array(ch_names)[sel['left']],
                         np.array(ch_names)[sel['right']])]
