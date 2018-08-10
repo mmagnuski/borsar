@@ -172,3 +172,29 @@ def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
     data = np.zeros((n_channels, n_samples))
     info = mne.create_info(ch_names, sfreq, ch_types='eeg')
     return mne.io.RawArray(data, info)
+
+
+def get_dropped_epoch_index(epochs):
+	'''
+	Get indices of dropped epochs from `epochs.drop_log`.
+
+	Parameters
+	----------
+	epochs : mne Epochs instance
+		Epochs to get dropped indices from.
+
+	Returns
+	-------
+	dropped_epochs : 1d numpy array
+		Array containing indices of dropped epochs.
+	'''
+	current_epoch = 0
+	dropped_epochs = list()
+
+	for info in epochs.drop_log:
+	    if 'IGNORED' not in info:
+	        if len(info) > 0:
+	            dropped_epochs.append(current_epoch)
+	        current_epoch += 1
+
+	return np.array(dropped_epochs)
