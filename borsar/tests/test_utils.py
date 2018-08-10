@@ -3,7 +3,7 @@ import numpy as np
 import mne
 
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
-                          get_info, valid_windows)
+                          get_info, valid_windows, get_dropped_epoch_index)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -82,3 +82,17 @@ def test_valid_windows():
     answer = valid_windows(raw, tmin=0.4, tmax=1.8, winlen=0.4, step=0.2)
     should_be = should_be[2:-6]
     assert (answer == should_be).all()
+
+
+def test_dropped_index():
+    raw = create_fake_raw(n_channels=1, n_samples=36, sfreq=10.)
+    events = np.zeros((4, 3), dtype='int')
+    events[:, -1] = 1
+    events[:, 0] = [5, 13, 21, 29]
+    raw.annotations = mne.Annotations([2.], [1.6], ['BAD_'])
+    epochs = mne.Epochs(raw, events, event_id=1, tmin=-0.1, tmax=0.6,
+                        preload=True)
+    assert (np.array([2, 3]) == get_dropped_epoch_index(epochs)).all()
+
+    epochs.drop([0])
+    assert (np.array([0, 2, 3]) == get_dropped_epoch_index(epochs)).all()
