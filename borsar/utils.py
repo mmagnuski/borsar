@@ -174,7 +174,7 @@ def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
     return mne.io.RawArray(data, info)
 
 
-def get_dropped_epoch_index(epochs):
+def get_dropped_epochs(epochs):
 	'''
 	Get indices of dropped epochs from `epochs.drop_log`.
 

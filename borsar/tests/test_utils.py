@@ -94,7 +94,7 @@ def test_valid_windows():
     assert (answer == should_be).all()
 
 
-def test_dropped_index():
+def test_get_dropped_epochs():
     raw = create_fake_raw(n_channels=1, n_samples=36, sfreq=10.)
     events = np.zeros((4, 3), dtype='int')
     events[:, -1] = 1
@@ -102,7 +102,7 @@ def test_dropped_index():
     raw.annotations = mne.Annotations([2.], [1.6], ['BAD_'])
     epochs = mne.Epochs(raw, events, event_id=1, tmin=-0.1, tmax=0.6,
                         preload=True)
-    assert (np.array([2, 3]) == get_dropped_epoch_index(epochs)).all()
+    assert (np.array([2, 3]) == get_dropped_epochs(epochs)).all()
 
     epochs.drop([0])
-    assert (np.array([0, 2, 3]) == get_dropped_epoch_index(epochs)).all()
+    assert (np.array([0, 2, 3]) == get_dropped_epochs(epochs)).all()
