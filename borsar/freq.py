@@ -3,8 +3,6 @@ from .utils import find_range, valid_windows
 from .channels import select_channels, get_ch_names
 
 
-# FIXME - można później wydrzeć z tego kod, który się przyda w beamformingu
-#         i zrobić jakąś zgeneralizowaną funkcję
 def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                      winlen=2., step=0.5):
     '''

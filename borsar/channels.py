@@ -59,7 +59,7 @@ def select_channels(inst, select='all'):
     '''
     if select == 'all':
         return np.arange(len(inst.ch_names))
-    elif select == 'asy_all':
+    elif 'asy' in select and 'all' in select:
         return homologous_pairs(inst)
 
     if 'frontal' in select:
@@ -83,8 +83,6 @@ def homologous_pairs(inst):
 
     Parameters
     ----------
-    ch_names : list of str
-        List of channel names.
     inst : mne object instance (optional)
         Mne object like mne.Raw or mne.Epochs
 

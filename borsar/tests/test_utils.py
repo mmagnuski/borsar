@@ -3,11 +3,21 @@ import numpy as np
 import mne
 
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
-                          get_info, valid_windows, get_dropped_epoch_index)
+                          get_info, valid_windows, get_dropped_epochs,
+                          find_range)
 
 
 def almost_equal(val1, val2, error=1e-13):
     assert abs(val1 - val2) < 1e-13
+
+
+def test_find_range():
+    vec = np.array([2, 4, 6, 7, 8, 8.5, 9, 12, 18, 25])
+    assert find_range(vec, (3.5, 8)) == slice(1, 5)
+
+    ranges = find_range(vec, [(3.5, 8), (10, 20)])
+    should_be = [slice(1, 5), slice(6, 9)]
+    assert all([x == y for x, y in zip(ranges, should_be)])
 
 
 def test_get_info():
@@ -84,7 +94,7 @@ def test_valid_windows():
     assert (answer == should_be).all()
 
 
-def test_dropped_index():
+def test_get_dropped_epochs():
     raw = create_fake_raw(n_channels=1, n_samples=36, sfreq=10.)
     events = np.zeros((4, 3), dtype='int')
     events[:, -1] = 1
@@ -92,7 +102,7 @@ def test_dropped_index():
     raw.annotations = mne.Annotations([2.], [1.6], ['BAD_'])
     epochs = mne.Epochs(raw, events, event_id=1, tmin=-0.1, tmax=0.6,
                         preload=True)
-    assert (np.array([2, 3]) == get_dropped_epoch_index(epochs)).all()
+    assert (np.array([2, 3]) == get_dropped_epochs(epochs)).all()
 
     epochs.drop([0])
-    assert (np.array([0, 2, 3]) == get_dropped_epoch_index(epochs)).all()
+    assert (np.array([0, 2, 3]) == get_dropped_epochs(epochs)).all()

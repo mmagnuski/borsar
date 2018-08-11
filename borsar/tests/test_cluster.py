@@ -42,3 +42,11 @@ def test_contstruct_adjacency():
     # test 6, channel not found in neighbours
     with pytest.raises(ValueError):
         construct_adjacency_matrix(arr, ch_names=['A', 'Bi', 'C'])
+
+    # test 7, multiple channels with the same name found in neighbours
+    arr = np.array([(ch_names[idx], np.array(ch_names)[adj_correct[idx]])
+                    for idx in range(adj_correct.shape[0])] +
+                   [(ch_names[0], np.array(ch_names)[adj_correct[0]])],
+                   dtype=dtypes)
+    with pytest.raises(ValueError):
+        construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
