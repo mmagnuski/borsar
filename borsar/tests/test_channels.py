@@ -9,6 +9,14 @@ fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
 raw = mne.io.read_raw_fif(fname)
 
 
+def test_find_channels():
+    channels = ['Oz', 'Fz']
+    channels_idx = [raw.ch_names.index(chan) for chan in channels]
+    assert channels_idx[0] == find_channels(raw, channels[0])
+    assert all([x == y for x, y in zip(channels_idx,
+                                       find_channels(raw, channels))])
+
+
 def selchan_test_helper(raw, sel, ch_pos):
     assert (ch_pos[sel['left'], 1] == ch_pos[sel['right'], 1]).all()
     assert (ch_pos[sel['left'], 0] == -ch_pos[sel['right'], 0]).all()
@@ -21,6 +29,8 @@ def selchan_test_helper(raw, sel, ch_pos):
 
 
 def test_select_channels():
+    assert (select_channels(raw, 'all') == np.arange(len(raw.ch_names))).all()
+
     ch_pos = get_ch_pos(raw)
     sel = select_channels(raw, 'frontal')
     assert (ch_pos[sel, 1] > 0.).all()

@@ -3,11 +3,21 @@ import numpy as np
 import mne
 
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
-                          get_info, valid_windows, get_dropped_epoch_index)
+                          get_info, valid_windows, get_dropped_epochs,
+                          find_range)
 
 
 def almost_equal(val1, val2, error=1e-13):
     assert abs(val1 - val2) < 1e-13
+
+
+def test_find_range():
+    vec = np.array([2, 4, 6, 7, 8, 8.5, 9, 12, 18, 25])
+    assert find_range(vec, (3.5, 8)) == slice(1, 5)
+
+    ranges = find_range(vec, [(3.5, 8), (10, 20)])
+    should_be = [slice(1, 5), slice(6, 9)]
+    assert all([x == y for x, y in zip(ranges, should_be)])
 
 
 def test_get_info():
