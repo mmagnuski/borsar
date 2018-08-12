@@ -1,4 +1,5 @@
 import numpy as np
+from contextlib import contextmanager
 
 
 def find_range(vec, ranges):
@@ -198,3 +199,14 @@ def get_dropped_epochs(epochs):
 	        current_epoch += 1
 
 	return np.array(dropped_epochs)
+
+
+@contextmanager
+def silent_mne():
+    '''
+    Context manager without warnings from mne-python.
+    '''
+    import mne
+    log_level = mne.set_log_level('error', return_old_level=True)
+    yield
+    mne.set_log_level(log_level)
