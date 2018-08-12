@@ -2,9 +2,10 @@ import os.path as op
 import numpy as np
 import mne
 
+import pytest
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
-                          find_range)
+                          find_range, silent_mne)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -106,3 +107,21 @@ def test_get_dropped_epochs():
 
     epochs.drop([0])
     assert (np.array([0, 2, 3]) == get_dropped_epochs(epochs)).all()
+
+
+def test_silent_mne():
+    raw = create_fake_raw(n_channels=2, n_samples=10, sfreq=10.)
+    mntg = mne.channels.Montage(np.random.random((2, 3)), ['A', 'B'],
+                                'eeg', 'fake')
+    raw.set_montage(mntg)
+
+    # adding new reference channel without position gives a warning:
+    with pytest.warns(Warning):
+        mne.add_reference_channels(raw.copy(), ['nose'])
+
+    # ... but not when using silent_mne() context manager:
+    with pytest.warns(None) as record:
+        with silent_mne():
+            mne.add_reference_channels(raw.copy(), ['nose'])
+
+    assert len(record) == 0
