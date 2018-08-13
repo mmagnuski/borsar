@@ -14,7 +14,7 @@ install:
   - conda info -a
 
   # install dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pytest pytest-cov
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pytest pytest-cov statsmodels
   - source activate test-environment
   - pip install mne
   - pip install codecov
