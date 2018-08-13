@@ -27,7 +27,7 @@ def test_compute_regression_t():
     elapsed_borsar = time.clock() - t0
 
     assert t_vals_sm.shape == t_vals_borsar.shape
-    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-10)
+    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-9)
 
     # make sure we are at least 100 times faster than statsmodels loop
     assert elapsed_borsar * 100 < elapsed_sm
