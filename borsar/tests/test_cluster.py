@@ -29,7 +29,7 @@ def test_contstruct_adjacency():
 
     # test 3, as_sparse
     adj = construct_adjacency_matrix(arr, ch_names=list('ABC'), as_sparse=True)
-    assert (sparse.coo_matrix(adj_correct[:3, :3]) == adj).toarray().all()
+    assert (adj_correct[:3, :3] == adj.toarray()).all()
 
     # test 4, ch_names must be a list
     with pytest.raises(AssertionError):

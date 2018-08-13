@@ -31,3 +31,9 @@ def test_compute_regression_t():
 
     # make sure we are at least 100 times faster than statsmodels loop
     assert elapsed_borsar * 100 < elapsed_sm
+
+    # make sure preds are turned from 1d to 2d
+    data = np.random.random((35, 2))
+    preds = np.random.random(35)
+    t_vals_borsar = compute_regression_t(data, preds)
+    assert t_vals_borsar.shape == (2, 2)

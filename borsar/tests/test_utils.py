@@ -83,7 +83,11 @@ def test_valid_windows():
     onset = np.array([0.5, 1.5, 28 / 10])
     duration = np.array([0.5, 3 / 10, 2 / 10])
     description = ['_BAD'] * 3
-    raw.annotations = mne.Annotations(onset, duration, description)
+    annot = mne.Annotations(onset, duration, description)
+    try:
+        raw.set_annotations(annot)
+    except AttributeError:
+        raw.annotations = annot
 
     T, F = True, False
     answer = valid_windows(raw, winlen=0.4, step=0.2)
@@ -100,7 +104,11 @@ def test_get_dropped_epochs():
     events = np.zeros((4, 3), dtype='int')
     events[:, -1] = 1
     events[:, 0] = [5, 13, 21, 29]
-    raw.annotations = mne.Annotations([2.], [1.6], ['BAD_'])
+    annot = mne.Annotations([2.], [1.6], ['BAD_'])
+    try:
+        raw.set_annotations(annot)
+    except AttributeError:
+        raw.annotations = annot
     epochs = mne.Epochs(raw, events, event_id=1, tmin=-0.1, tmax=0.6,
                         preload=True)
     assert (np.array([2, 3]) == get_dropped_epochs(epochs)).all()
