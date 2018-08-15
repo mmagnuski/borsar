@@ -68,7 +68,7 @@ def test_cluster_based_regression():
     pred = all_data['pred']
 
     t_values, clusters, cluster_p, distrib = cluster_based_regression(
-        data, pred, return_distribution=True)
+        data, pred, return_distribution=True, progressbar=False)
 
     # cluster p values should be very similar
     # ---------------------------------------
