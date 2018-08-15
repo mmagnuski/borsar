@@ -63,8 +63,8 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     # TODO - move this piece of code to utils
     #      - then support tqdm pbar as input
     if progressbar:
-        from tqdm import tqdm_notebook
-        pbar = tqdm_notebook(total=n_permutations)
+        from tqdm.autonotebook import tqdm
+        pbar = tqdm(total=n_permutations)
 
     n_obs = data.shape[0]
     if adjacency is not None:

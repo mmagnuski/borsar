@@ -114,4 +114,9 @@ def test_cluster_based_regression():
     data = np.random.random((15, 4, 4))
     preds = np.random.random(15)
 
-    tvals, clst, clst_p = cluster_based_regression(data, pred)
+    T, F = True, False
+    adjacency = sparse.coo_matrix([[F, T, T, F], [T, F, T, F], [T, T, F, T],
+                                   [F, F, T, F]])
+
+    tvals, clst, clst_p = cluster_based_regression(data, preds,
+                                                   adjacency=adjacency)
