@@ -78,7 +78,7 @@ def test_cluster_based_regression():
 
     # for small p-values the differences should be smaller,
     # for large they could reach up to 0.07
-    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.04, 0.07]).all()
+    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.07, 0.09]).all()
 
     # distributions should be very similar
     # ------------------------------------
