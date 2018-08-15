@@ -58,6 +58,9 @@ def test_contstruct_adjacency():
 def test_cluster_based_regression():
     data_dir = op.join(op.split(borsar.__file__)[0], 'data')
 
+    # TEST 1
+    # ======
+
     # read data and fieldtrip's stat results
     stat = loadmat(
         op.join(data_dir, 'ft_stat_test_01.mat'), squeeze_me=True)['stat']
@@ -77,7 +80,7 @@ def test_cluster_based_regression():
                                   ).astype('float')
 
     # for small p-values the differences should be smaller,
-    # for large they could reach up to 0.07
+    # for large they could reach up to 0.09
     assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.07, 0.09]).all()
 
     # distributions should be very similar
@@ -104,3 +107,11 @@ def test_cluster_based_regression():
     # t values should be almost the same
     # ----------------------------------
     np.testing.assert_allclose(stat['stat'].item(), t_values, rtol=1e-10)
+
+
+    # TEST 2
+    # ======
+    data = np.random.random((15, 4, 4))
+    preds = np.random.random(15)
+
+    tvals, clst, clst_p = cluster_based_regression(data, pred)
