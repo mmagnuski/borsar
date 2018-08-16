@@ -60,10 +60,11 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         df = data.shape[0] - 2 # in future: preds.shape[1]
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
 
-    # TODO - move this piece of code to utils
+    # TODO - move progressbar code from DiamSar
     #      - then support tqdm pbar as input
+    #      - use autonotebook
     if progressbar:
-        from tqdm.autonotebook import tqdm
+        from tqdm import tqdm
         pbar = tqdm(total=n_permutations)
 
     n_obs = data.shape[0]
