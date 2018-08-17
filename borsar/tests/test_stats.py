@@ -5,13 +5,13 @@ from borsar.stats import compute_regression_t
 
 
 def test_compute_regression_t():
-    # compare regression_t to statsmodels
+    # create test data
     data = np.random.random((25, 120, 64))
     preds = np.random.random((25, 3))
-
     n_preds = preds.shape[1] + 1
     n_channels, n_times = data.shape[1:]
 
+    # calculate regression t-values with statsmodels loop
     t0 = time.clock()
     preds_sm = sm.add_constant(preds)
     t_vals_sm = np.zeros((n_preds, n_channels, n_times))
@@ -22,10 +22,12 @@ def test_compute_regression_t():
                 t_vals_sm[pred, ch, tm] = mdl.tvalues[pred]
     elapsed_sm = time.clock() - t0
 
+    # calculate regression t-values with borsar
     t0 = time.clock()
     t_vals_borsar = compute_regression_t(data, preds)
     elapsed_borsar = time.clock() - t0
 
+    # make sure t-values are almost the same (same up to ~9 decimal places)
     assert t_vals_sm.shape == t_vals_borsar.shape
     np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-9)
 

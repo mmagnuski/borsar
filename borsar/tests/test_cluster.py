@@ -91,9 +91,10 @@ def test_cluster_based_regression():
     vals = np.array([5., 15, 30, 50, 100])
     max_perc_error = np.array([4, 4, 4, 4, 3]) / 100.
 
-    for prefix in ['pos', 'neg']:
-        ft = np.array([(distrib_ft[prefix] < v).mean() for v in vals * -1])
-        brsr = np.array([(distrib[prefix] < v).mean() for v in vals * -1])
+    for fun, prefix, vls in zip([np.less, np.greater],
+                                ['pos', 'neg'], [vals, vals * -1]):
+        ft = np.array([fun(distrib_ft[prefix], v).mean() for v in vls])
+        brsr = np.array([fun(distrib[prefix], v).mean() for v in vls])
         assert (np.abs(ft - brsr) < max_perc_error).all()
 
     # masks should be the same
