@@ -37,3 +37,19 @@ def test_compute_regression_t():
     preds = np.random.random(35)
     t_vals_borsar = compute_regression_t(data, preds)
     assert t_vals_borsar.shape == (2, 2)
+
+    # make sure p_values are correct
+    data = np.random.random((15, 10))
+    preds = np.random.random((15, 3))
+    n_points = data.shape[1]
+    n_preds = preds.shape[1] + 1
+
+    preds_sm = sm.add_constant(preds)
+    p_vals_sm = np.zeros((n_preds, n_points))
+    for pnt in range(n_points):
+        mdl = sm.OLS(data[:, pnt], preds_sm).fit()
+        for pred in range(n_preds):
+            p_vals_sm[pred, pnt] = mdl.pvalues[pred]
+
+    _, p_vals_borsar = compute_regression_t(data, preds, return_p=True)
+    np.testing.assert_allclose(p_vals_borsar, p_vals_sm, rtol=1e-9)
