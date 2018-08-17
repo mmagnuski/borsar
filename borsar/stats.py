@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 
-def compute_regression_t(data, preds):
+def compute_regression_t(data, preds, return_p=False):
     '''Compute regression t values for whole multidimensional data space.
 
     Parameters
@@ -12,11 +12,15 @@ def compute_regression_t(data, preds):
         (for example trials or subjects).
     preds : numpy array of shape (observations, predictors)
         Predictor array to use in regression.
+    return_p : bool (default False)
+        If True - returns also p values.
 
     Returns
     -------
     t_vals : numpy array of shape (predictors, ...)
         T values for all predictors for the original data space.
+    p_vals : numpy array of shape (predictors, ...)
+        P values for all predictors for the original data space.
     '''
     n_obs = data.shape[0]
     if preds.ndim == 1:
@@ -29,13 +33,19 @@ def compute_regression_t(data, preds):
     assert n_obs == preds.shape[0], ('preds must have the same number of rows'
         ' as the size of first data dimension (observations).')
 
+    df = n_obs - n_preds
     original_shape = data.shape
     data = data.reshape((original_shape[0], np.prod(original_shape[1:])))
     coefs, _, _, _ = scipy.linalg.lstsq(preds, data)
     prediction = (preds[:, :, np.newaxis] * coefs[np.newaxis, :]
                   ).sum(axis=1)
-    MSE = (((data - prediction) ** 2).sum(axis=0, keepdims=True)
-           / (n_obs - n_preds))
+    MSE = (((data - prediction) ** 2).sum(axis=0, keepdims=True) / df)
     SE = np.sqrt(MSE * np.diag(np.linalg.inv(preds.T @ preds))[:, np.newaxis])
     t_vals = (coefs / SE).reshape([n_preds, *original_shape[1:]])
-    return t_vals
+
+    if return_p:
+        from scipy.stats import t
+        p_vals = t.cdf(-np.abs(t_vals), df) * 2.
+        return t_vals, p_vals
+    else:
+        return t_vals
