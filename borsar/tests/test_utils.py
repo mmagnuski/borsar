@@ -5,7 +5,7 @@ import mne
 import pytest
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
-                          find_range, silent_mne)
+                          find_range, find_index, silent_mne)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -19,6 +19,14 @@ def test_find_range():
     ranges = find_range(vec, [(3.5, 8), (10, 20)])
     should_be = [slice(1, 5), slice(6, 9)]
     assert all([x == y for x, y in zip(ranges, should_be)])
+
+
+def test_find_index():
+    vec = np.array([0.1, 0.12, 0.15, 0.3, 0.2, 0.05])
+    assert find_index(vec, 0.15) == 2
+    assert find_index(vec, 0.18) == 4
+    np.testing.assert_array_equal(find_index(vec, [0.07, 0.13, 0.14]),
+                                  np.array([5, 1, 2]))
 
 
 def test_get_info():

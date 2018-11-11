@@ -81,7 +81,7 @@ def test_cluster_based_regression():
 
     # for small p-values the differences should be smaller,
     # for large they could reach up to 0.09
-    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.07, 0.09]).all()
+    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.09, 0.09]).all()
 
     # distributions should be very similar
     # ------------------------------------
@@ -89,7 +89,7 @@ def test_cluster_based_regression():
                   for prefix in ['pos', 'neg']}
 
     vals = np.array([5., 15, 30, 50, 100])
-    max_perc_error = np.array([4, 4, 4, 4, 3]) / 100.
+    max_perc_error = np.array([7, 6, 5, 4, 3.5]) / 100.
 
     for fun, prefix, vls in zip([np.less, np.greater],
                                 ['pos', 'neg'], [vals, vals * -1]):

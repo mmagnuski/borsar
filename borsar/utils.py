@@ -35,6 +35,38 @@ def find_range(vec, ranges):
     return slices
 
 
+# - [ ] if vals is np.ndarray try to format output in the right shape
+def find_index(vec, vals):
+    '''
+    Find indices of values in a vector `vec` that are closest to requested
+    values `vals`.
+
+    Parameters
+    ----------
+    vec : numpy array
+        Vector of values.
+    vals: list of values | value
+        Values to find closest representatives of in the `vec` vector.
+
+    Returns
+    -------
+    idx : numpy array of int | int
+        Indices of `vec` values closest to `vals`. If one value was passed in
+        `vals` then `idx` will also be one value. If two or more values were
+        passed in `vals` the output is a numpy array of indices.
+    '''
+    one_in = False
+    if not isinstance(vals, (list, tuple, np.ndarray)):
+        one_in = True
+        vals = [vals]
+
+    outlist = [np.abs(vec - x).argmin() for x in vals]
+    if one_in:
+        return outlist[0]
+    else:
+        return np.array(outlist)
+
+
 def get_info(inst):
     '''
     Simple helper function that returns Info whatever mne object it gets
@@ -70,6 +102,7 @@ def detect_overlap(segment, annot, sfreq=None):
     '''
     samples = sfreq is not None
 
+    # FIXME - the branching below seems overly complex
     # for convenience we accept mne.Annotation objects and numpy arrays:
     if not isinstance(annot, np.ndarray):
         if annot is None:
@@ -167,6 +200,23 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
 
 
 def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
+    '''
+    Create fake raw signal for testing.
+
+    Parameters
+    ----------
+    n_channels : int, optional
+        Number of channels in the fake raw signal. Defaults to 4.
+    n_samples : int, optional
+         Number of samples in the fake raw singal. Defaults to 100.
+    sfreq : float, optional
+        Sampling frequency of the fake raw signal. Defaults to 125.
+
+    Rerutrns
+    --------
+    raw : mne.io.RawArray
+        Created raw array.
+    '''
     import mne
     from string import ascii_letters
     ch_names = list(ascii_letters[:n_channels])
