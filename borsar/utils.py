@@ -102,6 +102,7 @@ def detect_overlap(segment, annot, sfreq=None):
     '''
     samples = sfreq is not None
 
+    # FIXME - the branching below seems overly complex
     # for convenience we accept mne.Annotation objects and numpy arrays:
     if not isinstance(annot, np.ndarray):
         if annot is None:
@@ -199,6 +200,23 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
 
 
 def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
+    '''
+    Create fake raw signal for testing.
+
+    Parameters
+    ----------
+    n_channels : int, optional
+        Number of channels in the fake raw signal. Defaults to 4.
+    n_samples : int, optional
+         Number of samples in the fake raw singal. Defaults to 100.
+    sfreq : float, optional
+        Sampling frequency of the fake raw signal. Defaults to 125.
+
+    Rerutrns
+    --------
+    raw : mne.io.RawArray
+        Created raw array.
+    '''
     import mne
     from string import ascii_letters
     ch_names = list(ascii_letters[:n_channels])
