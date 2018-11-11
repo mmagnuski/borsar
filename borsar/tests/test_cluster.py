@@ -89,7 +89,7 @@ def test_cluster_based_regression():
                   for prefix in ['pos', 'neg']}
 
     vals = np.array([5., 15, 30, 50, 100])
-    max_perc_error = np.array([5, 4, 4, 4, 3.5]) / 100.
+    max_perc_error = np.array([6, 5, 4, 4, 3.5]) / 100.
 
     for fun, prefix, vls in zip([np.less, np.greater],
                                 ['pos', 'neg'], [vals, vals * -1]):
