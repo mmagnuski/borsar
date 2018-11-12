@@ -11,6 +11,9 @@ class Topo(object):
         Values to topographically plot.
     info : mne Info instance
         Info object containing channel positions.
+    axes : matplotlib Axes, optional
+        Axes to plot in. Creates new by default. The axes handle is later
+        available in `.axis` attribute.
     **kwargs : any additional keyword arguments
         Additional keyword arguments are passed to `mne.viz.plot_topomap`.
 
@@ -35,9 +38,9 @@ class Topo(object):
         self.info = info
         self.values = values
 
-        has_axis = 'axis' in kwargs.keys()
+        has_axis = 'axes' in kwargs.keys()
         if has_axis:
-            self.axis = kwargs['axis']
+            self.axis = kwargs['axes']
             plt.sca(self.axis)
 
         # if side is not None and side == 'right':

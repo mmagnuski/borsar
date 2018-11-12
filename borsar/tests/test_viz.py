@@ -1,6 +1,8 @@
 import os.path as op
 import numpy as np
+import matplotlib.pyplot as plt
 import mne
+import pytest
 
 from borsar.freq import compute_rest_psd
 from borsar.utils import find_range
@@ -21,3 +23,11 @@ def test_topo():
     topo.remove_levels(0.)
     topo.mark_channels([1, 2, 3, 6, 8], markersize=10.)
     ch, pos = _extract_topo_channels(topo.axis)
+
+    fig, ax = plt.subplots()
+    with pytest.raises(RuntimeError):
+        ch, pos = _extract_topo_channels(ax)
+
+    topo = Topo(alpha_topo, raw.info, axes=ax, show=False)
+    assert topo.axis == ax
+    assert topo.fig == fig
