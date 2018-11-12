@@ -1,0 +1,23 @@
+import os.path as op
+import numpy as np
+import mne
+
+from borsar.freq import compute_rest_psd
+from borsar.utils import find_range
+from borsar.viz import Topo, _extract_topo_channels
+
+fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
+raw = mne.io.read_raw_fif(fname)
+
+def test_topo():
+    psd, freq = compute_rest_psd(raw, tmin=1., tmax=3., winlen=1.)
+    alpha = find_range(freq, (8, 12))
+    alpha_topo = psd[:, alpha].mean(axis=-1)
+
+    # currently a smoke test
+    topo = Topo(alpha_topo, raw.info, show=False)
+    topo.set_linewidth(2.5)
+    topo.solid_lines()
+    topo.remove_levels(0.)
+    topo.mark_channels([1, 2, 3, 6, 8], markersize=10.)
+    ch, pos = _extract_topo_channels(topo.axis)
