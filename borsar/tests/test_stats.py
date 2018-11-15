@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import statsmodels.api as sm
-from borsar.stats import compute_regression_t
+from borsar.stats import compute_regression_t, format_pvalue
 
 
 def test_compute_regression_t():
@@ -55,3 +55,13 @@ def test_compute_regression_t():
 
     _, p_vals_borsar = compute_regression_t(data, preds, return_p=True)
     np.testing.assert_allclose(p_vals_borsar, p_vals_sm, rtol=1e-9)
+
+
+def test_format_p_value():
+    assert format_pvalue(0.13) == 'p = 0.130'
+    assert format_pvalue(0.035) == 'p = 0.035'
+    assert format_pvalue(0.001) == 'p = 0.001'
+    assert format_pvalue(0.0025) == 'p = 0.003'
+    assert format_pvalue(0.00025) == 'p < 0.001'
+    assert format_pvalue(0.000015) == 'p < 0.0001'
+    assert format_pvalue(0.000000000015) == 'p < 1e-10'

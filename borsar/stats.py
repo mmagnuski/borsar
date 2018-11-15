@@ -53,7 +53,7 @@ def compute_regression_t(data, preds, return_p=False):
 
 def format_pvalue(pvalue):
     '''Format p value according to APA rules.'''
-    if pvalue > .001:
+    if pvalue >= .001:
         return 'p = {:.3f}'.format(pvalue)
     else:
         powers = 10 ** np.arange(-3, -26, step=-1, dtype='float')
