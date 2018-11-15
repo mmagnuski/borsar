@@ -1,3 +1,6 @@
+import os
+import os.path as op
+
 import numpy as np
 from contextlib import contextmanager
 
@@ -260,3 +263,40 @@ def silent_mne():
     log_level = mne.set_log_level('error', return_old_level=True)
     yield
     mne.set_log_level(log_level)
+
+
+def _get_test_data_dir():
+    '''Get test data directory.'''
+    from borsar import __path__ as borsar_dir
+    return op.join(borsar_dir[0], 'data')
+
+
+def download_test_data():
+    '''Download additional test data from dropbox.'''
+    import zipfile
+    from mne.utils import _fetch_file
+
+    # check if test data exist
+    data_dir = _get_test_data_dir()
+    check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
+                   r'fsaverage\bem\fsaverage-ico-5-src.fif'] # + checksums?
+    if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
+        return
+
+    # set up paths
+    download_link = ('https://www.dropbox.com/sh/l4scs37524lb3pa/'
+                     'AABCak4jORjgridWwHlwjhMHa?dl=1')
+    destination = op.join(data_dir, 'temp_file.zip')
+
+    # download the file
+    _fetch_file(download_link, destination, print_destination=True,
+                resume=True, timeout=30.)
+
+    # unzip and extract
+    # TODO - optionally extract only the missing files
+    zip_ref = zipfile.ZipFile(destination, 'r')
+    zip_ref.extractall(data_dir)
+    zip_ref.close()
+
+    # remove the zipfile
+    os.remove(destination)
