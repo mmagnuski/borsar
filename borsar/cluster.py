@@ -221,6 +221,9 @@ class Clusters(object):
         When using source space ('vert' is one of the dimnames) you need to
         pass a Freesurfer subjects directory (path to the folder contraining
         subjects as subfolders).
+    description : str | dict, optional
+        Optional description of the Clusters - for example analysis parameters
+        and some other additional details.
     sort_pvals : bool
         Whether to sort clusters by their p-value (ascending). Default: True.
     '''
@@ -230,7 +233,7 @@ class Clusters(object):
         # safety checks
         if safety_checks:
             clusters = _clusters_safety_checks(clusters, pvals, stat, dimnames,
-                                               dimcoords)
+                                               dimcoords, description)
 
             # check channel or source space
             _clusters_chan_vert_checks(dimnames, info, src, subject,
@@ -353,15 +356,21 @@ class Clusters(object):
         ----------
         fname : str
             Path to save the file in.
-        description : str
+        description : str, dict
             Additional description added when saving. When passed overrides
             the description parameter of Clusters.
         '''
         from mne.externals import h5io
+
+        if description is None:
+            description = self.description
+        else:
+            _check_description(description)
+
         data_dict = {'clusters': self.clusters, 'pvals': self.pvals,
                      'stat': self.stat, 'dimnames': self.dimnames,
                      'dimcoords': self.dimcoords, 'subject': self.subject,
-                     'description': self.description}
+                     'description': description}
         h5io.write_hdf5(fname, data_dict)
 
     # TODO - consider weighting contribution by stat value
@@ -749,7 +758,8 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
 
 # CHECKS
 # ------
-def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords):
+def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
+                            description):
     '''Perform basic type and safety checks for Clusters.'''
     # check clusters when it is a list
     if isinstance(clusters, list):
@@ -819,7 +829,16 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords):
                    'same as the length of the corresponding dimension in '
                    '`stat` array.')
             raise ValueError(msg)
+    _check_description(description)
     return clusters
+
+
+def _check_description(description):
+    '''Validate if description is of correct type.'''
+    if description is not None:
+        if not isinstance(description, (str, dict)):
+            raise TypeError('Description has to be either a string or a dict'
+                            'ionary, got {}.'.format(type(description)))
 
 
 def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
