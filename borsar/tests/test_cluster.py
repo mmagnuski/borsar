@@ -5,7 +5,10 @@ from scipy import sparse
 from scipy.io import loadmat
 
 import borsar
-from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
+from borsar.utils import download_test_data, _get_test_data_dir
+from borsar.cluster import (construct_adjacency_matrix, Clusters, read_cluster,
+                            _get_mass_range, cluster_based_regression,
+                            _index_from_dim)
 
 
 def test_contstruct_adjacency():
@@ -121,3 +124,38 @@ def test_cluster_based_regression():
 
     tvals, clst, clst_p = cluster_based_regression(data, preds,
                                                    adjacency=adjacency)
+
+
+def test_get_mass_range():
+    contrib = np.array([0.15, 0.04, 0.09, 0.16, 0.21, 0.1, 0.05,
+                        0.01, 0.08, 0.11])
+    assert _get_mass_range(contrib, 0.1) == slice(4, 5)
+    assert _get_mass_range(contrib, 0.3) == slice(3, 5)
+    assert _get_mass_range(contrib, 0.37) == slice(3, 5)
+    assert _get_mass_range(contrib, 0.38) == slice(3, 6)
+    assert _get_mass_range(contrib, 0.48) == slice(2, 6)
+    assert _get_mass_range(contrib, 0.57) == slice(2, 7)
+
+
+def test_index_from_dim():
+    dimnames = ['chan', 'freq', 'time']
+    dimcoords = [None, np.arange(8., 12.1, step=0.5),
+                 np.arange(-0.2, 0.51, step=0.1)]
+    assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
+    assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
+    assert (_index_from_dim(dimnames, dimcoords, freq=[10, 11.5]) ==
+            (slice(None), slice(4, 8), slice(None)))
+    assert (_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=[0, 0.3])
+            == (slice(None), slice(3, 5), slice(2, 6)))
+
+
+def test_clusters():
+    import mne
+    data_dir = _get_test_data_dir()
+    download_test_data()
+    fname = 'DiamSar-eeg-oct-6-fwd.fif'
+    clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
+    fwd = mne.read_forward_solution(op.join(data_dir, fname))
+
+    clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
+    assert len(clst.pvals) == 3
