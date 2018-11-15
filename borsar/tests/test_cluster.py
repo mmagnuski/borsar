@@ -151,6 +151,8 @@ def test_index_from_dim():
 
 def test_clusters():
     import mne
+    import matplotlib.pyplot as plt
+
     data_dir = _get_test_data_dir()
     download_test_data()
     fname = 'DiamSar-eeg-oct-6-fwd.fif'
@@ -158,4 +160,31 @@ def test_clusters():
     fwd = mne.read_forward_solution(op.join(data_dir, fname))
 
     clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
-    assert len(clst.pvals) == 3
+    assert (len(clst) == len(clst.pvals) == len(clst.clusters)
+            == clst.stat.shape[0])
+    assert len(clst) == 14
+
+    # test selection
+    clst2 = clst.copy().select(p_threshold=0.2)
+    assert len(clst2) == 3
+
+    # test contribution
+    clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
+    len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
+
+    # tests for plot_contribution
+    ax = clst2.plot_contribution('freq')
+    assert isinstance(ax, plt.Axes)
+    children = ax.get_children()
+    isline = [isinstance(chld, plt.Line2D) for chld in children]
+    assert sum(isline) == len(clst2)
+    which_line = np.where(isline)[0]
+    line_data = children[which_line[0]].get_data()[1]
+    assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
+
+    # get cluster limits
+    idx = clst2.get_cluster_limits(0, retain_mass=0.75)
+    clst_0_freq_contrib[idx[1]].sum() > 0.75
+
+    idx = clst2.get_index(freq=[8, 10])
+    assert idx[1] == slice(2, 7)
