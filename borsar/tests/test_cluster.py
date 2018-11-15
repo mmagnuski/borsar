@@ -161,7 +161,7 @@ def test_clusters():
 
     clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
     assert (len(clst) == len(clst.pvals) == len(clst.clusters)
-            == clst.stat.shape[0])
+            == len(clst.cluster_polarity))
     assert len(clst) == 14
 
     # test selection
