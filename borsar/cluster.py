@@ -319,6 +319,7 @@ class Clusters(object):
                         description=self.description,
                         safety_checks=False, sort_pvals=False)
         clst.stc = self.stc if self.stc is None else stc.copy()
+        clst.cluster_polarity = self.cluster_polarity
         return clst
 
     def __len__(self):
@@ -344,7 +345,8 @@ class Clusters(object):
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description,
                         safety_checks=False, sort_pvals=False)
-        clst.stc = self.stc
+        clst.stc = self.stc # or .copy()?
+        clst.cluster_polarity = [self.cluster_polarity[self._current]]
         self._current += 1
         return clst
 
@@ -471,10 +473,9 @@ class Clusters(object):
                 dimval[dim_idx] = dval
                 if dims[dim_idx] is 'mass':
                     mass_indexing[dimname] = dval
-                elif dims[dim_idx] is 'range':
                     normal_indexing.pop(dimname)
 
-        if self.dimcoords is not None:
+        if self.dimcoords is None:
             idx = tuple(slice(None) for _ in self.stat.shape)
         else:
             idx = _index_from_dim(self.dimnames, self.dimcoords,
@@ -556,9 +557,9 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
         axis = plt.axes()
 
     # plot cluster contribution
-    for idx in range(clen(lst.clusters)):
+    for idx in range(len(clst.clusters)):
         label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
-        contrib = clst.get_contribution(idx, along=dimname, norm=False)
+        contrib = clst.get_contribution(idx, along=dimension, norm=False)
         axis.plot(dimcoords, contrib, label=label)
 
     axis.legend(loc='best')
@@ -1025,4 +1026,4 @@ def _cluster_selection(clst, sel):
         clst.cluster_polarity = []
         clst.clusters = None
         clst.pvals = None
-        return clst
+    return clst
