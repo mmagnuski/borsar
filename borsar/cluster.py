@@ -241,7 +241,7 @@ class Clusters(object):
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
-            self.cluster_polarity = [polarity[stat[cl].mean() > 0]
+            self.cluster_polarity = [polarity[int(stat[cl].mean() > 0)]
                                      for cl in clusters]
 
         # sort by p values if necessary

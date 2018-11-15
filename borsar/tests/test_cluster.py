@@ -192,7 +192,7 @@ def test_clusters():
     # test iteration
     pvls = list()
     for c in clst2:
-        pvls.append(c.pvals)
+        pvls.append(c.pvals[0])
     assert (clst2.pvals == pvls).all()
 
     # test selection with percentage_in and n_points_in
