@@ -188,3 +188,19 @@ def test_clusters():
 
     idx = clst2.get_index(freq=[8, 10])
     assert idx[1] == slice(2, 7)
+
+    # test iteration
+    pvls = list()
+    for c in clst2:
+        pvls.append(c.pvals)
+    assert (clst2.pvals == pvls).all()
+
+    # test selection with percentage_in and n_points_in
+    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
+    assert len(clst3) == 1
+
+    clst3 = clst2.copy().select(n_points_in=2900)
+    assert len(clst3) == 2
+
+    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
+    assert len(clst3) == 1

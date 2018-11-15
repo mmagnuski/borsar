@@ -282,21 +282,21 @@ class Clusters(object):
             sel = self.pvals < p_threshold
             self = _cluster_selection(self, sel)
 
-        if len(kwargs) > 0 and len(self) > 0:
+        if (len(kwargs) > 0 or n_points_in is not None) and len(self) > 0:
             # kwargs check should be in separate function
-            _check_dimnames_kwargs(clst, **kwargs)
+            if len(kwargs) > 0:
+                _check_dimnames_kwargs(self, **kwargs)
             dim_idx = _index_from_dim(self.dimnames, self.dimcoords, **kwargs)
 
             dims = np.arange(self.stat.ndim) + 1
             clst_idx = (slice(None),) + dim_idx
             cluster_sel_size = self.clusters[clst_idx].sum(axis=tuple(dims))
 
-            sel = np.ones(len(self.clusters), dtype='bool')
+            sel = np.ones(len(self), dtype='bool')
             if n_points_in is not None:
                 sel = cluster_sel_size >= n_points_in
             if percentage_in is not None:
                 cluster_size = self.clusters.sum(axis=tuple(dims))
-                print(cluster_sel_size / cluster_size)
                 sel = ((cluster_sel_size / cluster_size >= percentage_in)
                        & sel)
             self = _cluster_selection(self, sel)
@@ -871,7 +871,8 @@ def _check_dimnames_kwargs(clst, *args, **kwargs):
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
                         'on named dimensions.')
-    all_args = (list(set(args + list(kwargs.keys()))) if len(kwargs) > 0
+
+    all_args = (list(set(list(args) + list(kwargs.keys()))) if len(kwargs) > 0
                 else args)
 
     for dim in all_args:
@@ -1017,6 +1018,7 @@ def _cluster_selection(clst, sel):
         return clst
     if sel.dtype == 'bool':
         sel = np.where(sel)[0]
+
     if len(sel) > 0:
         clst.cluster_polarity = [clst.cluster_polarity[idx]
                                  for idx in sel]
