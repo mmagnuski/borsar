@@ -152,6 +152,7 @@ def test_index_from_dim():
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt
+    from mayavi import mlab
 
     data_dir = _get_test_data_dir()
     download_test_data()
@@ -204,3 +205,14 @@ def test_clusters():
 
     clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
     assert len(clst3) == 1
+
+    # mayavi plotting
+    # ---------------
+    # only smoke tests currently
+    brain = clst2.plot(0, freq=[8, 9])
+    fig = brn._figures[0][0]
+    mlab.close(fig)
+
+    brain = clst2.plot(1, freq=0.7)
+    fig = brn._figures[0][0]
+    mlab.close(fig)
