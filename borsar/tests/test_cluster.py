@@ -260,11 +260,11 @@ def test_clusters():
     # mayavi plotting
     # ---------------
     # only smoke tests currently
-    brain = clst2.plot(0, freq=[8, 9])
+    brain = clst2.plot(0, freq=[8, 9], set_light=False)
     fig = brain._figures[0][0]
     mlab.close(fig)
 
-    brain = clst2.plot(1, freq=0.7)
+    brain = clst2.plot(1, freq=0.7, set_light=False)
     fig = brain._figures[0][0]
     mlab.close(fig)
 
