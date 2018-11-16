@@ -31,8 +31,9 @@ def test_compute_regression_t():
     assert t_vals_sm.shape == t_vals_borsar.shape
     np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-9)
 
-    # make sure we are at least 90 times faster than statsmodels loop
-    assert elapsed_borsar * 90 < elapsed_sm
+    # make sure we are at least 30 times faster than statsmodels loop
+    # (although on most computers and in many cases this will be about 100)
+    assert elapsed_borsar * 30 < elapsed_sm
 
     # make sure preds are turned from 1d to 2d
     data = np.random.random((35, 2))

@@ -416,11 +416,20 @@ class Clusters(object):
                                  'stical map. Got {}'.format(along))
             along_idx = along
 
-        alldims = list(range(self.stat.ndim))
-        alldims.remove(along_idx)
-        contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
-        if norm:
-            contrib = contrib / contrib.sum()
+
+        if isinstance(cluster_idx, (list, np.ndarray)):
+            alldims = list(range(self.stat.ndim + 1))
+            alldims.remove(0)
+            alldims.remove(along_idx + 1)
+            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
+            if norm:
+                contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+        else:
+            alldims = list(range(self.stat.ndim))
+            alldims.remove(along_idx)
+            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
+            if norm:
+                contrib = contrib / contrib.sum()
         return contrib
 
     # TODO: consider continuous vs discontinuous limits
@@ -988,7 +997,7 @@ def _label_from_cluster(clst, clst_mask):
     import mne
     clst.stc.data[:, 0] = clst_mask
     labels_l, labels_r = mne.stc_to_label(
-        clst.stc[0], src=clst.src, subjects_dir=clst.subjects_dir, smooth=True)
+        clst.stc, src=clst.src, subjects_dir=clst.subjects_dir, smooth=True)
     if isinstance(labels_l, list):
         clst_label = labels_l[0] if len(labels_l) > 0 else labels_r[0]
     else:

@@ -1,3 +1,4 @@
+import os
 import os.path as op
 import pytest
 import numpy as np
@@ -9,7 +10,7 @@ import borsar
 from borsar.utils import download_test_data, _get_test_data_dir
 from borsar.cluster import (construct_adjacency_matrix, Clusters, read_cluster,
                             _get_mass_range, cluster_based_regression,
-                            _index_from_dim)
+                            _index_from_dim, _clusters_safety_checks)
 
 
 def test_contstruct_adjacency():
@@ -216,11 +217,11 @@ def test_clusters():
 
     # along as int
     clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
-    assert (clst_0clst_0_freq_contrib == clst_0clst_0_freq_contrib2).all()
+    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
 
-    # non string (error message is incorrect)
-    with pytest.raises(TypeError):
-        clst2.get_contribution(cluster_idx=0, along=all_contrib
+    # non string
+    with pytest.raises(TypeError, match='has to be string or int.'):
+        clst2.get_contribution(cluster_idx=0, along=all_contrib)
 
     # tests for plot_contribution
     ax = clst2.plot_contribution('freq')
@@ -251,11 +252,11 @@ def test_clusters():
     # ---------------
     # only smoke tests currently
     brain = clst2.plot(0, freq=[8, 9])
-    fig = brn._figures[0][0]
+    fig = brain._figures[0][0]
     mlab.close(fig)
 
     brain = clst2.plot(1, freq=0.7)
-    fig = brn._figures[0][0]
+    fig = brain._figures[0][0]
     mlab.close(fig)
 
     # save - read round-trip
@@ -267,6 +268,7 @@ def test_clusters():
     assert (clst_read.pvals == clst2.pvals).all()
     assert (clst_read.clusters == clst2.clusters).all()
     assert (clst_read.stat == clst2.stat).all()
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
 
     # error checks
     # ------------
