@@ -216,7 +216,7 @@ def test_clusters():
 
     # along as int
     clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
-    assert (clst_0clst_0_freq_contrib == clst_0clst_0_freq_contrib2).all())
+    assert (clst_0clst_0_freq_contrib == clst_0clst_0_freq_contrib2).all()
 
     # non string (error message is incorrect)
     with pytest.raises(TypeError):
@@ -267,3 +267,27 @@ def test_clusters():
     assert (clst_read.pvals == clst2.pvals).all()
     assert (clst_read.clusters == clst2.clusters).all()
     assert (clst_read.stat == clst2.stat).all()
+
+    # error checks
+    # ------------
+
+    # error check for _clusters_safety_checks
+    tmp = list()
+    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
+    with pytest.raises(ValueError, match='have to be of the same shape.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    clusters[1] = clusters[1][:, :2]
+    with pytest.raises(TypeError, match='have to be boolean arrays.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
+    with pytest.raises(TypeError, match='must be a numpy array.'):
+        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
+
+    stat = np.zeros((2, 3))
+    with pytest.raises(ValueError, match='same shape as stat.'):
+        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
+
+    # _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
+    #                         description)

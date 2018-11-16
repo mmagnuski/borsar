@@ -777,11 +777,15 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
 
         clusters = np.stack(clusters, axis=0)
 
+    # check stat
+    if not isinstance(stat, np.ndarray):
+        raise TypeError('`stat` must be a numpy array.')
+
     # check clusters shape along stat shape
     if isinstance(clusters, (list, np.ndarray)):
         if not stat.shape == clusters.shape[1:]:
             raise ValueError('Every cluster has to have the same shape as '
-                             'as stat.')
+                             'stat.')
     else:
         raise TypeError('clusters have to be either a list of arrays or one '
                         'array with first dimension corresponding to '
@@ -790,9 +794,6 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     if not isinstance(pvals, (list, np.ndarray)):
         raise TypeError('`pvals` has to be a list of floats or numpy array.')
         # check if each element of list is float and array is of dtype float
-
-    if not isinstance(stat, np.ndarray):
-        raise TypeError('`stat` must be a numpy array.')
 
     if dimnames is not None:
         if not isinstance(dimnames, list):
