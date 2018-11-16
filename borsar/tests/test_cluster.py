@@ -1,5 +1,7 @@
 import os
 import os.path as op
+import warnings
+
 import pytest
 import numpy as np
 from scipy import sparse
@@ -12,6 +14,9 @@ from borsar.cluster import (construct_adjacency_matrix, Clusters, read_cluster,
                             _get_mass_range, cluster_based_regression,
                             _index_from_dim, _clusters_safety_checks)
 
+# adapted from mne, maybe helps with mayavi
+import matplotlib
+matplotlib.use('Agg')
 
 def test_contstruct_adjacency():
     T, F = True, False
@@ -154,7 +159,11 @@ def test_index_from_dim():
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt
-    from mayavi import mlab
+
+    # mayavi import adapted from mne:
+    with warnings.catch_warnings(record=True):  # traits
+        from mayavi import mlab
+    mlab.options.backend = 'test'
 
     # download testing data
     data_dir = _get_test_data_dir()
