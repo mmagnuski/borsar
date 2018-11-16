@@ -154,8 +154,13 @@ def test_clusters():
     import matplotlib.pyplot as plt
     from mayavi import mlab
 
+    # download testing data
     data_dir = _get_test_data_dir()
     download_test_data()
+
+    # the second call should not do anything if all is downloaded
+    download_test_data()
+
     fname = 'DiamSar-eeg-oct-6-fwd.fif'
     clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
     fwd = mne.read_forward_solution(op.join(data_dir, fname))
@@ -165,11 +170,41 @@ def test_clusters():
             == len(clst.cluster_polarity))
     assert len(clst) == 14
 
-    # test selection
+
+    # selection
+    # ---------
+
+    # p value
     clst2 = clst.copy().select(p_threshold=0.2)
     assert len(clst2) == 3
 
+    # selection with percentage_in
+    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
+    assert len(clst3) == 1
+
+    # using n_points_in without dimension
+    clst3 = clst2.copy().select(n_points_in=2900)
+    assert len(clst3) == 2
+
+    # n_points_in with dimension range
+    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
+    assert len(clst3) == 1
+
+    # selection that results in no clusters
+    clst_no = clst.copy().select(p_threshold=0.05)
+    assert len(clst_no) == 0
+
+    # selection that starts with no clusters
+    clst_no.select(n_points_in=10)
+    assert len(clst_no) == 0
+
+    # selection that selects all
+    clst3 = clst2.copy().select(p_threshold=0.5, n_points_in=100)
+    assert len(clst3) == 3
+
+
     # test contribution
+    # -----------------
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
 
@@ -183,7 +218,8 @@ def test_clusters():
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
 
-    # get cluster limits
+    # get index and limits
+    # --------------------
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
     clst_0_freq_contrib[idx[1]].sum() > 0.75
 
@@ -196,15 +232,6 @@ def test_clusters():
         pvls.append(c.pvals[0])
     assert (clst2.pvals == pvls).all()
 
-    # test selection with percentage_in and n_points_in
-    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
-    assert len(clst3) == 1
-
-    clst3 = clst2.copy().select(n_points_in=2900)
-    assert len(clst3) == 2
-
-    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
-    assert len(clst3) == 1
 
     # mayavi plotting
     # ---------------
@@ -216,3 +243,13 @@ def test_clusters():
     brain = clst2.plot(1, freq=0.7)
     fig = brn._figures[0][0]
     mlab.close(fig)
+
+    # save - read round-trip
+    # ----------------------
+    clst2.save(op.join(data_dir, 'temp_clst.hdf5'))
+    clst_read = read_cluster(op.join(data_dir, 'temp_clst.hdf5'),
+                             src=fwd['src'], subjects_dir=data_dir)
+    assert len(clst_read) == len(clst2)
+    assert (clst_read.pvals == clst2.pvals).all()
+    assert (clst_read.clusters == clst2.clusters).all()
+    assert (clst_read.stat == clst2.stat).all()
