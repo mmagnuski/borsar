@@ -18,7 +18,7 @@ install:
   - source activate test-environment
   - pip install codecov mne tqdm h5py
   - conda install vtk>=8 traits>=4.6.0 pyface>=6 traitsui>=6 pyqt>=5.9
-  - conda install mayavi
+  - pip install https://api.github.com/repos/enthought/mayavi/zipball/b3fc35218dda9776d8f1a407663bfb49783dca12
   - pip install pysurfer
   - python setup.py develop
 
