@@ -3,7 +3,10 @@ from scipy import sparse
 
 from borsar.utils import find_range
 from borsar.stats import compute_regression_t, format_pvalue
-
+from borsar._viz3d import plot_cluster_src
+from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
+                                 _prepare_cluster_description,
+                                 _aggregate_cluster, _get_units)
 
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
@@ -582,89 +585,6 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     return axis
 
 
-def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
-                     vmin=None, vmax=None, title=None, **kwargs):
-    '''
-    Plot cluster in source space.
-
-    Parameters
-    ----------
-    clst : Clusters
-        Clusters object to use in plotting.
-    cluster_idx : int
-        Cluster index to plot.
-    aggregate : str
-        TODO: mean, max, weighted
-    set_light : bool
-        Whether to change light to preferred setting.
-    vmin : float, optional
-        Value mapped to minimum in the colormap. Inferred from data by default.
-    vmax : float, optional
-        Value mapped to maximum in the colormap. Inferred from data by default.
-    title : str, optional
-        Optional title for the figure.
-    **kwargs : additional keyword arguments
-        Additional arguments used in aggregation, defining the range to
-        aggregate for given dimension. List of two values defines explicit
-        range: for example keyword argument `freq=[6, 8]` aggregates the
-        6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-        dependent on cluster mass. For example `time=0.75` defines time range
-        that retains at least 75% of the cluster (calculated along the
-        aggregated dimension - in this case time). If no kwarg is passed for
-        given dimension then the default value is 0.65 so that range is
-        defined to retain at least 65% of the cluster mass.
-
-    Returns
-    -------
-    brain : surfer.Brain
-        Brain object used in plotting.
-
-    Examples
-    --------
-    > # to plot the first cluster within 8 - 10 Hz
-    > clst.plot(cluster_idx=0, freq=[8, 10])
-    > # to plot the second cluster selecting frequencies that make up at least
-    > # 70% of the cluster mass:
-    > clst.plot(cluster_idx=1, freq=0.7)
-    '''
-    cluster_idx = 0 if cluster_idx is None else cluster_idx
-    _check_stc(clst)
-
-    # get and aggregate cluster mask and cluster stat
-    # TODO - first idx then aggregation
-    clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **kwargs)
-
-    # create label from cluster
-    clst_label = _label_from_cluster(clst, clst_mask)
-
-    # prepare 'time' label
-    time_label = _prepare_cluster_description(clst, cluster_idx, idx)
-
-    # create pysurfer brain
-    clst.stc.data[:, 0] = clst_stat
-    clim = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=True)
-    brain = clst.stc.plot(
-        subjects_dir=clst.subjects_dir, hemi=clst_label.hemi, alpha=0.8,
-        colormap='RdBu_r', transparent=False, background='white',
-        foreground='black', clim=clim, time_label=time_label)
-
-    # add title and cluster label
-    if title is not None:
-        brain.add_text(0.1, 0.9, analysis_text, 'title', font_size=18)
-    brain.add_label(clst_label, borders=True, color='w')
-
-    # set light
-    if set_light:
-        fig = brain._figures[0][0]
-        camera_light0 = fig.scene.light_manager.lights[0]
-        camera_light0.azimuth = 0.
-        camera_light0.elevation = 42.
-        camera_light0.intensity = 1.0
-    return brain
-
-
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
                       vmax=None, **kwargs):
     '''
@@ -892,59 +812,13 @@ def _check_dimnames_kwargs(clst, *args, **kwargs):
             raise ValueError(msg)
 
 
-def _check_stc(clst):
-    '''Make sure Clusters has a list of mne.SourceEstimate in stc attribute.'''
-    import mne
-    if clst.stc is None:
-        vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
-        assert clst.dimnames.index('vert') == 0
-
-        tmin, tstep = 1., 1.
-        if len(clst.dimnames) > 1:
-            data_single = clst.stat[:, [0]]
-        else:
-            # data = clst.stat[:, np.newaxis]
-            data_single = data
-
-        clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
-                                         tstep=tstep, subject=clst.subject)
-
-
 # UTILS
 # -----
-def _get_units(dimname, fullname=False):
-    '''Return unit for specified dimension name.'''
-    if not fullname:
-        return {'freq': 'Hz', 'time': 's'}[dimname]
-    else:
-        return {'freq': 'hertz', 'time': 'seconds'}[dimname]
-
-
 def _get_full_dimname(dimname):
     '''Return full dimension name.'''
     dct = {'freq': 'frequency', 'time': 'time', 'vert': 'vertices',
            'chan': 'channels'}
     return dct[dimname] if dimname in dct else dimname
-
-
-# prepare figure colorbar limits
-def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
-    'Get color limits from data - rounding to steps of 0.5.'
-    if vmin is None and vmax is None:
-        vmax = np.abs([data.min(), data.max()]).max()
-        vmax_round = np.round(vmax)
-        if np.abs(vmax_round - vmax) < 0.5:
-            vmax_round += 0.5 * np.sign(vmax - vmax_round)
-        vmin, vmax = -vmax_round, vmax_round
-    elif vmin is None:
-        vmin = -vmax
-    elif vmax is None:
-        vmax = -vmin
-
-    if pysurfer:
-        return dict(kind='value', lims=[vmin, 0, vmax])
-    else:
-        return vmin, vmax
 
 
 def _get_mass_range(contrib, mass):
@@ -967,59 +841,6 @@ def _get_mass_range(contrib, mass):
         one_back[ord] = 0
         side_idx += one_back
     return slice(side_idx[0], side_idx[1] + 1)
-
-
-def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
-                       retain_mass=0.65, ignore_space=True, **kwargs):
-    '''Aggregate cluster mask and cluster stat map.'''
-    do_aggregation = clst.stat.ndim > 1
-    if do_aggregation:
-        # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx, retain_mass=retain_mass,
-                             ignore_space=ignore_space, **kwargs)
-        reduce_axes = tuple(range(1, clst.stat.ndim))
-        clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
-                     >= mask_proportion).astype('float')
-        clst_stat = clst.stat[idx].mean(axis=reduce_axes)
-    else:
-        # no aggregation
-        idx = slice(None)
-        clst_mask = clst.stat.copy()
-        clst_mask[~clst.clusters[cluster_idx]] = 0
-        clst_stat = clst.stat
-    return clst_mask, clst_stat, idx
-
-
-# TODO - save labels? this would require saving all parameters
-#        of cluter reduction and cluster index
-def _label_from_cluster(clst, clst_mask):
-    '''Get pysurfer label from cluster mask.'''
-    import mne
-    clst.stc.data[:, 0] = clst_mask
-    labels_l, labels_r = mne.stc_to_label(
-        clst.stc, src=clst.src, subjects_dir=clst.subjects_dir, smooth=True)
-    if isinstance(labels_l, list):
-        clst_label = labels_l[0] if len(labels_l) > 0 else labels_r[0]
-    else:
-        clst_label = labels_l if labels_l is not None else labels_r
-    return clst_label
-
-
-def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
-    if clst.stat.ndim > 1:
-        if reduce_axes is None:
-            reduce_axes = tuple(range(1, clst.stat.ndim))
-        time_label = list()
-        for dim in reduce_axes:
-            uni = _get_units(clst.dimnames[dim])
-            coords = ('{} - {}'.format(*clst.dimcoords[dim][idx[dim]][[0, -1]])
-                      if clst.dimcoords is not None else 'all')
-            time_label.append('{} {}'.format(coords, uni))
-        time_label = ', '.join(time_label) + '\n'
-    else:
-        time_label = ''
-    time_label += format_pvalue(clst.pvals[cluster_idx])
-    return time_label
 
 
 def _cluster_selection(clst, sel):

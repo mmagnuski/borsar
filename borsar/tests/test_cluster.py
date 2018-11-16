@@ -8,15 +8,22 @@ from scipy import sparse
 from scipy.io import loadmat
 import pytest
 
+import mne
 import borsar
 from borsar.utils import download_test_data, _get_test_data_dir
-from borsar.cluster import (construct_adjacency_matrix, Clusters, read_cluster,
+from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
-                            _index_from_dim, _clusters_safety_checks)
+                            _index_from_dim, _clusters_safety_checks,
+                            Clusters)
+from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
+                                 _prepare_cluster_description,
+                                 _aggregate_cluster)
 
-# adapted from mne, maybe helps with mayavi
-import matplotlib
-matplotlib.use('Agg')
+# setup
+data_dir = _get_test_data_dir()
+fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
+fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
+
 
 def test_contstruct_adjacency():
     T, F = True, False
@@ -66,7 +73,7 @@ def test_contstruct_adjacency():
 
 
 def test_cluster_based_regression():
-    data_dir = op.join(op.split(borsar.__file__)[0], 'data')
+    data_dir = _get_test_data_dir()
 
     # TEST 1
     # ======
@@ -160,23 +167,16 @@ def test_clusters():
     import mne
     import matplotlib.pyplot as plt
 
-    # mayavi import adapted from mne:
-    with warnings.catch_warnings(record=True):  # traits
-        from mayavi import mlab
-    mlab.options.backend = 'test'
-
     # download testing data
-    data_dir = _get_test_data_dir()
     download_test_data()
 
     # the second call should not do anything if all is downloaded
     download_test_data()
 
-    fname = 'DiamSar-eeg-oct-6-fwd.fif'
+    # read source-space cluster results
     clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
-    fwd = mne.read_forward_solution(op.join(data_dir, fname))
-
     clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
+
     assert (len(clst) == len(clst.pvals) == len(clst.clusters)
             == len(clst.cluster_polarity))
     assert len(clst) == 14
@@ -257,17 +257,6 @@ def test_clusters():
     assert (clst2.pvals == pvls).all()
 
 
-    # mayavi plotting
-    # ---------------
-    # only smoke tests currently
-    brain = clst2.plot(0, freq=[8, 9], set_light=False)
-    fig = brain._figures[0][0]
-    mlab.close(fig)
-
-    brain = clst2.plot(1, freq=0.7, set_light=False)
-    fig = brain._figures[0][0]
-    mlab.close(fig)
-
     # save - read round-trip
     # ----------------------
     clst2.save(op.join(data_dir, 'temp_clst.hdf5'))
@@ -277,7 +266,6 @@ def test_clusters():
     assert (clst_read.pvals == clst2.pvals).all()
     assert (clst_read.clusters == clst2.clusters).all()
     assert (clst_read.stat == clst2.stat).all()
-    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
 
     # error checks
     # ------------
@@ -302,3 +290,26 @@ def test_clusters():
 
     # _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     #                         description)
+
+
+@pytest.mark.skip(reason="mayavi kills CI tests")
+def test_mayavi_viz():
+    # mayavi import adapted from mne:
+    with warnings.catch_warnings(record=True):  # traits
+        from mayavi import mlab
+    mlab.options.backend = 'test'
+
+    clst2 = read_cluster(op.join(data_dir, 'temp_clst.hdf5'), src=fwd['src'],
+                         subjects_dir=data_dir)
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+
+    # mayavi plotting
+    # ---------------
+    # only smoke tests currently
+    brain = clst2.plot(0, freq=[8, 9], set_light=False)
+    fig = brain._figures[0][0]
+    mlab.close(fig)
+
+    brain = clst2.plot(1, freq=0.7, set_light=False)
+    fig = brain._figures[0][0]
+    mlab.close(fig)
