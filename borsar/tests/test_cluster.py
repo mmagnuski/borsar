@@ -20,6 +20,7 @@ from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _aggregate_cluster)
 
 # setup
+download_test_data()
 data_dir = _get_test_data_dir()
 fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
 fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
@@ -166,9 +167,6 @@ def test_index_from_dim():
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt
-
-    # download testing data
-    download_test_data()
 
     # the second call should not do anything if all is downloaded
     download_test_data()
