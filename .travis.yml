@@ -16,7 +16,9 @@ install:
   # install dependencies
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pytest pytest-cov statsmodels
   - source activate test-environment
-  - pip install codecov mne tqdm h5py vtk traits traitsui pyqt pyface mayavi pysurfer
+  - pip install codecov mne tqdm h5py
+  - conda install vtk>=8 traits>=4.6.0 pyface>=6 traitsui>=6 pyqt>=5.9
+  - pip install mayavi pysurfer
   - python setup.py develop
 
 script:

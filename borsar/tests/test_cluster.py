@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
+import pytest
 
 import borsar
 from borsar.utils import download_test_data, _get_test_data_dir
@@ -207,6 +208,19 @@ def test_clusters():
     # -----------------
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
+
+    # get_contribution when no cluster_idx is passed
+    all_contrib = clst2.get_contribution(along='freq')
+    assert all_contrib.shape[0] == len(clst2)
+    assert all_contrib.shape[1] == clst2.stat.shape[1]
+
+    # along as int
+    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    assert (clst_0clst_0_freq_contrib == clst_0clst_0_freq_contrib2).all())
+
+    # non string (error message is incorrect)
+    with pytest.raises(TypeError):
+        clst2.get_contribution(cluster_idx=0, along=all_contrib
 
     # tests for plot_contribution
     ax = clst2.plot_contribution('freq')
