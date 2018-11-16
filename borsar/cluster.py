@@ -178,14 +178,16 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 class Clusters(object):
-    '''Container for results of cluster-based tests.
+    '''
+    Container for results of cluster-based tests.
 
     Parameters
     ----------
-    clusters : list of boolean ndarrays
+    clusters : list of boolean ndarrays | boolean ndarray
         List of boolean masks - one per cluster. The masks should match the
         dimensions of the `stat` ndarray. Each mask descirbes which elements
-        are members of given cluster.
+        are members of given cluster. Alternatively - one boolean array where
+        first dimension corresponds to consevutive clusters.
     pvals : list or array of float
         List/array of p values corresponding to consecutive clusters in
         `clusters`.
@@ -308,8 +310,9 @@ class Clusters(object):
     # TODO: add deepcopy arg?
     def copy(self):
         '''
-        Copy the Clusters object. The lists/arrays/SourceSpaces are not copied
-        however.
+        Copy the Clusters object. The lists/arrays are not copied however.
+        The SourceSpaces are always copied because they often change when
+        plotting.
 
         Returns
         -------
@@ -387,10 +390,10 @@ class Clusters(object):
 
         Parameters
         ----------
-        cluster_idx : int or array of int, optional
+        cluster_idx : int | array of int, optional
             Indices of clusters to get contribution of. Default is to calculate
             contribution for all clusters.
-        along : int or str, optional
+        along : int | str, optional
             Dimension along which the clusters contribution should be
             calculated. Default is to calculate along the first dimension.
         norm : bool, optional
@@ -408,7 +411,7 @@ class Clusters(object):
 
         along = 0 if along is None else along
         if not isinstance(along, (str, int)):
-            raise TypeError('`along` has to be string or float.')
+            raise TypeError('`along` has to be string or int.')
         if isinstance(along, str):
             _check_dimnames_kwargs(self, along)
             along_idx = self.dimnames.index(along)
@@ -461,7 +464,9 @@ class Clusters(object):
     def get_index(self, cluster_idx=None, retain_mass=None, ignore_space=True,
                   **kwargs):
         '''
-        TODO
+        Get indices selecting a specified range of data.
+
+        TODO: fix docs
         retain_mass:
         exclude (_contributions): for each dimension include only those elements that
             surpass relative mass (that contribute above certain percentage of mass
@@ -504,7 +509,7 @@ class Clusters(object):
                              for i in range(len(idx))])
         return idx
 
-    # maybe plot mass?
+    # maybe rename to `plot mass`?
     def plot_contribution(self, dimname, axis=None):
         '''Plot how different times or frequencies contribute to clusters.'''
         return plot_cluster_contribution(self, dimname, axis=axis)
