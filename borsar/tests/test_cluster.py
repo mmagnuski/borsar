@@ -14,6 +14,7 @@ from borsar.utils import download_test_data, _get_test_data_dir
 from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
                             _index_from_dim, _clusters_safety_checks,
+                            _check_description, _clusters_chan_vert_checks,
                             Clusters)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
@@ -233,7 +234,8 @@ def test_clusters():
     assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
 
     # non string
-    with pytest.raises(TypeError, match='has to be string or int.'):
+    match = r'has to be string \(dimension name\) or int \(dimension index\)'
+    with pytest.raises(TypeError, match=match):
         clst2.get_contribution(cluster_idx=0, along=all_contrib)
 
     # negative (could later work)
@@ -254,13 +256,15 @@ def test_clusters():
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
 
-    with pytest.raises(TypeError, match='dimnames cannot be None'):
+    match = 'Clusters has to have `dimnames` attribute'
+    with pytest.raises(TypeError, match=match):
         dnames = clst2.dimnames
         clst2.dimnames = None
         ax = clst2.plot_contribution('freq')
     clst2.dimnames = dnames
 
-    with pytest.raises(ValueError, match="Couldn't find requested dimension"):
+    match = 'does not seem to have the dimension you requested'
+    with pytest.raises(ValueError, match=match):
         clst2.plot_contribution('abc')
 
     with pytest.raises(ValueError, match='No clusters present'):
@@ -344,6 +348,26 @@ def test_clusters():
     # _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     #                         description)
 
+    # _check_description
+    with pytest.raises(TypeError, match='has to be either a string or a dict'):
+        _check_description(['abc'])
+
+    # _clusters_chan_vert_checks
+    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
+        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None)
+
+    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None)
+
+    with pytest.raises(TypeError, match='must pass a subject string'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   None, None)
+
+    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   'fsaverage', None)
+
+    # _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir)
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():

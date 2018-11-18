@@ -410,29 +410,18 @@ class Clusters(object):
             cluster_idx = np.arange(len(self))
 
         along = 0 if along is None else along
-        if not isinstance(along, (str, int)):
-            raise TypeError('`along` has to be string or int.')
-        if isinstance(along, str):
-            _check_dimnames_kwargs(self, along)
-            along_idx = self.dimnames.index(along)
-        else:
-            if not (along >= 0 and along < self.stat.ndim):
-                raise ValueError('`along`, if integer, must be greater or equal to 0'
-                                 ' and lower than number of dimensions of the stati'
-                                 'stical map. Got {}'.format(along))
-            along_idx = along
-
+        idx = _check_dimname_arg(self, along)
 
         if isinstance(cluster_idx, (list, np.ndarray)):
             alldims = list(range(self.stat.ndim + 1))
             alldims.remove(0)
-            alldims.remove(along_idx + 1)
+            alldims.remove(idx + 1)
             contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
             if norm:
                 contrib = contrib / contrib.sum(axis=-1, keepdims=True)
         else:
             alldims = list(range(self.stat.ndim))
-            alldims.remove(along_idx)
+            alldims.remove(idx)
             contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
             if norm:
                 contrib = contrib / contrib.sum()
@@ -540,19 +529,8 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     '''
     import matplotlib.pyplot as plt
 
-    # check if dimnames are present
-    if clst.dimnames is None and isinstance(dimension, str):
-        raise TypeError('Clusters.dimnames cannot be None when plotting'
-                        ' cluster contributions using dimension that is'
-                        ' a string.')
-
-    # TODO - put into a separate function
-    if dimension in clst.dimnames:
-        dim = clst.dimnames.index(dimension)
-    else:
-        raise ValueError("Couldn't find requested dimension, Clusters has "
-                         "only: {}, while you asked for {}".format(
-                         clst.dimnames, dimension))
+    # check dimname and return index
+    idx = _check_dimname_arg(clst, dimension)
 
     # check if any clusters
     n_clusters = len(clst)
@@ -563,19 +541,19 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
     # create freq coords and label
     if clst.dimcoords is None:
-        dimcoords = np.arange(clst.stat.shape[dim])
+        dimcoords = np.arange(clst.stat.shape[idx])
         dimlabel = '{} bins'.format(_get_full_dimname(dimension))
     else:
-        dimcoords = clst.dimcoords[dim]
+        dimcoords = clst.dimcoords[idx]
         dimlabel = '{} ({})'.format(_get_full_dimname(dimension),
-                                     _get_units(dimension))
+                                    _get_units(dimension))
 
     # make sure we have an axes to plot to
     if axis is None:
         axis = plt.axes()
 
     # plot cluster contribution
-    for idx in range(len(clst.clusters)):
+    for idx in picks:
         label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
         contrib = clst.get_contribution(idx, along=dimension, norm=False)
         axis.plot(dimcoords, contrib, label=label)
@@ -795,23 +773,44 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
                             'use "vert" dimension. Use `subject` keyword'
                             ' argument.')
         if subjects_dir is None:
-            subjects_dir = get_subjects_dir()
+            subjects_dir = mne.utils.get_subjects_dir()
         if subjects_dir is None or not isinstance(subjects_dir, str):
             raise TypeError('You must pass a `subjects_dir` freesurfer folder'
                             ' name in order to use "vert" dimension. Use '
                             '`subjects_dir` keyword argument.')
 
 
-def _check_dimnames_kwargs(clst, *args, **kwargs):
-    '''Ensure that *args and **kwargs are correct dimnames and dimcoords.'''
+def _check_dimname_arg(clst, dimname):
+    '''Check dimension name and find its index.'''
+    if not isinstance(dimname, (str, int)):
+        raise TypeError('Dimension argument has to be string (dimension name) '
+                        'or int (dimension index).')
+    if isinstance(dimname, str):
+        if clst.dimnames is None:
+            raise TypeError('Clusters has to have `dimnames` attribute to use '
+                            'operations on named dimensions.')
+        if dimname not in clst.dimnames:
+            raise ValueError('Clusters does not seem to have the dimension you'
+                            ' requested. You asked for "{}", while Clusters has '
+                            'the following dimensions: {}.'.format(
+                                dimname, ', '.join(clst.dimnames)))
+        idx = clst.dimnames.index(dimname)
+    else:
+        if not (dimname >= 0 and dimname < clst.stat.ndim):
+            raise ValueError('Dimension, if integer, must be greater or equal '
+                             'to 0 and lower than number of dimensions of the '
+                             'statistical map. Got {}'.format(dimname))
+        idx = dimname
+    return idx
+
+
+def _check_dimnames_kwargs(clst, **kwargs):
+    '''Ensure that **kwargs are correct dimnames and dimcoords.'''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
                         'on named dimensions.')
 
-    all_args = (list(set(list(args) + list(kwargs.keys()))) if len(kwargs) > 0
-                else args)
-
-    for dim in all_args:
+    for dim in kwargs.keys():
         if dim not in clst.dimnames:
             msg = ('Could not find requested dimension {}. Available '
                    'dimensions: {}.'.format(along, ', '.join(self.dimnames)))
