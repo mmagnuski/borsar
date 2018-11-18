@@ -151,6 +151,12 @@ def test_get_mass_range():
     assert _get_mass_range(contrib, 0.48) == slice(2, 6)
     assert _get_mass_range(contrib, 0.57) == slice(2, 7)
 
+    # with break
+    contrib = np.array([0.15, 0.15, 0., 0.15, 0.2, 0.1, 0.])
+    slc = _get_mass_range(contrib, 0.5)
+    assert slc == slice(3, 6)
+    assert contrib[slc].sum() < 0.5
+
 
 def test_index_from_dim():
     dimnames = ['chan', 'freq', 'time']
@@ -230,6 +236,14 @@ def test_clusters():
     with pytest.raises(TypeError, match='has to be string or int.'):
         clst2.get_contribution(cluster_idx=0, along=all_contrib)
 
+    # negative (could later work)
+    with pytest.raises(ValueError, match='must be greater or equal to 0'):
+        clst2.get_contribution(cluster_idx=0, along=-1)
+
+    # int greater there is dimensions - 1
+    with pytest.raises(ValueError, match='must be greater or equal to 0'):
+        clst2.get_contribution(cluster_idx=0, along=2)
+
     # tests for plot_contribution
     ax = clst2.plot_contribution('freq')
     assert isinstance(ax, plt.Axes)
@@ -240,6 +254,19 @@ def test_clusters():
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
 
+    with pytest.raises(TypeError, match='dimnames cannot be None'):
+        dnames = clst2.dimnames
+        clst2.dimnames = None
+        ax = clst2.plot_contribution('freq')
+    clst2.dimnames = dnames
+
+    with pytest.raises(ValueError, match="Couldn't find requested dimension"):
+        clst2.plot_contribution('abc')
+
+    with pytest.raises(ValueError, match='No clusters present'):
+        clst_no.plot_contribution('freq')
+
+
     # get index and limits
     # --------------------
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
@@ -248,6 +275,10 @@ def test_clusters():
     idx = clst2.get_index(freq=[8, 10])
     assert idx[1] == slice(2, 7)
 
+    idx = clst2.get_index(cluster_idx=1, freq=0.6)
+    contrib = clst2.get_contribution(1, 'freq')
+    assert contrib[idx[1]].sum() >= 0.6
+
     # test iteration
     pvls = list()
     for c in clst2:
@@ -255,7 +286,7 @@ def test_clusters():
     assert (clst2.pvals == pvls).all()
 
 
-    # save - read round-trip
+    # write - read round-trip
     # ----------------------
     clst2.save(op.join(data_dir, 'temp_clst.hdf5'))
     clst_read = read_cluster(op.join(data_dir, 'temp_clst.hdf5'),
@@ -264,6 +295,8 @@ def test_clusters():
     assert (clst_read.pvals == clst2.pvals).all()
     assert (clst_read.clusters == clst2.clusters).all()
     assert (clst_read.stat == clst2.stat).all()
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+
 
     # error checks
     # ------------
@@ -285,6 +318,28 @@ def test_clusters():
     stat = np.zeros((2, 3))
     with pytest.raises(ValueError, match='same shape as stat.'):
         _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
+
+    with pytest.raises(TypeError, match='list of arrays or one array'):
+        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
+
+    stat = np.zeros((2, 2))
+    with pytest.raises(TypeError, match='list of floats or numpy array'):
+        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
+
+    with pytest.raises(TypeError, match='`dimnames` must be a list'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
+
+    match_str = "are not strings, for example: <class 'int'>"
+    with pytest.raises(TypeError, match=match_str):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
+
+    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
+                                tmp, tmp)
+
+    with pytest.raises(ValueError, match='must be the first dimension'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
+                                tmp, tmp)
 
     # _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     #                         description)

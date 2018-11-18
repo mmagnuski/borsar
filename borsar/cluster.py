@@ -541,9 +541,10 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     import matplotlib.pyplot as plt
 
     # check if dimnames are present
-    if clst.dimnames is None:
-        return TypeError('Clusters.dimnames cannot be None when plotting'
-                         ' cluster contributions.')
+    if clst.dimnames is None and isinstance(dimension, str):
+        raise TypeError('Clusters.dimnames cannot be None when plotting'
+                        ' cluster contributions using dimension that is'
+                        ' a string.')
 
     # TODO - put into a separate function
     if dimension in clst.dimnames:
@@ -731,11 +732,11 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
 
     if dimnames is not None:
         if not isinstance(dimnames, list):
-            raise TyperError('`dimnames` must be a list of dimension names.'
+            raise TypeError('`dimnames` must be a list of dimension names.'
                              'Got {}.'.format(type(dimnames)))
         which_str = np.array([isinstance(el, str) for el in dimnames])
         if not which_str.all():
-            other_type = type(dimnames[np.where(which_str)[0][0]])
+            other_type = type(dimnames[np.where(~which_str)[0][0]])
             raise TypeError('`dimnames` must be a list od strings, but some '
                             'of the elements in the list you passed are not '
                             'strings, for example: {}'.format(other_type))
@@ -751,7 +752,7 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
             raise ValueError(msg)
     if dimcoords is not None:
         if not isinstance(dimcoords, list):
-            raise TyperError('`dimcoords` must be a list of dimension '
+            raise TypeError('`dimcoords` must be a list of dimension '
                              'coordinates. Got {}.'.format(type(dimcoords)))
 
         dims = list(range(len(dimcoords)))
@@ -839,6 +840,7 @@ def _get_mass_range(contrib, mass):
                 else contrib[side_idx[1]]]
 
         if sum(vals) == 0.:
+            side_idx += [+1, -1]
             break
         ord = np.argmax(vals)
         current_mass += contrib[side_idx[ord]]
