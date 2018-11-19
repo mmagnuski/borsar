@@ -27,9 +27,10 @@ def test_compute_regression_t():
     t_vals_borsar = compute_regression_t(data, preds)
     elapsed_borsar = time.clock() - t0
 
-    # make sure t-values are almost the same (same up to ~9 decimal places)
+    # make sure t-values are almost the same (same up to ~8 decimal places)
+    # (most of the time it is the same up to 9 decimal places but not always)
     assert t_vals_sm.shape == t_vals_borsar.shape
-    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-9)
+    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-8)
 
     # make sure we are at least 30 times faster than statsmodels loop
     # (although on most computers and in many cases this will be about 100)
