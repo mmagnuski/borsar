@@ -89,6 +89,7 @@ def _label_from_cluster(clst, clst_mask):
 def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
     if clst.stat.ndim > 1:
         if reduce_axes is None:
+            # TODO - start at one only when showing spatial map
             reduce_axes = tuple(range(1, clst.stat.ndim))
         time_label = list()
         for dim in reduce_axes:

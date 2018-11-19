@@ -219,6 +219,22 @@ def test_clusters():
     assert len(clst3) == 3
 
 
+    # write - read round-trip
+    # ----------------------
+    fname = op.join(data_dir, 'temp_clst.hdf5')
+    clst2.save(fname)
+    clst_read = read_cluster(fname, src=fwd['src'], subjects_dir=data_dir)
+    assert len(clst_read) == len(clst2)
+    assert (clst_read.pvals == clst2.pvals).all()
+    assert (clst_read.clusters == clst2.clusters).all()
+    assert (clst_read.stat == clst2.stat).all()
+    # delete the file
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+
+    with pytest.raises(TypeError):
+        clst2.save(fname, description=list('abc'))
+
+
     # test contribution
     # -----------------
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
@@ -286,11 +302,22 @@ def test_clusters():
     assert clst2.get_index() == (slice(None), slice(None))
     with pytest.raises(ValueError, match='Could not find requested dimension'):
         clst2.get_index(abc=[1, 2])
-    with pytest.raises(TypeError, match='create Clusters passing dimnames'):
+    with pytest.raises(TypeError, match='Clusters has to have dimnames'):
         dnames = clst2.dimnames
         clst2.dimnames = None
         clst2.get_index(freq=[10, 11])
     clst2.dimnames = dnames
+
+    with pytest.raises(TypeError, match='Clusters has to have dimcoords'):
+        dcoords = clst2.dimcoords
+        clst2.dimcoords = None
+        clst2.get_index(freq=[8.5, 10])
+    clst2.dimcoords = dcoords
+
+    match = r'either ranges \(list of two values\) or cluster mass'
+    with pytest.raises(TypeError, match=match):
+        clst2.get_index(freq='abc')
+
 
     # test iteration
     pvls = list()
@@ -299,16 +326,13 @@ def test_clusters():
     assert (clst2.pvals == pvls).all()
 
 
-    # write - read round-trip
-    # ----------------------
-    clst2.save(op.join(data_dir, 'temp_clst.hdf5'))
-    clst_read = read_cluster(op.join(data_dir, 'temp_clst.hdf5'),
-                             src=fwd['src'], subjects_dir=data_dir)
-    assert len(clst_read) == len(clst2)
-    assert (clst_read.pvals == clst2.pvals).all()
-    assert (clst_read.clusters == clst2.clusters).all()
-    assert (clst_read.stat == clst2.stat).all()
-    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+    # plotting
+    # --------
+    clst2.dimnames, dnames = None, clst2.dimnames
+    match = 'construct the cluster using the dimnames'
+    with pytest.raises(TypeError, match=match):
+        clst2.plot()
+    clst2.dimnames = dnames
 
 
     # error checks
@@ -405,6 +429,15 @@ def test_clusters():
     assert vmax == 2.
     vmin, vmax = _get_clim(data, vmax=3.5)
     assert vmin == -3.5
+
+    # _prepare_cluster_description
+    from borsar.stats import format_pvalue
+    clst_idx = 1
+    idx = clst2.get_index(freq=[8, 10])
+    got_desc = _prepare_cluster_description(clst, clst_idx, idx)
+    pval_desc = format_pvalue(clst.pvals[clst_idx])
+    correct_desc = '8.0 - 10.0 Hz\n{}'.format(pval_desc)
+    assert got_desc == correct_desc
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

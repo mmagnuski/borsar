@@ -461,26 +461,12 @@ class Clusters(object):
             surpass relative mass (that contribute above certain percentage of mass
             along that dimension)
         '''
-        # TODO - reduce this check to existing function
-        if len(kwargs) > 0 and self.dimnames is None:
-            raise TypeError('To be able to find indexing by dimension names you must'
-                            ' create Clusters passing dimnames (and preferrably '
-                            'also dimcoords).')
-        _check_dimnames_kwargs(self, **kwargs)
-        dims = list([None] * self.stat.ndim)
-        dimval = list([None] * self.stat.ndim)
-        normal_indexing = kwargs.copy()
-        mass_indexing = dict()
+
         if len(kwargs) > 0:
-            for dimname in kwargs.keys():
-                dim_idx = self.dimnames.index(dimname)
-                dval = kwargs[dimname]
-                # TODO - more elaborate checks
-                dims[dim_idx] = 'range' if isinstance(dval, list) else 'mass'
-                dimval[dim_idx] = dval
-                if dims[dim_idx] is 'mass':
-                    mass_indexing[dimname] = dval
-                    normal_indexing.pop(dimname)
+            normal_indexing, mass_indexing = _check_dimnames_kwargs(
+                self, **kwargs, check_dimcoords=True, split_range_mass=True)
+        else:
+            normal_indexing = kwargs
 
         if self.dimcoords is None:
             idx = tuple(slice(None) for _ in self.stat.shape)
@@ -488,6 +474,7 @@ class Clusters(object):
             idx = _index_from_dim(self.dimnames, self.dimcoords,
                                   **normal_indexing)
 
+        # TODO - when retain mass is specified
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
                           if val == slice(None)]
@@ -805,17 +792,41 @@ def _check_dimname_arg(clst, dimname):
     return idx
 
 
-def _check_dimnames_kwargs(clst, **kwargs):
+def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
+                           **kwargs):
     '''Ensure that **kwargs are correct dimnames and dimcoords.'''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
                         'on named dimensions.')
+    if check_dimcoords and clst.dimcoords is None:
+        raise TypeError('Clusters has to have dimcoords to use operations '
+                        'on named dimensions.')
+
+    if split_range_mass:
+        normal_indexing = kwargs.copy()
+        mass_indexing = dict()
 
     for dim in kwargs.keys():
         if dim not in clst.dimnames:
             msg = ('Could not find requested dimension {}. Available '
                    'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
+
+        if split_range_mass:
+            dval = kwargs[dim]
+            # TODO - more elaborate checks
+            dim_type = ('range' if isinstance(dval, list) else 'mass' if
+                        isinstance(dval, float) else None)
+            if dim_type == 'mass':
+                mass_indexing[dim] = dval
+                normal_indexing.pop(dim)
+            elif dim_type is None:
+                raise TypeError('The values used in dimension name indexing '
+                                'have to be either ranges (list of two '
+                                'values) or cluster mass to retain (float),'
+                                ' got {} for dimension {}.'.format(dval, dim))
+    if split_range_mass:
+        return normal_indexing, mass_indexing
 
 
 # UTILS
