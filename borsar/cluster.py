@@ -46,7 +46,6 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     return conn
 
 
-
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
                              progressbar=True, return_distribution=False):
@@ -177,6 +176,7 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     return clst
 
 
+# TODO - consider empty lists/arrays instead of None when no clusters...
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -187,10 +187,12 @@ class Clusters(object):
         List of boolean masks - one per cluster. The masks should match the
         dimensions of the `stat` ndarray. Each mask descirbes which elements
         are members of given cluster. Alternatively - one boolean array where
-        first dimension corresponds to consevutive clusters.
+        first dimension corresponds to consevutive clusters. When no clusters
+        were found this can be an empty numpy array, an empty list or None.
     pvals : list or array of float
         List/array of p values corresponding to consecutive clusters in
-        `clusters`.
+        `clusters`. If no clusters were found this can be an empty numpy array,
+        an empty list or None.
     stat : ndarray
         Statistical map of the analysis. Usual dimensions are: space,
         space x time, space x frequencies, space x frequencies x
@@ -235,10 +237,11 @@ class Clusters(object):
     def __init__(self, clusters, pvals, stat, dimnames=None, dimcoords=None,
                  info=None, src=None, subject=None, subjects_dir=None,
                  description=None, sort_pvals=True, safety_checks=True):
-        # safety checks
+
         if safety_checks:
-            clusters = _clusters_safety_checks(clusters, pvals, stat, dimnames,
-                                               dimcoords, description)
+            # basic safety checks
+            clusters, pvals = _clusters_safety_checks(
+                clusters, pvals, stat, dimnames, dimcoords, description)
 
             # check channel or source space
             _clusters_chan_vert_checks(dimnames, info, src, subject,
@@ -246,16 +249,18 @@ class Clusters(object):
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
-            self.cluster_polarity = [polarity[int(stat[cl].mean() > 0)]
-                                     for cl in clusters]
+            self.cluster_polarity = ([polarity[int(stat[cl].mean() > 0)]
+                                      for cl in clusters] if pvals is not None
+                                      else None)
 
         # sort by p values if necessary
-        pvals = np.asarray(pvals)
-        if sort_pvals:
-            psort = np.argsort(pvals)
-            if not (psort == np.arange(pvals.shape[0])).all():
-                clusters = clusters[psort]
-                pvals = pvals[psort]
+        if pvals is not None:
+            pvals = np.asarray(pvals)
+            if sort_pvals:
+                psort = np.argsort(pvals)
+                if not (psort == np.arange(pvals.shape[0])).all():
+                    clusters = clusters[psort]
+                    pvals = pvals[psort]
 
         # create attributes
         self.subjects_dir = subjects_dir
@@ -343,7 +348,7 @@ class Clusters(object):
         >>> for clst in clusters:
         >>>     clst.plot()
         '''
-        if self._current >= len(self.clusters):
+        if self._current >= len(self):
             raise StopIteration
         clst = Clusters(self.clusters[self._current],
                         self.pvals[[self._current]], self.stat, self.dimnames,
@@ -598,19 +603,26 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     > # 70% of the cluster mass:
     > clst.plot(cluster_idx=1, freq=0.7)
     '''
+    # TODO - if cluster_idx is not None and there is no such cluster - error
+    #      - if no clusters and None - plot without highlighting
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
+    # TODO - or maybe aggregate should work when no clusters?
     # get and aggregate cluster mask and cluster stat
-    clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **kwargs)
+    if len(clst) == cluster_idx + 1:
+        clst_mask, clst_stat, idx = _aggregate_cluster(
+            clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
+            ignore_space=True, **kwargs)
+    else:
+        clst_stat = clst.stat
 
     # create pysurfer brain
     from mypy.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
     topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False)
     topo.solid_lines()
-    topo.mark_channels(clst_mask)
+    if len(clst) == cluster_idx + 1:
+        topo.mark_channels(clst_mask)
 
     return topo
 
@@ -664,33 +676,42 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     # check clusters when it is a list
     if isinstance(clusters, list):
         n_clusters = len(clusters)
-        cluster_shapes = [clst.shape for clst in clusters]
-        all_shapes_equal = all([clst_shp == cluster_shapes[0]
-                                for clst_shp in cluster_shapes])
-        if not all_shapes_equal:
-            raise ValueError('All clusters have to be of the same '
-                             'shape.')
-        all_arrays_bool = all([clst.dtype == 'bool' for clst in clusters])
-        if not all_arrays_bool:
-            raise TypeError('All clusters have to be boolean arrays.')
-
-        clusters = np.stack(clusters, axis=0)
+        if n_clusters > 0:
+            cluster_shapes = [clst.shape for clst in clusters]
+            all_shapes_equal = all([clst_shp == cluster_shapes[0]
+                                    for clst_shp in cluster_shapes])
+            if not all_shapes_equal:
+                raise ValueError('All clusters have to be of the same '
+                                 'shape.')
+            all_arrays_bool = all([clst.dtype == 'bool' for clst in clusters])
+            if not all_arrays_bool:
+                raise TypeError('All clusters have to be boolean arrays.')
+            clusters = np.stack(clusters, axis=0)
+        else:
+            clusters = None
 
     # check stat
     if not isinstance(stat, np.ndarray):
         raise TypeError('`stat` must be a numpy array.')
 
     # check clusters shape along stat shape
-    if isinstance(clusters, (list, np.ndarray)):
-        if not stat.shape == clusters.shape[1:]:
-            raise ValueError('Every cluster has to have the same shape as '
-                             'stat.')
-    else:
-        raise TypeError('clusters have to be either a list of arrays or one '
-                        'array with first dimension corresponding to '
-                        'clusters.')
+    if isinstance(clusters, np.ndarray):
+        n_clusters = clusters.shape[0]
+        if n_clusters > 0:
+            if not stat.shape == clusters.shape[1:]:
+                raise ValueError('Every cluster has to have the same shape as '
+                                 'stat.')
+        else:
+            clusters = None
+    elif clusters is not None:
+        raise TypeError('`clusters` has to be either a list of arrays or one '
+                        'array with the first dimension corresponding to '
+                        'clusters or None if no clusters were found.')
 
-    if not isinstance(pvals, (list, np.ndarray)):
+    if clusters is None:
+        # TODO: maybe warn if no clusters but pvals is not None/empty
+        pvals = None
+    elif not isinstance(pvals, (list, np.ndarray)):
         raise TypeError('`pvals` has to be a list of floats or numpy array.')
         # check if each element of list is float and array is of dtype float
 
@@ -701,9 +722,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         which_str = np.array([isinstance(el, str) for el in dimnames])
         if not which_str.all():
             other_type = type(dimnames[np.where(~which_str)[0][0]])
-            raise TypeError('`dimnames` must be a list od strings, but some '
+            raise TypeError('`dimnames` must be a list of strings, but some '
                             'of the elements in the list you passed are not '
-                            'strings, for example: {}'.format(other_type))
+                            'strings, for example: {}.'.format(other_type))
         if not len(dimnames) == stat.ndim:
             raise ValueError('Length of `dimnames` must be the same as number'
                              ' of dimensions in `stat`.')
@@ -731,7 +752,7 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
                    '`stat` array.')
             raise ValueError(msg)
     _check_description(description)
-    return clusters
+    return clusters, pvals
 
 
 def _check_description(description):
