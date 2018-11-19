@@ -60,14 +60,13 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                              ignore_space=ignore_space, **kwargs)
         reduce_axes = tuple(range(1, clst.stat.ndim))
         clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
-                     >= mask_proportion).astype('float')
+                     >= mask_proportion)
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
     else:
         # no aggregation
-        idx = slice(None)
-        clst_mask = clst.stat.copy()
-        clst_mask[~clst.clusters[cluster_idx]] = 0
+        idx = (slice(None),)
         clst_stat = clst.stat
+        clst_mask = clst.clusters[cluster_idx]
     return clst_mask, clst_stat, idx
 
 

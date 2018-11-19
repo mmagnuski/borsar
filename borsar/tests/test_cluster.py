@@ -378,8 +378,14 @@ def test_clusters():
         _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
                                 tmp, tmp)
 
-    # _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
-    #                         description)
+    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                'abc', tmp)
+
+    match = 'The length of each dimension coordinate'
+    with pytest.raises(ValueError, match=match):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                [np.arange(2), np.arange(3)], tmp)
 
     # _check_description
     with pytest.raises(TypeError, match='has to be either a string or a dict'):
@@ -438,6 +444,27 @@ def test_clusters():
     pval_desc = format_pvalue(clst.pvals[clst_idx])
     correct_desc = '8.0 - 10.0 Hz\n{}'.format(pval_desc)
     assert got_desc == correct_desc
+
+    # _aggregate_cluster - 2d
+    mask, stat, idx = _aggregate_cluster(clst2, 0, mask_proportion=0.5,
+                                         retain_mass=0.65)
+    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65)
+    assert idx == correct_idx
+    assert (stat == clst2.stat[idx].mean(axis=-1)).all()
+    assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
+
+    # _aggregate_cluster - 1d
+    slice_idx = 2
+    clst_1d = Clusters([c[:, slice_idx] for c in clst2.clusters[:2]],
+                       clst2.pvals[:2], clst2.stat[:, slice_idx],
+                       dimnames=[clst2.dimnames[0]], dimcoords=[None],
+                       src=clst2.src, subject=clst2.subject,
+                       subjects_dir=clst2.subjects_dir)
+    mask, stat, idx = _aggregate_cluster(clst_1d, 0, mask_proportion=0.5,
+                                         retain_mass=0.65)
+    assert (mask == clst_1d.clusters[0]).all()
+    assert (stat == clst_1d.stat).all()
+    assert idx == (slice(None),)
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

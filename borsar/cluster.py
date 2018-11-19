@@ -450,7 +450,7 @@ class Clusters(object):
                 limits.append(slice(None))
         return tuple(limits)
 
-    def get_index(self, cluster_idx=None, retain_mass=None, ignore_space=True,
+    def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
                   **kwargs):
         '''
         Get indices selecting a specified range of data.
@@ -466,13 +466,10 @@ class Clusters(object):
             normal_indexing, mass_indexing = _check_dimnames_kwargs(
                 self, **kwargs, check_dimcoords=True, split_range_mass=True)
         else:
-            normal_indexing = kwargs
+            normal_indexing, mass_indexing = kwargs, dict()
 
-        if self.dimcoords is None:
-            idx = tuple(slice(None) for _ in self.stat.shape)
-        else:
-            idx = _index_from_dim(self.dimnames, self.dimcoords,
-                                  **normal_indexing)
+        idx = _index_from_dim(self.dimnames, self.dimcoords,
+                              **normal_indexing)
 
         # TODO - when retain mass is specified
         if cluster_idx is not None:
@@ -481,7 +478,8 @@ class Clusters(object):
             # check cluster limits only if some dim limits were not specified
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
-                    cluster_idx, ignore_space=ignore_space, **mass_indexing)
+                    cluster_idx, ignore_space=ignore_space,
+                    retain_mass=retain_mass, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx

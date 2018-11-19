@@ -58,7 +58,7 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
         ignore_space=True, **kwargs)
 
     # create label from cluster
-    clst_label = _label_from_cluster(clst, clst_mask)
+    clst_label = _label_from_cluster(clst, clst_mask.astype('float'))
 
     # prepare 'time' label
     time_label = _prepare_cluster_description(clst, cluster_idx, idx)
