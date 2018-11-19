@@ -466,6 +466,7 @@ class Clusters(object):
             raise TypeError('To be able to find indexing by dimension names you must'
                             ' create Clusters passing dimnames (and preferrably '
                             'also dimcoords).')
+        _check_dimnames_kwargs(self, **kwargs)
         dims = list([None] * self.stat.ndim)
         dimval = list([None] * self.stat.ndim)
         normal_indexing = kwargs.copy()
@@ -813,7 +814,7 @@ def _check_dimnames_kwargs(clst, **kwargs):
     for dim in kwargs.keys():
         if dim not in clst.dimnames:
             msg = ('Could not find requested dimension {}. Available '
-                   'dimensions: {}.'.format(along, ', '.join(self.dimnames)))
+                   'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
 
 

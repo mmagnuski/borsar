@@ -34,7 +34,7 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
     if vmin is None and vmax is None:
         vmax = np.abs([data.min(), data.max()]).max()
         vmax_round = np.round(vmax)
-        if np.abs(vmax_round - vmax) < 0.5:
+        if np.abs(np.abs(vmax_round - vmax) - 0.5) < 0.25:
             vmax_round += 0.5 * np.sign(vmax - vmax_round)
         vmin, vmax = -vmax_round, vmax_round
     elif vmin is None:

@@ -283,6 +283,15 @@ def test_clusters():
     contrib = clst2.get_contribution(1, 'freq')
     assert contrib[idx[1]].sum() >= 0.6
 
+    assert clst2.get_index() == (slice(None), slice(None))
+    with pytest.raises(ValueError, match='Could not find requested dimension'):
+        clst2.get_index(abc=[1, 2])
+    with pytest.raises(TypeError, match='create Clusters passing dimnames'):
+        dnames = clst2.dimnames
+        clst2.dimnames = None
+        clst2.get_index(freq=[10, 11])
+    clst2.dimnames = dnames
+
     # test iteration
     pvls = list()
     for c in clst2:
@@ -368,6 +377,35 @@ def test_clusters():
                                    'fsaverage', None)
 
     # _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir)
+
+    # clusterutils
+    # ------------
+    assert clst2.stc is None
+    _check_stc(clst2)
+    assert isinstance(clst2.stc, mne.SourceEstimate)
+
+    # get clim
+    data = np.array([2.3, 1., -1.5, -2.])
+    vmin, vmax = _get_clim(data)
+    assert vmin == -2.5
+    assert vmax == 2.5
+
+    data = np.array([2.2, 1., -1.5, -2.1])
+    clim = _get_clim(data, pysurfer=True)
+    assert clim['lims'][0] == -2.
+    assert clim['lims'][-1] == 2.
+
+    # cluster label (3d contour)
+    label = _label_from_cluster(clst2, clst2.clusters[0][:, 2])
+    label = _label_from_cluster(clst2, clst2.clusters[1][:, 2])
+    assert isinstance(label, mne.Label)
+
+    # color limits
+    vmin, vmax = _get_clim(data, vmin=-2.)
+    assert vmax == 2.
+    vmin, vmax = _get_clim(data, vmax=3.5)
+    assert vmin == -3.5
+
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
