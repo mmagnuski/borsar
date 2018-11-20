@@ -48,25 +48,25 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
         return vmin, vmax
 
 
-
-
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                        retain_mass=0.65, ignore_space=True, **kwargs):
     '''Aggregate cluster mask and cluster stat map.'''
     do_aggregation = clst.stat.ndim > 1
+    cluster_idx = None if len(clst) < cluster_idx + 1 else cluster_idx
     if do_aggregation:
         # find indexing
         idx = clst.get_index(cluster_idx=cluster_idx, retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
         reduce_axes = tuple(range(1, clst.stat.ndim))
         clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
-                     >= mask_proportion)
+                     >= mask_proportion if cluster_idx is not None else None)
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
     else:
         # no aggregation
         idx = (slice(None),)
         clst_stat = clst.stat
-        clst_mask = clst.clusters[cluster_idx]
+        clst_mask = (clst.clusters[cluster_idx] if cluster_idx is not None
+                     else None)
     return clst_mask, clst_stat, idx
 
 

@@ -607,21 +607,18 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     #      - if no clusters and None - plot without highlighting
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
-    # TODO - or maybe aggregate should work when no clusters?
+    # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
-    if len(clst) == cluster_idx + 1:
-        clst_mask, clst_stat, idx = _aggregate_cluster(
-            clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-            ignore_space=True, **kwargs)
-    else:
-        clst_stat = clst.stat
+    clst_mask, clst_stat, idx = _aggregate_cluster(
+        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
+        ignore_space=True, **kwargs)
 
     # create pysurfer brain
     from mypy.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
     topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False)
     topo.solid_lines()
-    if len(clst) == cluster_idx + 1:
+    if len(clst) >= cluster_idx + 1:
         topo.mark_channels(clst_mask)
 
     return topo

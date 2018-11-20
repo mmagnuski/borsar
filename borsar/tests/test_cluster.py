@@ -475,6 +475,27 @@ def test_clusters():
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
 
 
+def test_chan_freq_clusters():
+    from mne import create_info
+    from mne.externals import h5io
+    import matplotlib.pyplot as plt
+
+    fname = op.join(data_dir, 'chan_alpha_range.hdf5')
+    data_dict = h5io.read_hdf5(fname)
+    info = create_info(data_dict['dimcoords'][0], sfreq=250., ch_types='eeg',
+                       montage='easycap-M1')
+    clst = Clusters(
+        data_dict['clusters'], data_dict['pvals'], data_dict['stat'],
+        dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
+        info=info, description=data_dict['description'])
+
+    topo = clst.plot(cluster_idx=1, freq=[8, 8.5])
+    plt.close(topo.fig)
+    clst.clusters = None
+    topo = clst.plot(freq=[10, 11.5])
+    plt.close(topo.fig)
+
+
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
     # mayavi import adapted from mne:
