@@ -108,7 +108,7 @@ def test_cluster_based_regression():
                   for prefix in ['pos', 'neg']}
 
     vals = np.array([5., 15, 30, 50, 100])
-    max_perc_error = np.array([7, 6, 5, 5, 4.5]) / 100.
+    max_perc_error = np.array([7, 7, 5, 5, 4.5]) / 100.
 
     for fun, prefix, vls in zip([np.less, np.greater],
                                 ['pos', 'neg'], [vals, vals * -1]):
@@ -465,6 +465,14 @@ def test_clusters():
     assert (mask == clst_1d.clusters[0]).all()
     assert (stat == clst_1d.stat).all()
     assert idx == (slice(None),)
+
+    # create empty clusters
+    clst_empty = Clusters(
+        None, None, clst2.stat[slice_idx], dimcoords=[clst2.dimcoords[1]],
+        dimnames=[clst2.dimnames[1]])
+    clst_empty = Clusters(
+        np.zeros(0, dtype='bool'), np.zeros(0), clst2.stat[slice_idx],
+        dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
