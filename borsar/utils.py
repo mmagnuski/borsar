@@ -279,7 +279,8 @@ def download_test_data():
     # check if test data exist
     data_dir = _get_test_data_dir()
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
-                   r'fsaverage\bem\fsaverage-ico-5-src.fif'] # + checksums?
+                   op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
+                   'chan_alpha_range.hdf5']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 

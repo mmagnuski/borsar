@@ -177,11 +177,6 @@ def test_clusters():
     import matplotlib.pyplot as plt
 
     # the second call should not do anything if all is downloaded
-    # FIXME - temp to check travis
-    download_test_data()
-    check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
-                   r'fsaverage\bem\fsaverage-ico-5-src.fif']
-    assert all([op.isfile(op.join(data_dir, f)) for f in check_files])
     download_test_data()
 
     # read source-space cluster results
