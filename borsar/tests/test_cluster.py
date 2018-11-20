@@ -10,6 +10,7 @@ import pytest
 
 import mne
 import borsar
+from borsar.stats import format_pvalue
 from borsar.utils import download_test_data, _get_test_data_dir
 from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
@@ -18,7 +19,7 @@ from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             Clusters)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
-                                 _aggregate_cluster)
+                                 _aggregate_cluster, _get_units)
 
 # setup
 download_test_data()
@@ -176,6 +177,11 @@ def test_clusters():
     import matplotlib.pyplot as plt
 
     # the second call should not do anything if all is downloaded
+    # FIXME - temp to check travis
+    download_test_data()
+    check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
+                   r'fsaverage\bem\fsaverage-ico-5-src.fif']
+    assert all([op.isfile(op.join(data_dir, f)) for f in check_files])
     download_test_data()
 
     # read source-space cluster results
@@ -271,6 +277,12 @@ def test_clusters():
     which_line = np.where(isline)[0]
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
+
+    clst2.dimcoords, dcoords = None, clst2.dimcoords
+    ax = clst2.plot_contribution('freq')
+    xlab = ax.get_xlabel()
+    assert xlab == 'frequency bins'
+    clst2.dimcoords = dcoords
 
     match = 'Clusters has to have `dimnames` attribute'
     with pytest.raises(TypeError, match=match):
@@ -437,7 +449,6 @@ def test_clusters():
     assert vmin == -3.5
 
     # _prepare_cluster_description
-    from borsar.stats import format_pvalue
     clst_idx = 1
     idx = clst2.get_index(freq=[8, 10])
     got_desc = _prepare_cluster_description(clst, clst_idx, idx)
@@ -466,12 +477,26 @@ def test_clusters():
     assert (stat == clst_1d.stat).all()
     assert idx == (slice(None),)
 
+    # additional checks on 1d cluster
+    assert clst_1d.stc is None
+    _check_stc(clst_1d)
+    assert isinstance(clst_1d.stc, mne.SourceEstimate)
+
+    desc = _prepare_cluster_description(clst_1d, 0, idx)
+    assert desc == '{}'.format(format_pvalue(clst_1d.pvals[0]))
+
+    # _get_units
+    assert _get_units('time', fullname=True) == 'seconds'
+
     # create empty clusters
     clst_empty = Clusters(
         None, None, clst2.stat[slice_idx], dimcoords=[clst2.dimcoords[1]],
         dimnames=[clst2.dimnames[1]])
     clst_empty = Clusters(
         np.zeros(0, dtype='bool'), np.zeros(0), clst2.stat[slice_idx],
+        dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+    clst_empty = Clusters(
+        list(), np.zeros(0), clst2.stat[slice_idx],
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
 
 

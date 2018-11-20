@@ -21,8 +21,7 @@ def _check_stc(clst):
         if len(clst.dimnames) > 1:
             data_single = clst.stat[:, [0]]
         else:
-            # data = clst.stat[:, np.newaxis]
-            data_single = data
+            data_single = clst.stat[:, np.newaxis]
 
         clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
                                          tstep=tstep, subject=clst.subject)
