@@ -614,7 +614,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         ignore_space=True, **kwargs)
 
     # create pysurfer brain
-    from mypy.viz import Topo
+    from borsar.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
     topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False)
     topo.solid_lines()

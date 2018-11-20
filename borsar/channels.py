@@ -42,8 +42,9 @@ def select_channels(inst, select='all'):
 
     Parameters
     ----------
-    inst : mne object
-        Mne object with `ch_names` and `info` attributes.
+    inst : mne Raw | mne Epochs | mne Evoked | mne TFR | mne Info
+        Mne object with `ch_names` and `info` attributes or just the mne Info
+        object.
     select : str
         Can be 'all', 'frontal' or 'pairs'. If 'asy_' is prepended to the
         select string then selected channels are grouped by mirror positions
@@ -58,7 +59,7 @@ def select_channels(inst, select='all'):
         gives right-side homologues of the channels in selection['left'].
     '''
     if select == 'all':
-        return np.arange(len(inst.ch_names))
+        return np.arange(len(get_ch_names(inst)))
     elif 'asy' in select and 'all' in select:
         return homologous_pairs(inst)
 
