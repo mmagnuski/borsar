@@ -435,7 +435,40 @@ class Clusters(object):
     # TODO: consider continuous vs discontinuous limits
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
                            ignore_space=True, check_dims=None, **kwargs):
-        '''TODO: add docs'''
+        '''
+        Find cluster limits based on percentage of cluster mass contribution
+        to given dimensions.
+
+        Parameters
+        ----------
+        cluster_idx : int
+            Cluster index to find limits of.
+        retain_mass : float
+            Percentage of cluster mass to retain in cluster limits for
+            dimensions not specified with keyword arugments (see `kwargs`).
+            Defaults to 0.65.
+        ignore_space : bool
+            Whether to ignore the spatial dimension - not look for limits along
+            that dimension. Defaults to True.
+        check_dims : list-like of int | None, optional
+            Which dimensions to check. Defaults to None which checks all
+            dimensions (with the exception of spatial if `ignore_space=True`).
+        kwargs : additional keyword arguments
+            Additional arguments the cluster mass to retain along specified
+            dimensions. Float argument between 0. and 1. - defines range that
+            is dependent on cluster mass. For example `time=0.75` defines time
+            range limits that retain at least 75% of the cluster (calculated
+            along given dimension - in this case time). If no kwarg is passed for
+            given dimension then the default value of 0.65 is used - so that
+            cluster limits are defined to retain at least 65% of the relevant
+            cluster mass.
+
+        Returns
+        -------
+        limits : tuple of slices
+            Found cluster limits expressed as a slice for each dimension,
+            grouped together in a tuple.
+        '''
         # TODO: add safety checks
         if check_dims is None:
             check_dims = list(range(self.stat.ndim))
@@ -458,13 +491,37 @@ class Clusters(object):
     def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
                   **kwargs):
         '''
-        Get indices selecting a specified range of data.
+        Get indices (tuple of slices) selecting a specified range of data.
 
-        TODO: fix docs
-        retain_mass:
-        exclude (_contributions): for each dimension include only those elements that
-            surpass relative mass (that contribute above certain percentage of mass
-            along that dimension)
+        Parameters
+        ----------
+        cluster_idx : int | None, optional
+            Cluster index to use when calculating index. Dimensions that are
+            not adressed using range keyword arguments will be sliced by
+            maximizing cluster mass along that dimnensions with mass to retain
+            given either in relevant keyword argument or if not such keyword
+            argument `retain_mass` value is used. See `kwargs`.
+        retain_mass : float, optional
+            If cluster_idx is passed then dimensions not adressed using keyword
+            arguments will be sliced to maximize given cluster's retained mass.
+            The default value is 0.65. See `kwargs`.
+        kwargs : additional arguments
+            Additional arguments used in aggregation, defining the range to
+            aggregate for given dimension. List of two values defines explicit
+            range: for example keyword argument `freq=[6, 8]` aggregates the
+            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
+            dependent on cluster mass. For example `time=0.75` defines time range
+            that retains at least 75% of the cluster (calculated along the
+            aggregated dimension - in this case time). If no kwarg is passed for
+            given dimension then the default value is 0.65 so that range is
+            defined to retain at least 65% of the cluster mass.
+
+        Return
+        ------
+        idx : tuple of slices
+            Tuple of slices selecting the requested range of the data. Can be
+            used in indexing stat (`clst.stat[idx]`) or clusters (
+            `clst.clusters[:, *idx]`) for example.
         '''
 
         if len(kwargs) > 0:
@@ -491,14 +548,69 @@ class Clusters(object):
 
     # maybe rename to `plot mass`?
     def plot_contribution(self, dimname, axis=None):
-        '''Plot how different times or frequencies contribute to clusters.'''
+        '''
+        Plot contribution of clusters along specified dimension.
+
+        Parameters
+        ----------
+        dimension : str | int
+            Dimension along which to calculate contribution.
+        picks : list-like | None, optional
+            Cluster indices whose contributions should be shown.
+        axis : matplotlib Axes | None, optional
+            Matplotlib axis to plot in.
+
+        Returns
+        -------
+        axis : matplotlib Axes
+            Axes with the plot.
+        '''
+
         return plot_cluster_contribution(self, dimname, axis=axis)
 
     def plot(self, cluster_idx=None, aggregate='mean', set_light=True,
              vmin=None, vmax=None, **kwargs):
         '''
         Plot cluster.
-        TODO: fix docs - will be copied from function?
+
+        Parameters
+        ----------
+        clst : Clusters
+            Clusters object to use in plotting.
+        cluster_idx : int
+            Cluster index to plot.
+        aggregate : str
+            TODO: mean, max, weighted
+        vmin : float, optional
+            Value mapped to minimum in the colormap. Inferred from data by default.
+        vmax : float, optional
+            Value mapped to maximum in the colormap. Inferred from data by default.
+        title : str, optional
+            Optional title for the figure.
+        **kwargs : additional keyword arguments
+            Additional arguments used in aggregation, defining the range to
+            aggregate for given dimension. List of two values defines explicit
+            range: for example keyword argument `freq=[6, 8]` aggregates the
+            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
+            dependent on cluster mass. For example `time=0.75` defines time range
+            that retains at least 75% of the cluster (calculated along the
+            aggregated dimension - in this case time). If no kwarg is passed for
+            given dimension then the default value is 0.65 so that range is
+            defined to retain at least 65% of the cluster mass.
+
+        Returns
+        -------
+        topo : borsar.viz.Topo class | pysurfer.Brain
+            Figure object used in plotting - borsar.viz.Topo for channel-level
+            plotting and pysurfer.Brain for plots on brain surface.
+
+        Examples
+        --------
+        > # to plot the first cluster within 8 - 10 Hz
+        > clst.plot(cluster_idx=0, freq=[8, 10])
+        > # to plot the second cluster selecting frequencies that make up at least
+        > # 70% of the cluster mass:
+        > clst.plot(cluster_idx=1, freq=0.7)
         '''
         if self.dimnames is None:
             raise TypeError('To plot the data you need to construct the '
@@ -516,7 +628,20 @@ class Clusters(object):
 def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     '''
     Plot contribution of clusters along specified dimension.
-    TODO - fix docs
+
+    Parameters
+    ----------
+    dimension : str | int
+        Dimension along which to calculate contribution.
+    picks : list-like | None, optional
+        Cluster indices whose contributions should be shown.
+    axis : matplotlib Axes | None, optional
+        Matplotlib axis to plot in.
+
+    Returns
+    -------
+    axis : matplotlib Axes
+        Axes with the plot.
     '''
     import matplotlib.pyplot as plt
 
@@ -592,7 +717,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
 
     Returns
     -------
-    topo : mypy.viz.Topo class
+    topo : borsar.viz.Topo class
         Figure object used in plotting.
 
     Examples
