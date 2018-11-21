@@ -1,11 +1,31 @@
+import os
 import os.path as op
+import warnings
+
 import pytest
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
+import pytest
 
+import mne
 import borsar
-from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
+from borsar.stats import format_pvalue
+from borsar.utils import download_test_data, _get_test_data_dir
+from borsar.cluster import (construct_adjacency_matrix, read_cluster,
+                            _get_mass_range, cluster_based_regression,
+                            _index_from_dim, _clusters_safety_checks,
+                            _check_description, _clusters_chan_vert_checks,
+                            Clusters)
+from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
+                                 _prepare_cluster_description,
+                                 _aggregate_cluster, _get_units)
+
+# setup
+download_test_data()
+data_dir = _get_test_data_dir()
+fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
+fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 
 
 def test_contstruct_adjacency():
@@ -56,7 +76,7 @@ def test_contstruct_adjacency():
 
 
 def test_cluster_based_regression():
-    data_dir = op.join(op.split(borsar.__file__)[0], 'data')
+    data_dir = _get_test_data_dir()
 
     # TEST 1
     # ======
@@ -89,7 +109,7 @@ def test_cluster_based_regression():
                   for prefix in ['pos', 'neg']}
 
     vals = np.array([5., 15, 30, 50, 100])
-    max_perc_error = np.array([7, 6, 5, 4, 3.5]) / 100.
+    max_perc_error = np.array([7, 7, 5, 5, 4.5]) / 100.
 
     for fun, prefix, vls in zip([np.less, np.greater],
                                 ['pos', 'neg'], [vals, vals * -1]):
@@ -121,3 +141,399 @@ def test_cluster_based_regression():
 
     tvals, clst, clst_p = cluster_based_regression(data, preds,
                                                    adjacency=adjacency)
+
+
+def test_get_mass_range():
+    contrib = np.array([0.15, 0.04, 0.09, 0.16, 0.21, 0.1, 0.05,
+                        0.01, 0.08, 0.11])
+    assert _get_mass_range(contrib, 0.1) == slice(4, 5)
+    assert _get_mass_range(contrib, 0.3) == slice(3, 5)
+    assert _get_mass_range(contrib, 0.37) == slice(3, 5)
+    assert _get_mass_range(contrib, 0.38) == slice(3, 6)
+    assert _get_mass_range(contrib, 0.48) == slice(2, 6)
+    assert _get_mass_range(contrib, 0.57) == slice(2, 7)
+
+    # with break
+    contrib = np.array([0.15, 0.15, 0., 0.15, 0.2, 0.1, 0.])
+    slc = _get_mass_range(contrib, 0.5)
+    assert slc == slice(3, 6)
+    assert contrib[slc].sum() < 0.5
+
+
+def test_index_from_dim():
+    dimnames = ['chan', 'freq', 'time']
+    dimcoords = [None, np.arange(8., 12.1, step=0.5),
+                 np.arange(-0.2, 0.51, step=0.1)]
+    assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
+    assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
+    assert (_index_from_dim(dimnames, dimcoords, freq=[10, 11.5]) ==
+            (slice(None), slice(4, 8), slice(None)))
+    assert (_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=[0, 0.3])
+            == (slice(None), slice(3, 5), slice(2, 6)))
+
+
+def test_clusters():
+    import mne
+    import matplotlib.pyplot as plt
+
+    # the second call should not do anything if all is downloaded
+    download_test_data()
+
+    # read source-space cluster results
+    clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
+    clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
+
+    assert (len(clst) == len(clst.pvals) == len(clst.clusters)
+            == len(clst.cluster_polarity))
+    assert len(clst) == 14
+
+
+    # selection
+    # ---------
+
+    # p value
+    clst2 = clst.copy().select(p_threshold=0.2)
+    assert len(clst2) == 3
+
+    # selection with percentage_in
+    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
+    assert len(clst3) == 1
+
+    # using n_points_in without dimension
+    clst3 = clst2.copy().select(n_points_in=2900)
+    assert len(clst3) == 2
+
+    # n_points_in with dimension range
+    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
+    assert len(clst3) == 1
+
+    # selection that results in no clusters
+    clst_no = clst.copy().select(p_threshold=0.05)
+    assert len(clst_no) == 0
+
+    # selection that starts with no clusters
+    clst_no.select(n_points_in=10)
+    assert len(clst_no) == 0
+
+    # selection that selects all
+    clst3 = clst2.copy().select(p_threshold=0.5, n_points_in=100)
+    assert len(clst3) == 3
+
+
+    # write - read round-trip
+    # ----------------------
+    fname = op.join(data_dir, 'temp_clst.hdf5')
+    clst2.save(fname)
+    clst_read = read_cluster(fname, src=fwd['src'], subjects_dir=data_dir)
+    assert len(clst_read) == len(clst2)
+    assert (clst_read.pvals == clst2.pvals).all()
+    assert (clst_read.clusters == clst2.clusters).all()
+    assert (clst_read.stat == clst2.stat).all()
+    # delete the file
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+
+    with pytest.raises(TypeError):
+        clst2.save(fname, description=list('abc'))
+
+
+    # test contribution
+    # -----------------
+    clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
+    len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
+
+    # get_contribution when no cluster_idx is passed
+    all_contrib = clst2.get_contribution(along='freq')
+    assert all_contrib.shape[0] == len(clst2)
+    assert all_contrib.shape[1] == clst2.stat.shape[1]
+
+    # along as int
+    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+
+    # non string
+    match = r'has to be string \(dimension name\) or int \(dimension index\)'
+    with pytest.raises(TypeError, match=match):
+        clst2.get_contribution(cluster_idx=0, along=all_contrib)
+
+    # negative (could later work)
+    with pytest.raises(ValueError, match='must be greater or equal to 0'):
+        clst2.get_contribution(cluster_idx=0, along=-1)
+
+    # int greater there is dimensions - 1
+    with pytest.raises(ValueError, match='must be greater or equal to 0'):
+        clst2.get_contribution(cluster_idx=0, along=2)
+
+    # tests for plot_contribution
+    ax = clst2.plot_contribution('freq')
+    assert isinstance(ax, plt.Axes)
+    children = ax.get_children()
+    isline = [isinstance(chld, plt.Line2D) for chld in children]
+    assert sum(isline) == len(clst2)
+    which_line = np.where(isline)[0]
+    line_data = children[which_line[0]].get_data()[1]
+    assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
+
+    clst2.dimcoords, dcoords = None, clst2.dimcoords
+    ax = clst2.plot_contribution('freq')
+    xlab = ax.get_xlabel()
+    assert xlab == 'frequency bins'
+    clst2.dimcoords = dcoords
+
+    match = 'Clusters has to have `dimnames` attribute'
+    with pytest.raises(TypeError, match=match):
+        dnames = clst2.dimnames
+        clst2.dimnames = None
+        ax = clst2.plot_contribution('freq')
+    clst2.dimnames = dnames
+
+    match = 'does not seem to have the dimension you requested'
+    with pytest.raises(ValueError, match=match):
+        clst2.plot_contribution('abc')
+
+    with pytest.raises(ValueError, match='No clusters present'):
+        clst_no.plot_contribution('freq')
+
+
+    # get index and limits
+    # --------------------
+    idx = clst2.get_cluster_limits(0, retain_mass=0.75)
+    clst_0_freq_contrib[idx[1]].sum() > 0.75
+
+    idx = clst2.get_index(freq=[8, 10])
+    assert idx[1] == slice(2, 7)
+
+    idx = clst2.get_index(cluster_idx=1, freq=0.6)
+    contrib = clst2.get_contribution(1, 'freq')
+    assert contrib[idx[1]].sum() >= 0.6
+
+    assert clst2.get_index() == (slice(None), slice(None))
+    with pytest.raises(ValueError, match='Could not find requested dimension'):
+        clst2.get_index(abc=[1, 2])
+    with pytest.raises(TypeError, match='Clusters has to have dimnames'):
+        dnames = clst2.dimnames
+        clst2.dimnames = None
+        clst2.get_index(freq=[10, 11])
+    clst2.dimnames = dnames
+
+    with pytest.raises(TypeError, match='Clusters has to have dimcoords'):
+        dcoords = clst2.dimcoords
+        clst2.dimcoords = None
+        clst2.get_index(freq=[8.5, 10])
+    clst2.dimcoords = dcoords
+
+    match = r'either ranges \(list of two values\) or cluster mass'
+    with pytest.raises(TypeError, match=match):
+        clst2.get_index(freq='abc')
+
+
+    # test iteration
+    pvls = list()
+    for c in clst2:
+        pvls.append(c.pvals[0])
+    assert (clst2.pvals == pvls).all()
+
+
+    # plotting
+    # --------
+    clst2.dimnames, dnames = None, clst2.dimnames
+    match = 'construct the cluster using the dimnames'
+    with pytest.raises(TypeError, match=match):
+        clst2.plot()
+    clst2.dimnames = dnames
+
+
+    # error checks
+    # ------------
+
+    # error check for _clusters_safety_checks
+    tmp = list()
+    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
+    with pytest.raises(ValueError, match='have to be of the same shape.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    clusters[1] = clusters[1][:, :2]
+    with pytest.raises(TypeError, match='have to be boolean arrays.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
+    with pytest.raises(TypeError, match='must be a numpy array.'):
+        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
+
+    stat = np.zeros((2, 3))
+    with pytest.raises(ValueError, match='same shape as stat.'):
+        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
+
+    with pytest.raises(TypeError, match='list of arrays or one array'):
+        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
+
+    stat = np.zeros((2, 2))
+    with pytest.raises(TypeError, match='list of floats or numpy array'):
+        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
+
+    with pytest.raises(TypeError, match='`dimnames` must be a list'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
+
+    match_str = "are not strings, for example: <class 'int'>"
+    with pytest.raises(TypeError, match=match_str):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
+
+    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
+                                tmp, tmp)
+
+    with pytest.raises(ValueError, match='must be the first dimension'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
+                                tmp, tmp)
+
+    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                'abc', tmp)
+
+    match = 'The length of each dimension coordinate'
+    with pytest.raises(ValueError, match=match):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                [np.arange(2), np.arange(3)], tmp)
+
+    # _check_description
+    with pytest.raises(TypeError, match='has to be either a string or a dict'):
+        _check_description(['abc'])
+
+    # _clusters_chan_vert_checks
+    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
+        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None)
+
+    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None)
+
+    with pytest.raises(TypeError, match='must pass a subject string'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   None, None)
+
+    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   'fsaverage', None)
+
+    # _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir)
+
+    # clusterutils
+    # ------------
+    assert clst2.stc is None
+    _check_stc(clst2)
+    assert isinstance(clst2.stc, mne.SourceEstimate)
+
+    # get clim
+    data = np.array([2.3, 1., -1.5, -2.])
+    vmin, vmax = _get_clim(data)
+    assert vmin == -2.5
+    assert vmax == 2.5
+
+    data = np.array([2.2, 1., -1.5, -2.1])
+    clim = _get_clim(data, pysurfer=True)
+    assert clim['lims'][0] == -2.
+    assert clim['lims'][-1] == 2.
+
+    # cluster label (3d contour)
+    label = _label_from_cluster(clst2, clst2.clusters[0][:, 2])
+    label = _label_from_cluster(clst2, clst2.clusters[1][:, 2])
+    assert isinstance(label, mne.Label)
+
+    # color limits
+    vmin, vmax = _get_clim(data, vmin=-2.)
+    assert vmax == 2.
+    vmin, vmax = _get_clim(data, vmax=3.5)
+    assert vmin == -3.5
+
+    # _prepare_cluster_description
+    clst_idx = 1
+    idx = clst2.get_index(freq=[8, 10])
+    got_desc = _prepare_cluster_description(clst, clst_idx, idx)
+    pval_desc = format_pvalue(clst.pvals[clst_idx])
+    correct_desc = '8.0 - 10.0 Hz\n{}'.format(pval_desc)
+    assert got_desc == correct_desc
+
+    # _aggregate_cluster - 2d
+    mask, stat, idx = _aggregate_cluster(clst2, 0, mask_proportion=0.5,
+                                         retain_mass=0.65)
+    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65)
+    assert idx == correct_idx
+    assert (stat == clst2.stat[idx].mean(axis=-1)).all()
+    assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
+
+    # _aggregate_cluster - 1d
+    slice_idx = 2
+    clst_1d = Clusters([c[:, slice_idx] for c in clst2.clusters[:2]],
+                       clst2.pvals[:2], clst2.stat[:, slice_idx],
+                       dimnames=[clst2.dimnames[0]], dimcoords=[None],
+                       src=clst2.src, subject=clst2.subject,
+                       subjects_dir=clst2.subjects_dir)
+    mask, stat, idx = _aggregate_cluster(clst_1d, 0, mask_proportion=0.5,
+                                         retain_mass=0.65)
+    assert (mask == clst_1d.clusters[0]).all()
+    assert (stat == clst_1d.stat).all()
+    assert idx == (slice(None),)
+
+    # additional checks on 1d cluster
+    assert clst_1d.stc is None
+    _check_stc(clst_1d)
+    assert isinstance(clst_1d.stc, mne.SourceEstimate)
+
+    desc = _prepare_cluster_description(clst_1d, 0, idx)
+    assert desc == '{}'.format(format_pvalue(clst_1d.pvals[0]))
+
+    # _get_units
+    assert _get_units('time', fullname=True) == 'seconds'
+
+    # create empty clusters
+    clst_empty = Clusters(
+        None, None, clst2.stat[slice_idx], dimcoords=[clst2.dimcoords[1]],
+        dimnames=[clst2.dimnames[1]])
+    clst_empty = Clusters(
+        np.zeros(0, dtype='bool'), np.zeros(0), clst2.stat[slice_idx],
+        dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+    clst_empty = Clusters(
+        list(), np.zeros(0), clst2.stat[slice_idx],
+        dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+
+
+def test_chan_freq_clusters():
+    from mne import create_info
+    from mne.externals import h5io
+    import matplotlib.pyplot as plt
+
+    fname = op.join(data_dir, 'chan_alpha_range.hdf5')
+    data_dict = h5io.read_hdf5(fname)
+    info = create_info(data_dict['dimcoords'][0], sfreq=250., ch_types='eeg',
+                       montage='easycap-M1')
+    clst = Clusters(
+        data_dict['clusters'], data_dict['pvals'], data_dict['stat'],
+        dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
+        info=info, description=data_dict['description'])
+
+    topo = clst.plot(cluster_idx=1, freq=[8, 8.5])
+    plt.close(topo.fig)
+    clst.clusters = None
+    topo = clst.plot(freq=[10, 11.5])
+    plt.close(topo.fig)
+
+
+@pytest.mark.skip(reason="mayavi kills CI tests")
+def test_mayavi_viz():
+    # mayavi import adapted from mne:
+    with warnings.catch_warnings(record=True):  # traits
+        from mayavi import mlab
+    mlab.options.backend = 'test'
+
+    clst2 = read_cluster(op.join(data_dir, 'temp_clst.hdf5'), src=fwd['src'],
+                         subjects_dir=data_dir)
+    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
+
+    # mayavi plotting
+    # ---------------
+    # only smoke tests currently
+    brain = clst2.plot(0, freq=[8, 9], set_light=False)
+    fig = brain._figures[0][0]
+    mlab.close(fig)
+
+    brain = clst2.plot(1, freq=0.7, set_light=False)
+    fig = brain._figures[0][0]
+    mlab.close(fig)

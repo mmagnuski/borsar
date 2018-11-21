@@ -12,3 +12,6 @@ coverage:
 comment:
   layout: "header, diff, sunburst, uncovered"
   behavior: default
+ignore:
+  - "borsar/_viz3d.py"
+  - "borsar/tests"

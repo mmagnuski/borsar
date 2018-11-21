@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import statsmodels.api as sm
-from borsar.stats import compute_regression_t
+from borsar.stats import compute_regression_t, format_pvalue
 
 
 def test_compute_regression_t():
@@ -27,12 +27,14 @@ def test_compute_regression_t():
     t_vals_borsar = compute_regression_t(data, preds)
     elapsed_borsar = time.clock() - t0
 
-    # make sure t-values are almost the same (same up to ~9 decimal places)
+    # make sure t-values are almost the same (same up to ~8 decimal places)
+    # (most of the time it is the same up to 9 decimal places but not always)
     assert t_vals_sm.shape == t_vals_borsar.shape
-    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-9)
+    np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-8)
 
-    # make sure we are at least 90 times faster than statsmodels loop
-    assert elapsed_borsar * 90 < elapsed_sm
+    # make sure we are at least 30 times faster than statsmodels loop
+    # (although on most computers and in many cases this will be about 100)
+    assert elapsed_borsar * 30 < elapsed_sm
 
     # make sure preds are turned from 1d to 2d
     data = np.random.random((35, 2))
@@ -55,3 +57,13 @@ def test_compute_regression_t():
 
     _, p_vals_borsar = compute_regression_t(data, preds, return_p=True)
     np.testing.assert_allclose(p_vals_borsar, p_vals_sm, rtol=1e-9)
+
+
+def test_format_p_value():
+    assert format_pvalue(0.13) == 'p = 0.130'
+    assert format_pvalue(0.035) == 'p = 0.035'
+    assert format_pvalue(0.001) == 'p = 0.001'
+    assert format_pvalue(0.0025) == 'p = 0.003'
+    assert format_pvalue(0.00025) == 'p < 0.001'
+    assert format_pvalue(0.000015) == 'p < 0.0001'
+    assert format_pvalue(0.000000000015) == 'p < 1e-10'

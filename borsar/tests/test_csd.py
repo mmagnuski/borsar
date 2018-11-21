@@ -25,8 +25,7 @@ def test_csd_base():
     erp_csd_py = _current_source_density(erp, G, H)
 
     # make sure erp_csd and erp_csd_py are the same
-    # (use lower rtol for a stricter test)
-    assert_allclose(erp_csd, erp_csd_py, rtol=5e-9)
+    assert_allclose(erp_csd, erp_csd_py, rtol=5e-8)
 
     # make sure G and H were not changed during computation
     assert (G == G_orig).all()

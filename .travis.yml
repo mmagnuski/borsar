@@ -14,9 +14,10 @@ install:
   - conda info -a
 
   # install dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pytest pytest-cov statsmodels
-  - source activate test-environment
-  - pip install codecov mne tqdm
+  - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
+  - conda env create -f environment.yml
+  - source activate mne
+  - pip install codecov tqdm
   - python setup.py develop
 
 script:
