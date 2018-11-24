@@ -43,8 +43,9 @@ class Topo(object):
             self.axis = kwargs['axes']
             plt.sca(self.axis)
 
-        # if side is not None and side == 'right':
-        #     info, kwargs = _construct_topo_side(info, kwargs)
+        part = _infer_topo_part(info)
+        if part is not None:
+            info, kwargs = _construct_topo_part(info, part, kwargs)
 
         # plot using mne's `plot_topomap`
         im, lines = plot_topomap(values, info, **kwargs)
@@ -173,3 +174,61 @@ def _extract_topo_channels(ax):
             raise RuntimeError(msg)
 
     return chans, chan_pos
+
+
+def _infer_topo_part(info):
+    ch_pos = get_ch_pos(info)
+    all_x_above_0 = (ch_pos[:, 0] >= 0.).all()
+    all_y_above_0 = (ch_pos[:, 1] >= 0.).all()
+    side = ''
+    if all_x_above_0:
+        side += 'right'
+
+    if all_y_above_0:
+        side = 'frontal' if len(side) == 0 else '_'.join(side, 'frontal')
+
+    side = None if len(side) == 0 else side
+    return side
+
+
+def _construct_topo_part(info, part='right', kwargs):
+    from mne.viz.topomap import _check_outlines, _find_topomap_coords
+
+    # create head circle
+    radius = 0.5
+    ll = np.linspace(0, 2 * np.pi, 101)
+    head_x = np.cos(ll) * radius
+    head_y = np.sin(ll) * radius
+    mask_outlines = np.c_[head_x, head_y]
+
+    # create mask
+    if 'right' in side:
+        below_zero = mask_outlines[:, 0] < 0
+        removed_len = below_zero.sum()
+        filling = np.zeros((removed_len, 2))
+        filling[:, 1] = np.linspace(0.5, -0.5, num=removed_len)
+        mask_outlines[below_zero, :] = filling
+    if side == 'right_frontal':
+        below_zero = mask_outlines[:, 1] < 0
+        removed_len = below_zero.sum()
+        filling = np.zeros((removed_len, 2))
+        filling[:, 0] = np.linspace(0., 0.5, num=removed_len)
+        mask_outlines[below_zero, :] = filling
+
+    head_pos = dict(center=(0., 0.))
+    picks = range(len(info['ch_names']))
+    pos = _find_topomap_coords(info, picks=picks)
+
+    # TODO currently uses outlines='head', but should change later
+    pos, outlines = _check_outlines(pos, outlines='head',
+                                    head_pos=head_pos)
+    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
+    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
+
+    # scale pos to min - max of the circle (the 0.425 value was hand-picked)
+    scale_x = 0.425 / pos[:, 0].max()
+    scale_y = 0.425 / np.abs(pos[:, 1]).max()
+    pos[:, 0] *= scale_x
+    pos[:, 1] *= scale_y
+    info = pos
+    return info, kwargs
