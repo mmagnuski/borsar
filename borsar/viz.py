@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from borsar.channels import get_ch_pos
+from .channels import get_ch_pos
 
 
 class Topo(object):
@@ -47,7 +47,7 @@ class Topo(object):
 
         part = _infer_topo_part(info)
         if part is not None:
-            info, kwargs = _construct_topo_part(info, part, kwargs)
+            info, kwargs = _construct_topo_part(info, kwargs, part)
 
         # plot using mne's `plot_topomap`
         im, lines = plot_topomap(values, info, **kwargs)
@@ -187,7 +187,7 @@ def _infer_topo_part(info):
         side += 'right'
 
     if all_y_above_0:
-        side = 'frontal' if len(side) == 0 else '_'.join(side, 'frontal')
+        side = 'frontal' if len(side) == 0 else '_'.join([side, 'frontal'])
 
     side = None if len(side) == 0 else side
     return side
@@ -197,7 +197,8 @@ def _construct_topo_part(info, part, kwargs):
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
     # create head circle
-    radius = 0.5
+    use_skirt = kwargs.get('outlines', None) == 'skirt'
+    radius = 0.5 if not use_skirt else 0.65 # this does not seem to change much
     ll = np.linspace(0, 2 * np.pi, 101)
     head_x = np.cos(ll) * radius
     head_y = np.sin(ll) * radius
@@ -208,13 +209,21 @@ def _construct_topo_part(info, part, kwargs):
         below_zero = mask_outlines[:, 0] < 0
         removed_len = below_zero.sum()
         filling = np.zeros((removed_len, 2))
-        filling[:, 1] = np.linspace(0.5, -0.5, num=removed_len)
+        filling[:, 1] = np.linspace(radius, -radius, num=removed_len)
         mask_outlines[below_zero, :] = filling
-    if part == 'right_frontal':
+    elif 'left' in part:
+        above_zero = mask_outlines[:, 0] > 0
+        removed_len = below_zero.sum()
+        filling = np.zeros((removed_len, 2))
+        filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
+        mask_outlines[above_zero, :] = filling
+    if 'frontal' in part:
         below_zero = mask_outlines[:, 1] < 0
         removed_len = below_zero.sum()
         filling = np.zeros((removed_len, 2))
-        filling[:, 0] = np.linspace(0., 0.5, num=removed_len)
+        lo = 0. if 'right' in part else -radius
+        hi = 0. if 'left' in part else radius
+        filling[:, 0] = np.linspace(lo, hi, num=removed_len)
         mask_outlines[below_zero, :] = filling
 
     head_pos = dict(center=(0., 0.))
@@ -222,12 +231,14 @@ def _construct_topo_part(info, part, kwargs):
     pos = _find_topomap_coords(info, picks=picks)
 
     # TODO currently uses outlines='head', but should change later
-    pos, outlines = _check_outlines(pos, outlines='head',
+    outlines = kwargs.get('outlines', 'head')
+    pos, outlines = _check_outlines(pos, outlines=outlines,
                                     head_pos=head_pos)
 
     # scale pos to min - max of the circle (the 0.425 value was hand-picked)
-    scale_x = 0.425 / pos[:, 0].max()
-    scale_y = 0.425 / np.abs(pos[:, 1]).max()
+    scale_factor = 0.425 if not use_skirt else 0.565
+    scale_x = scale_factor / pos[:, 0].max()
+    scale_y = scale_factor / np.abs(pos[:, 1]).max()
     pos[:, 0] *= scale_x
     pos[:, 1] *= scale_y
 
