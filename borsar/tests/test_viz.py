@@ -35,9 +35,9 @@ def test_topo():
 
     # various selections
     for selection in ['frontal', 'asy_frontal', 'asy_all']:
-        select = select_channels(raw, selection=selection)
-        select = ([select] if isinstance(select, list) else
+        select = select_channels(raw, select=selection)
+        select = ([select] if isinstance(select, np.ndarray) else
                   [select['left'], select['right']])
         for sel in select:
-            sel_info = mne.pick_info(raw.info, picks=sel)
+            sel_info = mne.pick_info(raw.info, sel=sel)
             topo = Topo(alpha_topo[sel], sel_info, show=False)

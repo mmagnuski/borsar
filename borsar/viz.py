@@ -47,7 +47,7 @@ class Topo(object):
 
         part = _infer_topo_part(info)
         if part is not None:
-            info, kwargs = _construct_topo_part(info, kwargs, part)
+            info, kwargs = _construct_topo_part(info, part, kwargs)
 
         # plot using mne's `plot_topomap`
         im, lines = plot_topomap(values, info, **kwargs)
