@@ -7,6 +7,8 @@ from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
+from borsar.channels import find_channels
+
 
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
@@ -274,6 +276,11 @@ class Clusters(object):
         self.info = info
         self.stc = None
         self.src = src
+
+        # FIXME: find better way for this (maybe during safety checks earlier)
+        if self.info is not None and safety_checks:
+            _ensure_correct_info(self)
+
 
     # - [ ] add warning if all clusters removed
     # - [ ] consider select to _not_ work inplace
@@ -732,17 +739,31 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     #      - if no clusters and None - plot without highlighting
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
+    # split kwargs into topo_kwargs and dim_kwargs
+    topo_kwargs, dim_kwargs = dict(), dict()
+    for k, v in kwargs.items():
+        if k not in clst.dimnames:
+            topo_kwargs[k] = v
+        else:
+            dim_kwargs[k] = v
+
     # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
     clst_mask, clst_stat, idx = _aggregate_cluster(
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **kwargs)
+        ignore_space=True, **dim_kwargs)
 
     # create pysurfer brain
     from borsar.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
-    topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False)
+    topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
+                **topo_kwargs)
     topo.solid_lines()
+
+    # FIXME: temporary hack to make all channels more visible
+    topo.mark_channels(np.arange(len(clst_stat)), markersize=3,
+                       markerfacecolor='k', linewidth=0.)
+
     if len(clst) >= cluster_idx + 1:
         topo.mark_channels(clst_mask)
 
@@ -1019,3 +1040,16 @@ def _cluster_selection(clst, sel):
         clst.clusters = None
         clst.pvals = None
     return clst
+
+
+def _ensure_correct_info(clst):
+    # check if we have channel names:
+    has_ch_names = clst.dimcoords[0] is not None
+    if has_ch_names:
+        from mne import pick_info
+        from borsar.channels import find_channels
+
+        ch_names = [ch.split('-')[0] if '-' in ch else ch
+                    for ch in clst.dimcoords[0]]
+        ch_idx = find_channels(clst.info, ch_names)
+        clst.info = pick_info(clst.info, ch_idx)
