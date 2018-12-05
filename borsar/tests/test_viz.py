@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import mne
 import pytest
 
+from borsar.channels import select_channels
 from borsar.freq import compute_rest_psd
 from borsar.utils import find_range
 from borsar.viz import Topo, _extract_topo_channels
@@ -31,3 +32,12 @@ def test_topo():
     topo = Topo(alpha_topo, raw.info, axes=ax, show=False)
     assert topo.axis == ax
     assert topo.fig == fig
+
+    # various selections
+    for selection in ['frontal', 'asy_frontal', 'asy_all']:
+        select = select_channels(raw, selection=selection)
+        select = ([select] if isinstance(select, list) else
+                  [select['left'], select['right']])
+        for sel in select:
+            sel_info = mne.pick_info(raw.info, picks=sel)
+            topo = Topo(alpha_topo[sel], sel_info, show=False)

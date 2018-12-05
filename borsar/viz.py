@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from borsar.channels import get_ch_pos
+
 
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
@@ -191,7 +193,7 @@ def _infer_topo_part(info):
     return side
 
 
-def _construct_topo_part(info, part='right', kwargs):
+def _construct_topo_part(info, part, kwargs):
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
     # create head circle
@@ -202,13 +204,13 @@ def _construct_topo_part(info, part='right', kwargs):
     mask_outlines = np.c_[head_x, head_y]
 
     # create mask
-    if 'right' in side:
+    if 'right' in part:
         below_zero = mask_outlines[:, 0] < 0
         removed_len = below_zero.sum()
         filling = np.zeros((removed_len, 2))
         filling[:, 1] = np.linspace(0.5, -0.5, num=removed_len)
         mask_outlines[below_zero, :] = filling
-    if side == 'right_frontal':
+    if part == 'right_frontal':
         below_zero = mask_outlines[:, 1] < 0
         removed_len = below_zero.sum()
         filling = np.zeros((removed_len, 2))
@@ -222,13 +224,15 @@ def _construct_topo_part(info, part='right', kwargs):
     # TODO currently uses outlines='head', but should change later
     pos, outlines = _check_outlines(pos, outlines='head',
                                     head_pos=head_pos)
-    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
 
     # scale pos to min - max of the circle (the 0.425 value was hand-picked)
     scale_x = 0.425 / pos[:, 0].max()
     scale_y = 0.425 / np.abs(pos[:, 1]).max()
     pos[:, 0] *= scale_x
     pos[:, 1] *= scale_y
+
+    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
+    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
+
     info = pos
     return info, kwargs
