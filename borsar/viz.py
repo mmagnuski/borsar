@@ -185,6 +185,8 @@ def _infer_topo_part(info):
     side = ''
     if all_x_above_0:
         side += 'right'
+    elif (ch_pos[:, 0] <= 0.).all():
+        side += 'left'
 
     if all_y_above_0:
         side = 'frontal' if len(side) == 0 else '_'.join([side, 'frontal'])
@@ -213,7 +215,7 @@ def _construct_topo_part(info, part, kwargs):
         mask_outlines[below_zero, :] = filling
     elif 'left' in part:
         above_zero = mask_outlines[:, 0] > 0
-        removed_len = below_zero.sum()
+        removed_len = above_zero.sum()
         filling = np.zeros((removed_len, 2))
         filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
         mask_outlines[above_zero, :] = filling
