@@ -21,7 +21,7 @@ def _check_stc(clst):
         if len(clst.dimnames) > 1:
             data_single = clst.stat[:, [0]]
         else:
-            data_single = clst.stat[:, np.newaxis]
+            data_single = clst.stat[:, np.newaxis].copy()
 
         clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
                                          tstep=tstep, subject=clst.subject)
@@ -63,7 +63,7 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
     else:
         # no aggregation
         idx = (slice(None),)
-        clst_stat = clst.stat
+        clst_stat = clst.stat.copy()
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx is not None
                      else None)
     return clst_mask, clst_stat, idx
