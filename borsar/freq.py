@@ -92,7 +92,8 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 
 
 def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
-                selection='asy_frontal', transform='log', div_by_sum=False):
+                selection='asy_frontal', transform='log', div_by_sum=False,
+                src=None, subjects_dir=None, subject=None):
     '''
     Format power spectral densities. This includes channel selection, log
     transform, frequency range selection, averaging frequencies and calculating
@@ -101,8 +102,8 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
     Parameters
     ----------
     psds : numpy array
-        psds should be in (subjects, channels, frequencies) or
-        (channels, frequencies) shape.
+        psds should be in (subjects, channels or vertices, frequencies) or
+        (channels or vertices, frequencies) shape.
     freq : numpy array of shape (n_freqs,)
         Frequency bins.
     info : mne.Info
@@ -121,6 +122,13 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
         If True the asymmetry difference is divided by the sum of
         the homologous channels: (ch_right - ch_left) / (ch_right + ch_left).
         Defaults to False.
+    src : mne.SourceSpaces
+        SourceSpaces for given subjects or the same for all subjects if data
+        contains multiple subjects.
+    subjects_dir : str
+        FreeSurfer subjects directiory.
+    subject : str
+        Selected subject in subjects_dir to use.
 
     Returns
     -------
@@ -140,15 +148,37 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
         freq = freq.mean()
 
     ch_names = get_ch_names(info)
-    sel = select_channels(info, selection)
+    if src is None:
+        sel = select_channels(info, selection)
+    else:
+        from .src import select_vertices, morph_hemi
+        sel = select_vertices(src, hemi='both', selection=selection,
+                              subjects_dir=subjects_dir, subject=subject)
 
     if transform == 'log':
         psds = np.log(psds)
 
     if 'asy' in selection:
         # compute asymmetry
-        rgt = psds[:, sel['right']]
-        lft = psds[:, sel['left']]
+        if src is None:
+            rgt = psds[:, sel['right']]
+            lft = psds[:, sel['left']]
+        else:
+            # we firt need to morph one hemisphere into the other to make sure
+            # the vertices in left and right match
+            has_subjects = psds.ndim > 2
+            psds = morph_hemi(psds, src, morph='rh2lh',
+                              subjects_dir=subjects_dir,
+                              has_subjects=has_subjects)
+
+            # now lh and rh should have the same number of vertices
+            hlf_vert = int(psds.shape[-2] / 2)
+            assert hlf_vert * 2 == psds.shape[-2]
+
+            # select vertices
+            lft = psds[:, sel['lh']]
+            rgt = psds[:, sel['lh'] + hlf_vert]
+
         psds = rgt - lft
         if div_by_sum:
             psds /= rgt + lft
