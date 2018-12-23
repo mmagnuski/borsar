@@ -179,6 +179,34 @@ def test_index_from_dim():
             == (slice(None), slice(3, 5), slice(2, 6)))
 
 
+def test_cluster_limits():
+    T, F = True, False
+    use_contrib = np.array([0.25, 0.1, 0.38, 0.07, 0.15, 0.05, 0.1])
+    use_clusters = [np.array([T, F, T, T, T, F, T])]
+
+    clusters = np.zeros((7, 100), dtype='bool')
+    for idx, (cntrb, cl) in enumerate(zip(use_contrib, use_clusters[0])):
+        if cl:
+            clusters[idx, :int(cntrb * 100)] = True
+
+    pvals = [0.02]
+    stat = np.ones((7, 100))
+    info = mne.create_info(list('ABCDEFG'), sfreq=250.)
+    # FIX: dimcoords should not be necessary, but we get error without
+    dimcoords = [list('ABCDEFG'), np.linspace(3., 25., num=100)]
+    clst = Clusters([clusters], pvals, stat, dimnames=['chan', 'freq'],
+                    dimcoords=dimcoords, info=info)
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.66, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2])).all()
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.68, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2, 4])).all()
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.83, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2, 4, 6])).all()
+
+
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt
