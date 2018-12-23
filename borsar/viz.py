@@ -138,7 +138,7 @@ class Topo(object):
 
 def _extract_topo_channels(ax):
     '''
-    Extract channels positions from mne topoplot axis.
+    Extract channel positions from mne topoplot axis.
 
     Parameters
     ----------
@@ -179,6 +179,13 @@ def _extract_topo_channels(ax):
 
 
 def _infer_topo_part(info):
+    """Infer whether a specific part of the topography should be shown.
+
+    For example when only channels on the left are shown, the right side of the
+    topography should be masked.
+    This function will be less useful once convex-hull masking is available in
+    mne-python.
+    """
     ch_pos = get_ch_pos(info)
     all_x_above_0 = (ch_pos[:, 0] >= 0.).all()
     all_y_above_0 = (ch_pos[:, 1] >= 0.).all()
@@ -196,6 +203,7 @@ def _infer_topo_part(info):
 
 
 def _construct_topo_part(info, part, kwargs):
+    """Mask part of the topography."""
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
     # create head circle

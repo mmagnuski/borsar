@@ -12,8 +12,8 @@ def compute_regression_t(data, preds, return_p=False):
         (for example trials or subjects).
     preds : numpy array of shape (observations, predictors)
         Predictor array to use in regression.
-    return_p : bool (default False)
-        If True - returns also p values.
+    return_p : bool
+        If True - also return p values. Defaults to False.
 
     Returns
     -------

@@ -29,7 +29,7 @@ def _check_stc(clst):
 
 # prepare figure colorbar limits
 def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
-    'Get color limits from data - rounding to steps of 0.5.'
+    """Get color limits from data - rounding to steps of 0.5."""
     if vmin is None and vmax is None:
         vmax = np.abs([data.min(), data.max()]).max()
         vmax_round = np.round(vmax)
@@ -85,6 +85,7 @@ def _label_from_cluster(clst, clst_mask):
 
 
 def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
+    """Prepare text description about cluster range and p value."""
     if clst.stat.ndim > 1:
         if reduce_axes is None:
             # TODO - start at one only when showing spatial map
