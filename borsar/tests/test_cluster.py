@@ -153,6 +153,13 @@ def test_get_mass_range():
     assert _get_mass_range(contrib, 0.48) == slice(2, 6)
     assert _get_mass_range(contrib, 0.57) == slice(2, 7)
 
+    assert (_get_mass_range(contrib, 0.3, adjacent=False) ==
+            np.array([3, 4])).all()
+    assert (_get_mass_range(contrib, 0.38, adjacent=False) ==
+            np.array([0, 3, 4])).all()
+    assert (_get_mass_range(contrib, 0.53, adjacent=False) ==
+            np.array([0, 3, 4, 9])).all()
+
     # with break
     contrib = np.array([0.15, 0.15, 0., 0.15, 0.2, 0.1, 0.])
     slc = _get_mass_range(contrib, 0.5)
