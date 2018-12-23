@@ -255,14 +255,17 @@ class Clusters(object):
                                       for cl in clusters] if pvals is not None
                                       else None)
 
-        # sort by p values if necessary
         if pvals is not None:
             pvals = np.asarray(pvals)
+
+            # sort by p values if necessary
             if sort_pvals:
                 psort = np.argsort(pvals)
                 if not (psort == np.arange(pvals.shape[0])).all():
                     clusters = clusters[psort]
                     pvals = pvals[psort]
+                    self.cluster_polarity = [self.cluster_polarity[idx]
+                                             for idx in psort]
 
         # create attributes
         self.subjects_dir = subjects_dir
@@ -319,7 +322,7 @@ class Clusters(object):
             self = _cluster_selection(self, sel)
         return self
 
-    # TODO: add deepcopy arg?
+    # TODO: add deepcopy arg (`deep=False` by default)?
     def copy(self):
         '''
         Copy the Clusters object. The lists/arrays are not copied however.
