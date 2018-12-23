@@ -13,7 +13,8 @@ def find_range(vec, ranges):
     ----------
     vec : numpy array
         Vector of sorted values.
-    ranges: list of tuples/lists or two-element list/tuple
+    ranges: list of tuples/lists | two-element list/tuple
+        Ranges or range to be found.
 
     Returns
     -------
@@ -41,8 +42,8 @@ def find_range(vec, ranges):
 # - [ ] if vals is np.ndarray try to format output in the right shape
 def find_index(vec, vals):
     '''
-    Find indices of values in a vector `vec` that are closest to requested
-    values `vals`.
+    Find indices of values in `vec` that are closest to requested values
+    `vals`.
 
     Parameters
     ----------
@@ -71,10 +72,8 @@ def find_index(vec, vals):
 
 
 def get_info(inst):
-    '''
-    Simple helper function that returns Info whatever mne object it gets
-    (including mne.Info itself).
-    '''
+    '''Simple helper function that returns Info whatever mne object it gets.'''
+
     from mne import Info
     if isinstance(inst, Info):
         return inst
@@ -84,7 +83,7 @@ def get_info(inst):
 
 def detect_overlap(segment, annot, sfreq=None):
     '''
-    Detect what percentage of given segment is overlapping with bad annotations.
+    Detect what percentage of given segment is overlapping with annotations.
 
     Parameters
     ----------
@@ -185,7 +184,28 @@ def _check_tmin_tmax(raw, tmin, tmax):
 
 def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
     '''
-    Return information on which moving windows overlap with annotations.
+    Test which moving windows overlap with annotations.
+
+    Parameters
+    ----------
+    raw : mne.Raw
+        Data to use.
+    tmin : flot | None
+        Start time for the moving windows. Defaults to None which means start
+        of the raw data.
+    tmax : flot | None
+        End time for the moving windows. Defaults to None which means end of
+        the raw data.
+    winlen : float
+        Window length in seconds. Defaults to 2.
+    step : float
+        Window step in seconds. Defaults to 1.
+
+    Returns
+    -------
+    valid : boolean numpy array
+        Whether the moving widnows overlap with annotations. Consecutive values
+        inform whether consecutive windows overlap with any annotation.
     '''
     annot = raw.annotations
     tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
@@ -215,8 +235,8 @@ def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
     sfreq : float, optional
         Sampling frequency of the fake raw signal. Defaults to 125.
 
-    Rerutrns
-    --------
+    Returns
+    -------
     raw : mne.io.RawArray
         Created raw array.
     '''
@@ -257,7 +277,7 @@ def get_dropped_epochs(epochs):
 @contextmanager
 def silent_mne():
     '''
-    Context manager without warnings from mne-python.
+    Context manager that silences warnings from mne-python.
     '''
     import mne
     log_level = mne.set_log_level('error', return_old_level=True)

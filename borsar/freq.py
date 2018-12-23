@@ -15,13 +15,15 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     welch windows that had artifact free data (and thus were not rejected in
     `mne.time_frequency.psd_welch`).
 
+    Parameters
+    ----------
     raw: mne.Raw
         Raw file to use.
-    events: numpy array N x 3 or None
-        Mne events array. If None (default) `tmin` and `tmax` are not
-        calculated with respect to events but the whole time range of the
-        `raw`.
-    event_id: list or numpy array
+    events: numpy array | None
+        Mne events array of shape (n_events, 3). If None (default) `tmin` and
+        `tmax` are not calculated with respect to events but the whole time
+        range of the `raw` file.
+    event_id: list | numpy array
         Event types to use in defining segments for which psd is computed.
         If None (default) and events were passed all event types are used.
     tmin: float
@@ -38,6 +40,13 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         Length of the welch window in seconds.
     step: float
         Step of the welch window in seconds.
+
+    Returns
+    -------
+    psd : numpy array
+        Power spectral density in <FIX: check shape> matrix.
+    freq : numpy array
+        Frequencies for which psd was calculated.
     '''
     from mne.time_frequency import psd_welch
 

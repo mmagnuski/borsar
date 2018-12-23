@@ -4,7 +4,26 @@ import numpy as np
 def current_source_density(inst, G, H, smoothing=1.0e-5, head_radius=1.):
     '''
     Compute current source density for given mne object instance.
-    ! works in-place !
+
+    Note that this function works in-place.
+
+    Parameters
+    ----------
+    inst : mne object instance
+        Raw or Epochs data.
+    G : numpy matrix
+        G matrix.
+    H : numpy matrix
+        H matrix.
+    smoothing : float
+        CSD smoothing. Defaults to 1.0e-5.
+    head_radius : float
+        Radius of the head sphere.
+
+    Returns
+    -------
+    inst : mne object instance
+        The data with CSD reference.
     '''
     import mne
     from mne.utils import _get_inst_data
@@ -31,9 +50,7 @@ def current_source_density(inst, G, H, smoothing=1.0e-5, head_radius=1.):
 
 
 def _current_source_density(data, G, H, smoothing=1.0e-5, head_radius=1.):
-    '''
-    Python implementation of CSD.m from Matlab CSD toolbox.
-    '''
+    '''Python implementation of CSD.m from Matlab CSD toolbox.'''
     # FIXME add checks for G and H sizes
 
     n_channels, n_times = data.shape

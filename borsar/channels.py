@@ -3,9 +3,9 @@ from .utils import get_info
 
 
 def get_ch_names(inst):
-    '''
-    Get channel names - works both for mne objects like Raw or Epochs
-    but also for Info.
+    '''Get channel names from mne object instance.
+
+    Works both for Raw or Epochs but also for Info.
     '''
     import mne
     if isinstance(inst, mne.Info):
@@ -15,18 +15,14 @@ def get_ch_names(inst):
 
 
 def get_ch_pos(inst):
-    '''
-    Extract xyz position of channels from mne object.
-    '''
+    '''Extract xyz position of channels from mne object instance.'''
     info = get_info(inst)
     chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
     return np.array(chan_pos)
 
 
 def find_channels(inst, names):
-    '''
-    Find channel indices by their names.
-    '''
+    '''Find channel indices by their names in mne object instance.'''
     one_name = False
     ch_names = get_ch_names(inst)
     if isinstance(names, str):
@@ -38,7 +34,7 @@ def find_channels(inst, names):
 
 def select_channels(inst, select='all'):
     '''
-    Gives indices of channels selected by passed keyword.
+    Gives indices of channels selected by a text keyword.
 
     Parameters
     ----------
@@ -84,8 +80,8 @@ def homologous_pairs(inst):
 
     Parameters
     ----------
-    inst : mne object instance (optional)
-        Mne object like mne.Raw or mne.Epochs
+    inst : mne object instance
+        Mne object like mne.Raw or mne.Epochs.
 
     Returns
     -------
