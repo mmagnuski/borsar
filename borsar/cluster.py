@@ -480,9 +480,11 @@ class Clusters(object):
             grouped together in a tuple.
         '''
         # TODO: add safety checks
+        has_space = (self.dimnames is not None and
+                     self.dimnames[0] in ['vert', 'chan'])
         if check_dims is None:
             check_dims = list(range(self.stat.ndim))
-        if ignore_space and 0 in check_dims:
+        if has_space and ignore_space and 0 in check_dims:
             check_dims.remove(0)
 
         limits = list()
@@ -493,7 +495,8 @@ class Clusters(object):
                 contrib = self.get_contribution(cluster_idx, along=dimname)
 
                 # curent method - start at max and extend
-                limits.append(_get_mass_range(contrib, mass))
+                adj = not (idx == 0 and has_space)
+                limits.append(_get_mass_range(contrib, mass, adjacent=adj))
             else:
                 limits.append(slice(None))
         return tuple(limits)
@@ -1003,27 +1006,54 @@ def _get_full_dimname(dimname):
     return dct[dimname] if dimname in dct else dimname
 
 
-def _get_mass_range(contrib, mass):
-    '''Find range that retains given mass (sum) of the contributions vector.'''
+def _get_mass_range(contrib, mass, adjacent=True):
+    '''Find range that retains given mass (sum) of the contributions vector.
+
+    Parameters
+    ----------
+    contrib : np.ndarray
+        Vector of contributions.
+    mass : float
+        Requested mass to retain.
+    adjacent : boolean
+        Whether to extend from the maximum point by adjacency or not.
+
+    Returns
+    -------
+    extent : slice or np.ndarray of int
+        Slice (when `adjacency=True`) or indices (when `adjacency=False`)
+        retaining the required mass.
+    '''
     contrib_len = contrib.shape[0]
     max_idx = np.argmax(contrib)
     current_mass = contrib[max_idx]
-    side_idx = np.array([max_idx, max_idx])
-    while current_mass < mass:
-        side_idx += [-1, +1]
-        vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
-                0. if side_idx[1] + 1 >= contrib.shape[0]
-                else contrib[side_idx[1]]]
 
-        if sum(vals) == 0.:
-            side_idx += [+1, -1]
-            break
-        ord = np.argmax(vals)
-        current_mass += contrib[side_idx[ord]]
-        one_back = [+1, -1]
-        one_back[ord] = 0
-        side_idx += one_back
-    return slice(side_idx[0], side_idx[1] + 1)
+    if adjacent:
+        side_idx = np.array([max_idx, max_idx])
+        while current_mass < mass:
+            side_idx += [-1, +1]
+            vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
+                    0. if side_idx[1] + 1 >= contrib.shape[0]
+                    else contrib[side_idx[1]]]
+
+            if sum(vals) == 0.:
+                side_idx += [+1, -1]
+                break
+            ord = np.argmax(vals)
+            current_mass += contrib[side_idx[ord]]
+            one_back = [+1, -1]
+            one_back[ord] = 0
+            side_idx += one_back
+
+        return slice(side_idx[0], side_idx[1] + 1)
+    else:
+        indices = np.argsort(contrib)[::-1]
+        cum_mass = np.cumsum(contrib[indices])
+        retains_mass = np.where(cum_mass >= mass)[0]
+        if len(retains_mass) > 0:
+            indices = indices[:retains_mass[0] + 1]
+        return np.sort(indices)
+
 
 
 def _cluster_selection(clst, sel):
