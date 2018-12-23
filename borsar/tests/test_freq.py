@@ -3,12 +3,8 @@ import numpy as np
 import mne
 
 from borsar.utils import create_fake_raw
-from borsar.freq import format_psds, compute_rest_psd
+from borsar.freq import compute_rest_psd
 from borsar.channels import select_channels
-
-
-fname = op.join('.', 'borsar', 'data', 'rest_sample_data-raw.fif')
-raw = mne.io.read_raw_fif(fname)
 
 
 def test_compute_rest_psd():
