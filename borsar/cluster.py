@@ -292,7 +292,38 @@ class Clusters(object):
         '''
         Select clusters by p value threshold or its location in the data space.
 
-        TODO: fix docs
+        Note that this method works in-place.
+
+        Parameters
+        ----------
+        p_threshold : None | float
+            Threshold for cluster-level p value. Only clusters associated with
+            a p value lower than this threshold are selected. Defaults to None
+            which does not select clusters by p value.
+        percentage_in : None | float
+            Select clusters by percentage participation in range of the data
+            space specified in **kwargs. For example
+            `clst.select(percentage_in=0.15, freq=[3, 7])` selects only those
+            clusters that have at least 15% of their mass in 3 - 7 Hz frequency
+            range. Defaults to None which does not select clusters by their
+            participation in data space.
+        n_points_in : None | int
+            Select clusters by number of their minimum number of data points
+            that lie in the range of the data specified in **kwargs. For
+            example `clst.select(n_points_in=25, time=[0.2, 0.35])` selects
+            only those clusters that contain at least 25 points within
+            0.2 - 0.35 s time range. Defaults to None which does not select
+            clusters by number of points participating in data space.
+        n_points : None | int
+            Select clusters by their minimum number of data points. For example
+            `clst.select(n_points=5)` selects only those clusters that have at
+            least 5 data points. Default to None which does not perform the
+            selection.
+
+        Return
+        ------
+        clst : borsar.cluster.Clusters
+            Selected clusters.
         '''
         if self.clusters is None:
             return self
@@ -325,9 +356,10 @@ class Clusters(object):
     # TODO: add deepcopy arg (`deep=False` by default)?
     def copy(self):
         '''
-        Copy the Clusters object. The lists/arrays are not copied however.
-        The SourceSpaces are always copied because they often change when
-        plotting.
+        Copy the Clusters object.
+
+        The lists/arrays are not copied however. The SourceSpaces are always
+        copied because they often change when plotting.
 
         Returns
         -------
@@ -477,7 +509,9 @@ class Clusters(object):
         -------
         limits : tuple of slices
             Found cluster limits expressed as a slice for each dimension,
-            grouped together in a tuple.
+            grouped together in a tuple. If `ignore_space=False` the spatial
+            dimension is returned as a numpy array of indices. Can be used in
+            indexing stat (`clst.stat[limits]`) or original data for example.
         '''
         # TODO: add safety checks
         has_space = (self.dimnames is not None and
@@ -522,15 +556,15 @@ class Clusters(object):
             Additional arguments used in aggregation, defining the range to
             aggregate for given dimension. List of two values defines explicit
             range: for example keyword argument `freq=[6, 8]` aggregates the
-            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-            dependent on cluster mass. For example `time=0.75` defines time range
-            that retains at least 75% of the cluster (calculated along the
-            aggregated dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value is 0.65 so that range is
-            defined to retain at least 65% of the cluster mass.
+            6 - 8 Hz range. Float argument between 0. and 1. defines range that
+            is dependent on cluster mass. For example `time=0.75` defines time
+            range that retains at least 75% of the cluster (calculated along
+            the aggregated dimension - in this case time). If no kwarg is
+            passed for given dimension then the default value is 0.65 so that
+            range is defined to retain at least 65% of the cluster mass.
 
-        Return
-        ------
+        Returns
+        -------
         idx : tuple of slices
             Tuple of slices selecting the requested range of the data. Can be
             used in indexing stat (`clst.stat[idx]`) or clusters (
