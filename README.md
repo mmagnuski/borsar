@@ -2,6 +2,9 @@
 [![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)  
 :construction: work in progress... :construction:  
 
+Various tools and functions for EEG/MEG data analysis and visualisations. Some functionality that is available here may
+be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
+
 ## Installation
 Install from github in dev mode (recommended while we are at `0.1dev` version):
 ```
