@@ -495,6 +495,43 @@ def test_clusters():
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
 
 
+def test_cluster_pvals_and_polarity_sorting():
+    pvals = np.array([0.5, 0.1, 0.32, 0.002, 0.73])
+    stat = np.array([-1, -1, 1, -1, 1])
+    correct_sorting = np.argsort(pvals)
+
+    clusters_tmp = np.zeros(len(pvals), dtype='bool')
+    clusters = list()
+    for idx in range(len(pvals)):
+        this_cluster = clusters_tmp.copy()
+        this_cluster[idx] = True
+        clusters.append(this_cluster)
+
+    dimnames = ['freq']
+    dimcoords = [np.arange(3, 8)]
+
+    clst_nosrt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+                          dimcoords=dimcoords, sort_pvals=False)
+    clst_srt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+                        dimcoords=dimcoords, sort_pvals=True)
+
+    # make sure polarities are correct:
+    correct_polarity = {1: 'pos', -1: 'neg'}
+    assert all(correct_polarity[val] == pol
+               for val, pol in zip(stat, clst_nosrt.cluster_polarity))
+
+    # make sure pvals are correctly sorted
+    assert (clst_srt.pvals == pvals[correct_sorting]).all()
+
+    # make sure polarities are correctly sorted:
+    assert (np.array(clst_srt.cluster_polarity) ==
+            np.array(clst_nosrt.cluster_polarity)[correct_sorting]).all()
+
+    # make sure clusters are correctly sorted
+    assert (correct_sorting == [np.where(c)[0][0] for c in clst_srt.clusters]
+            ).all()
+
+
 def test_chan_freq_clusters():
     from mne import create_info
     from mne.externals import h5io
