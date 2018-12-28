@@ -152,8 +152,9 @@ epub_exclude_files = ['search.html']
 
 # configuration for intersphinx: refer to the Python standard library.
 # Example configuration for intersphinx: refer to the Python standard library.
+sns_link = 'https://web.stanford.edu/~mwaskom/software/seaborn/'
 intersphinx_mapping = {'python': ('https://docs.python.org/', None),
-                       'seaborn': ('https://web.stanford.edu/~mwaskom/software/seaborn/', None),
+                       'seaborn': (sns_link, None),
                        'mne': ('http://martinos.org/mne/stable/', None)
                        }
 
