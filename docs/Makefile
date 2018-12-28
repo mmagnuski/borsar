@@ -24,11 +24,7 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html-noplot to make standalone HTML files, without plotting anything"
 	@echo "  html       to make standalone HTML files"
-	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
-	@echo "  pickle     to make pickle files"
-	@echo "  htmlhelp   to make HTML files and a HTML help project"
-	@echo "  qthelp     to make HTML files and a qthelp project"
 	@echo "  latex      to make LaTeX files, you can set PAPER=a4 or PAPER=letter"
 	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
 	@echo "  changes    to make an overview of all changed/added/deprecated items"
@@ -56,40 +52,11 @@ html:
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
-.PHONY: dirhtml
-dirhtml:
-	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
-	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
-
 .PHONY: singlehtml
 singlehtml:
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
 	@echo
 	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
-
-.PHONY: pickle
-pickle:
-	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
-	@echo
-	@echo "Build finished; now you can process the pickle files."
-
-.PHONY: htmlhelp
-htmlhelp:
-	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/htmlhelp
-	@echo
-	@echo "Build finished; now you can run HTML Help Workshop with the" \
-		  ".hhp project file in $(BUILDDIR)/htmlhelp."
-
-.PHONY: qthelp
-qthelp:
-	$(SPHINXBUILD) -b qthelp $(ALLSPHINXOPTS) $(BUILDDIR)/qthelp
-	@echo
-	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
-		  ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/borsar.qhcp"
-	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/borsar.qhc"
 
 .PHONY: latex
 latex:
@@ -132,10 +99,11 @@ coverage:
 		  "results in $(BUILDDIR)/coverage/python.txt."
 
 install:
+	# BEWARE - this was copied from https://github.com/autoreject/autoreject
+	#          and was not tested on borsar
 	rm -rf _build/doctrees _build/borsar.github.io
 	# --no-checkout just fetches the root folder without content
-	# --depth 1 is a speed optimization since we don't need the
-	# history prior to the last commit
+	# --depth 1 - since we don't need the history prior to the last commit
 	git clone --no-checkout --depth 1 https://github.com/mmagnuski/borsar.github.io.git _build/borsar.github.io
 	touch _build/borsar.github.io/.nojekyll
 	make html
