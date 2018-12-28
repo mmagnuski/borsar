@@ -5,6 +5,11 @@
 # import sphinx_gallery
 
 
+# add custom styles
+def setup(app):
+    app.add_stylesheet("style.css")
+
+
 # -- Project information -----------------------------------------------------
 
 project = 'borsar'

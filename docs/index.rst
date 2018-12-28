@@ -6,8 +6,8 @@
 Welcome to borsar's documentation!
 ==================================
 
-Borsar contains various tools and functions for EEG/MEG data analysis and visualisations.
-Some functionality that is available here may be later moved to `mne-python <https://martinos.org/mne/dev/index.html>`_.
+| Borsar contains various tools and functions for EEG/MEG data analysis and visualisations.
+| Some functionality that is available here may be later moved to `mne-python <https://martinos.org/mne/dev/index.html>`_.
 
 Installation
 ============
@@ -16,11 +16,11 @@ It's best to use the `Anaconda Python distribution <https://www.continuum.io/dow
 
 borsar has the following dependencies:
 
-* numpy
-* matplotlib
-* mne
+* `numpy <http://www.numpy.org/>`_
+* `matplotlib <https://matplotlib.org/>`_
+* `mne <https://martinos.org/mne/stable/index.html>`_
 
-To install borsar directly from GitHub (currently recommended before official release) you can use ``pip``::
+To install borsar directly from GitHub (recommended before there is an official release) you can use ``pip``::
 
   $ pip install git+https://github.com/mmagnuski/borsar
 
