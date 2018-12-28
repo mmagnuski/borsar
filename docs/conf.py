@@ -79,14 +79,14 @@ html_theme = 'bootstrap'
 # documentation.
 #
 html_theme_options = {
-     'navbar_sidebarrel': False,
-     'navbar_links': [
-         ("Examples", "auto_examples/index"),
-         ("API", "api"),
-         ("GitHub", "https://github.com/mmagnuski/borsar", True)
-     ],
-     'bootswatch_theme': "united"
- }
+    'navbar_sidebarrel': False,
+    'navbar_links': [
+        ("Examples", "auto_examples/index"),
+        ("API", "api"),
+        ("GitHub", "https://github.com/mmagnuski/borsar", True)
+    ],
+    'bootswatch_theme': "united"
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
