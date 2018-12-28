@@ -28,6 +28,8 @@ release = '0.1dev'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
@@ -36,13 +38,13 @@ extensions = [
     'numpydoc',
 ]
 
+# generate autosummary even if no references
+autosummary_generate = True
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 
 # The master toctree document.
@@ -75,6 +77,7 @@ html_theme_options = {
      'navbar_sidebarrel': False,
      'navbar_links': [
          ("Examples", "auto_examples/index"),
+         ("API", "api"),
          ("GitHub", "https://github.com/mmagnuski/borsar", True)
      ],
      'bootswatch_theme': "united"
@@ -166,5 +169,6 @@ sphinx_gallery_conf = {
         'mne': 'http://mne-tools.github.io/stable/',
         'numpy': 'http://docs.scipy.org/doc/numpy-1.9.1',
         'scipy': 'http://docs.scipy.org/doc/scipy-0.17.0/reference',
-        'mayavi': 'http://docs.enthought.com/mayavi/mayavi'}
+        'mayavi': 'http://docs.enthought.com/mayavi/mayavi',
+        'borsar': 'http://borsar.github.io/'}
 }

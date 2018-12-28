@@ -12,7 +12,7 @@ Some functionality that is available here may be later moved to `mne-python <htt
 Installation
 ============
 
-It's best to use `Anaconda Python distribution <https://www.continuum.io/downloads>`_.
+It's best to use the `Anaconda Python distribution <https://www.continuum.io/downloads>`_.
 
 borsar has the following dependencies:
 
