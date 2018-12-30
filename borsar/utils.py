@@ -81,6 +81,79 @@ def get_info(inst):
         return inst.info
 
 
+def write_info(fname, info, overwrite=False):
+    """Save Info object to ``.hdf5`` file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file.
+    info : mne.Info
+        Info object to save.
+    """
+    from .channels import get_ch_pos
+    from mne.utils import _validate_type
+    from mne.externals import h5io
+    from mne.io.pick import channel_indices_by_type
+
+    # make sure the types are correct
+    _validate_type(fname, 'str', item_name='fname')
+    _validate_type(info, 'info', item_name='info')
+
+    # extract relevant data
+    tps = channel_indices_by_type(info)
+    _ = [tps.pop(k) for k in list(tps.keys()) if len(tps[k]) == 0]
+    has_types = list(tps.keys())
+    ch_type = has_types[0] if len(has_types) == 1 else tps
+
+    data_dict = {'ch_names': info['ch_names'], 'sfreq': info['sfreq'],
+                 'ch_type': ch_type, 'pos': get_ch_pos(info)}
+
+    # save to .hdf5
+    h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
+
+
+def read_info(fname):
+    """Read Info object from ``.hdf5`` file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file.
+
+    Returns
+    -------
+    info : mne.Info
+        Info object read from file.
+    """
+    import mne
+    mne.utils._validate_type(fname, 'str', item_name='fname')
+
+    # read file
+    data_dict = mne.externals.h5io.read_hdf5(fname)
+    ch_names = data_dict['ch_names']
+
+    # parse ch_type
+    if isinstance(data_dict['ch_type'], dict):
+        ch_type = np.empty(5, dtype='S10')
+        for type, idx in data_dict['ch_type'].items():
+            ch_type[idx] = type
+    else:
+        ch_type = data_dict['ch_type']
+
+    # check channel positions
+    mntg = None
+    pos = data_dict['pos']
+    if pos is not None and not np.isnan(pos).all():
+        mntg = mne.channels.Montage(pos, ch_names, 'unknown',
+                                    np.arange(pos.shape[0]))
+
+    # create info
+    info = mne.create_info(ch_names, data_dict['sfreq'],
+                           ch_types=ch_type, montage=mntg, verbose=False)
+    return info
+
+
 def detect_overlap(segment, annot, sfreq=None):
     '''
     Detect what percentage of given segment is overlapping with annotations.

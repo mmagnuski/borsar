@@ -1,11 +1,15 @@
+import os
 import os.path as op
 import numpy as np
 import mne
+from mne.io.pick import channel_indices_by_type as get_ch_types
 
 import pytest
+from borsar.channels import get_ch_pos
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
-                          find_range, find_index, silent_mne)
+                          find_range, find_index, silent_mne, read_info,
+                          write_info, _get_test_data_dir)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -33,6 +37,37 @@ def test_get_info():
     raw = create_fake_raw(n_channels=2, n_samples=5, sfreq=25.)
     assert raw.info == get_info(raw)
     assert raw.info == get_info(raw.info)
+
+
+def compare_info(info1, info2):
+    assert info1['ch_names'] == info2['ch_names']
+    assert get_ch_types(info2) == get_ch_types(info2)
+    assert info1['sfreq'] == info2['sfreq']
+
+    # compare positions
+    pos1, pos2 = get_ch_pos(info1), get_ch_pos(info2)
+    pos1 = pos1[~np.isnan(pos1).all(axis=1)]
+    pos2 = pos2[~np.isnan(pos2).all(axis=1)]
+    is_empty = lambda pos: pos.shape[0] == 0
+    assert (is_empty(pos1) and is_empty(pos2)) or (pos1 == pos2).all()
+
+
+def test_read_write_info():
+    data_dir = _get_test_data_dir()
+    raw = create_fake_raw(n_channels=2, n_samples=5, sfreq=25.)
+
+    fname = op.join(data_dir, 'temp_info.hdf5')
+    if op.isfile(fname):
+        os.remove(op.join(data_dir, fname))
+
+    write_info(fname, raw.info)
+    info = read_info(fname)
+    compare_info(info, raw.info)
+
+    raw = mne.io.read_raw_fif(op.join(data_dir, 'rest_sample_data-raw.fif'))
+    write_info(fname, raw.info, overwrite=True)
+    info = read_info(fname)
+    compare_info(info, raw.info)
 
 
 def test_detect_overlap():
