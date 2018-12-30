@@ -100,16 +100,20 @@ def write_info(fname, info, overwrite=False):
     _validate_type(fname, 'str', item_name='fname')
     _validate_type(info, 'info', item_name='info')
 
-    # extract relevant data
+    # extract type info
     tps = channel_indices_by_type(info)
-    _ = [tps.pop(k) for k in list(tps.keys()) if len(tps[k]) == 0]
+
+    # remove empty dict keys
+    for k in list(tps.keys()):
+        if len(tps[k]) == 0:
+            tps.pop(k)
+
     has_types = list(tps.keys())
     ch_type = has_types[0] if len(has_types) == 1 else tps
 
+    # save to .hdf5
     data_dict = {'ch_names': info['ch_names'], 'sfreq': info['sfreq'],
                  'ch_type': ch_type, 'pos': get_ch_pos(info)}
-
-    # save to .hdf5
     h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
 
 

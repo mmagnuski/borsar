@@ -48,7 +48,8 @@ def compare_info(info1, info2):
     pos1, pos2 = get_ch_pos(info1), get_ch_pos(info2)
     pos1 = pos1[~np.isnan(pos1).all(axis=1)]
     pos2 = pos2[~np.isnan(pos2).all(axis=1)]
-    is_empty = lambda pos: pos.shape[0] == 0
+    def is_empty(pos):
+        return pos.shape[0] == 0
     assert (is_empty(pos1) and is_empty(pos2)) or (pos1 == pos2).all()
 
 
