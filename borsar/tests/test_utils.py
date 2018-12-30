@@ -55,7 +55,8 @@ def compare_info(info1, info2):
 
 def test_read_write_info():
     data_dir = _get_test_data_dir()
-    raw = create_fake_raw(n_channels=2, n_samples=5, sfreq=25.)
+    raw = create_fake_raw(n_channels=4, n_samples=5, sfreq=25.)
+    raw.set_channel_types({'a': 'eeg', 'b': 'ecog', 'c': 'eeg', 'd': 'ecog'})
 
     fname = op.join(data_dir, 'temp_info.hdf5')
     if op.isfile(fname):
