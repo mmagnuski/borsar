@@ -139,9 +139,10 @@ def read_info(fname):
 
     # parse ch_type
     if isinstance(data_dict['ch_type'], dict):
-        ch_type = np.empty(5, dtype='S10')
-        for type, idx in data_dict['ch_type'].items():
-            ch_type[idx] = type
+        ch_type = [None] * len(ch_names)
+        for type, idxs in data_dict['ch_type'].items():
+            for idx in idxs:
+                ch_type[idx] = type
     else:
         ch_type = data_dict['ch_type']
 
