@@ -185,6 +185,7 @@ class Topo(object):
 
         # FIXME: add len(topo) and make topo iterable
         # mark channels and save marks in `self.marks` list
+        n_channels = len(self.chan_pos)
         n_topos = len(self.axes) if isinstance(self.axes, list) else 1
         iter_marks = (self.marks if n_topos > 1 else [self.marks])
         iter_axes = (self.axes if n_topos > 1 else [self.axes])
