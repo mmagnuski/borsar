@@ -42,7 +42,7 @@ def select_channels(inst, select='all'):
         Mne object with `ch_names` and `info` attributes or just the mne Info
         object.
     select : str
-        Can be 'all', 'frontal' or 'pairs'. If 'asy_' is prepended to the
+        Can be 'all' or 'frontal'. If 'asy_' is prepended to the
         select string then selected channels are grouped by mirror positions
         on the x axis (left vs right).
 
