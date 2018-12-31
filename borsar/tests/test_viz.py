@@ -32,6 +32,11 @@ def test_topo():
     with pytest.raises(RuntimeError):
         ch, pos = _extract_topo_channels(ax)
 
+    # earlier mne versions used scatter for points
+    ax.scatter(pos[:, 0], pos[:, 1])
+    ch, pos2 = _extract_topo_channels(ax)
+    assert (pos == pos2).all()
+
     topo = Topo(alpha_topo, raw.info, axes=ax, show=False)
     assert topo.axes == ax
     assert topo.fig == fig
@@ -69,6 +74,8 @@ def test_multi_topo():
     tp.mark_channels([1, 2, 3, 6, 8], markersize=10.)
 
     # test different markers per topo:
+    fig, axes = plt.subplots(ncols=3)
+    tp = Topo(freq_topos, raw.info, axes=axes)
     mark_idxs = [[0, 1], [3, 5], [9, 10, 13]]
     tp.mark_channels(mark_idxs, markerfacecolor='g')
     for ax, mrk in zip(tp.axes, mark_idxs):

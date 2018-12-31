@@ -73,6 +73,9 @@ class Topo(object):
             self.marks = [list() for idx in range(n_topos)]
 
             kwargs.update({'show': False})
+            if 'axes' in kwargs:
+                kwargs.pop('axes')
+
             for topo_idx in range(n_topos):
                 this_im, this_lines = plot_topomap(values[:, topo_idx], info,
                                                    axes=self.axes[topo_idx],
@@ -186,13 +189,14 @@ class Topo(object):
         # FIXME: add len(topo) and make topo iterable
         # mark channels and save marks in `self.marks` list
         n_channels = len(self.chan_pos)
-        n_topos = len(self.axes) if isinstance(self.axes, list) else 1
+        iter_types = (list, tuple, np.ndarray)
+        n_topos = len(self.axes) if isinstance(self.axes, iter_types) else 1
         iter_marks = (self.marks if n_topos > 1 else [self.marks])
         iter_axes = (self.axes if n_topos > 1 else [self.axes])
 
         # make sure channel selection is iterable
         if (isinstance(chans, (list, tuple)) and not
-            isinstance(chans[0], (list, tuple, np.ndarray))):
+            isinstance(chans[0], iter_types)):
             chans = [chans]
         elif isinstance(chans, np.ndarray):
             chans = (np.tile(chans, (n_topos, 1)) if chans.ndim == 1

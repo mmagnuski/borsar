@@ -40,3 +40,10 @@ def test_csd_mne():
     raw_csd = current_source_density(raw.copy(), G, H)
 
     assert (~(raw._data == raw_csd._data)).all()
+
+    # check that is works for epochs too:
+    events = np.zeros((4, 3), dtype='int')
+    events[:, -1] = 1
+    events[:, 0] = [10, 50, 110]
+    epochs = mne.Epochs(raw, events, event_id=1, tmin=0., tmax=0.15)
+    epochs_csd = current_source_density(epochs.copy(), G, H)
