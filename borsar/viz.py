@@ -192,7 +192,7 @@ class Topo(object):
         # make sure channel selection is iterable
         if (isinstance(chans, (list, tuple)) and not
             isinstance(chans[0], (list, tuple, np.ndarray))):
-                chans = [chans]
+            chans = [chans]
         elif isinstance(chans, np.ndarray):
             chans = (np.tile(chans, (n_topos, 1)).T if chans.ndim == 1
                      else chans.T)
