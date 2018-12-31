@@ -194,8 +194,9 @@ class Topo(object):
             isinstance(chans[0], (list, tuple, np.ndarray))):
             chans = [chans]
         elif isinstance(chans, np.ndarray):
-            chans = (np.tile(chans, (n_topos, 1)).T if chans.ndim == 1
-                     else chans.T)
+            chans = (np.tile(chans, (n_topos, 1)) if chans.ndim == 1
+                     else chans.T if chans.shape[0] == n_channels
+                     else chans)
 
         for ax, marks, msk in zip(iter_axes, iter_marks, chans):
             this_marks = ax.plot(
