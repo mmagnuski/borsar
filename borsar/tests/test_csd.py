@@ -47,6 +47,6 @@ def test_csd_mne():
     events[:, -1] = 1
     events[:, 0] = [10, 50, 110, 165]
     epochs = mne.Epochs(raw, events, event_id=1, tmin=0., tmax=0.15,
-                        baseline=None)
+                        baseline=None, preload=True)
     epochs_csd = current_source_density(epochs.copy(), G, H)
     assert (~(epochs._data == epochs_csd._data)).all()
