@@ -69,10 +69,6 @@ def select_channels(inst, select='all'):
         else:
             return frontal_idx
 
-    if select == 'asy_pairs':
-        pary = dict(left=['F3', 'F7'], right=['F4', 'F8'])
-        return {k: find_channels(inst, pary[k]) for k in pary.keys()}
-
 
 def homologous_pairs(inst):
     '''
