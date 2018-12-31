@@ -10,12 +10,15 @@ class Topo(object):
     Parameters
     ----------
     values : numpy array
-        Values to topographically plot.
+        Values to plot topographically. Has to be of shape ``(n_channels,)`` or
+        ``(n_channels, n_topos)`` for multiple topographies to show.
     info : mne Info instance
         Info object containing channel positions.
     axes : matplotlib Axes, optional
         Axes to plot in. Creates new by default. The axes handle is later
-        available in `.axis` attribute.
+        available in ``.axes`` attribute. If ``values`` is two dimensional
+        then ``axes`` has to be a list of matplotlib Axes of length equal
+        to the size of the second dimension (``values.shape[1]``).
     **kwargs : any additional keyword arguments
         Additional keyword arguments are passed to `mne.viz.plot_topomap`.
 
@@ -40,27 +43,60 @@ class Topo(object):
         self.info = info
         self.values = values
 
+        # handle multiple axes
+        multi_axes = values.ndim > 1
+        if multi_axes:
+            n_topos = values.shape[1]
+
+        # FIXME: split axis checking and plotting into separate methods
         has_axis = 'axes' in kwargs.keys()
         if has_axis:
-            self.axis = kwargs['axes']
-            plt.sca(self.axis)
+            axes = kwargs['axes']
+            if multi_axes:
+                from mne.viz.utils import _validate_if_list_of_axes
+                _validate_if_list_of_axes(axes, obligatory_len=values.shape[1])
+                plt.sca(axes[0])
+            else:
+                plt.sca(axes)
+            self.axes = axes
+        elif multi_axes:
+            fig, axes = plt.subplots(ncols=n_topos)
+            self.axes = axes.tolist()
 
         part = _infer_topo_part(info)
         if part is not None:
             info, kwargs = _construct_topo_part(info, part, kwargs)
 
         # plot using mne's `plot_topomap`
-        im, lines = plot_topomap(values, info, **kwargs)
+        if multi_axes:
+            im, lines, chans = list(), list(), list()
+            self.marks = [list() for idx in range(n_topos)]
+
+            kwargs.update({'show': False})
+            for topo_idx in range(n_topos):
+                this_im, this_lines = plot_topomap(values[:, topo_idx], info,
+                                                   axes=self.axes[topo_idx],
+                                                   **kwargs)
+                # get channel objects and channel positions from topo
+                this_chans, chan_pos = _extract_topo_channels(this_im.axes)
+
+                im.append(this_im)
+                lines.append(this_lines)
+                chans.append(this_chans)
+            self.chan_pos = chan_pos
+        else:
+            im, lines = plot_topomap(values, info, **kwargs)
+
+            self.marks = list()
+            self.axes = axes if has_axis else im.axes
+
+            # get channel objects and channel positions from topo
+            self.chans, self.chan_pos = _extract_topo_channels(im.axes)
 
         self.img = im
         self.lines = lines
-        self.marks = list()
-        self.fig = im.figure
-        if not has_axis:
-            self.axis = im.axes
+        self.fig = im[0].figure if isinstance(im, list) else im.figure
 
-        # get channel objects and channel positions from topo
-        self.chans, self.chan_pos = _extract_topo_channels(im.axes)
 
     def remove_levels(self, lvl):
         '''
@@ -73,12 +109,17 @@ class Topo(object):
         '''
         if not isinstance(lvl, list):
             lvl = [lvl]
-        for l in lvl:
-            remove_lines = np.where(self.lines.levels == l)[0]
-            for rem_ln in remove_lines:
-                self.lines.collections[rem_ln].remove()
-            for pop_ln in np.flipud(np.sort(remove_lines)):
-                self.lines.collections.pop(pop_ln)
+
+        iter_lines = (self.lines if isinstance(self.lines, list)
+                      else [self.lines])
+
+        for lines in iter_lines:
+            for l in lvl:
+                remove_lines = np.where(lines.levels == l)[0]
+                for rem_ln in remove_lines:
+                    lines.collections[rem_ln].remove()
+                for pop_ln in np.flipud(np.sort(remove_lines)):
+                    lines.collections.pop(pop_ln)
 
     def solid_lines(self):
         '''Turn all contour lines to solid style (no dashed lines).'''
@@ -95,8 +136,11 @@ class Topo(object):
         **kwargs : keyword arguments
             Keyword arguments are passed to `set_linestyle` of each line.
         '''
-        for ln in self.lines.collections:
-            ln.set_linestyle(*args, **kwargs)
+        iter_lines = (self.lines if isinstance(self.lines, list)
+                      else [self.lines])
+        for lines in iter_lines:
+            for line in lines.collections:
+                line.set_linestyle(*args, **kwargs)
 
     def set_linewidth(self, lw):
         '''
@@ -107,8 +151,11 @@ class Topo(object):
         lw : int | float
             Desired line width of the contour lines.
         '''
-        for ln in self.lines.collections:
-            ln.set_linewidths(lw)
+        iter_lines = (self.lines if isinstance(self.lines, list)
+                      else [self.lines])
+        for lines in iter_lines:
+            for line in lines.collections:
+                line.set_linewidths(lw)
 
     def mark_channels(self, chans, **kwargs):
         '''
@@ -117,8 +164,15 @@ class Topo(object):
         Parameters
         ----------
         chans : numpy array of int or bool
-            Channels to highlight. Integer array with channel indices or
-            boolean array of shape (n_channels,).
+            Channels to highlight. You can use either:
+            * an integer array with channel indices
+            * a list with channel indices
+            * boolean array of shape ``(n_channels,)``.
+            When ``Topo`` created multiple topographies and you want a
+            different selection of channels highlighted in each use either:
+            * a list of lists of indices
+            * a list of numpy arrays, where each array is either int or bool
+            * a boolean array of ``(n_channels, n_topos)`` shape.
         **kwargs : additional keyword arguments
             Any additional keyword arguments are passed as arguments to
             `plt.plot`. It is useful for defining marker properties like
@@ -127,13 +181,26 @@ class Topo(object):
         '''
         default_marker = dict(marker='o', markerfacecolor='w', markersize=8,
                               markeredgecolor='k', linewidth=0)
-        for k in kwargs.keys():
-            default_marker[k] = kwargs[k] # or just .update(kwargs)
+        default_marker.update(kwargs)
 
+        # FIXME: add len(topo) and make topo iterable
         # mark channels and save marks in `self.marks` list
-        marks = self.axis.plot(
-            self.chan_pos[chans, 0], self.chan_pos[chans, 1], **default_marker)
-        self.marks.append(marks)
+        n_topos = len(self.axes) if isinstance(self.axes, list) else 1
+        iter_marks = (self.marks if n_topos > 1 else [self.marks])
+        iter_axes = (self.axes if n_topos > 1 else [self.axes])
+
+        # make sure channel selection is iterable
+        if (isinstance(chans, (list, tuple)) and not
+            isinstance(chans[0], (list, tuple, np.ndarray))):
+                chans = [chans]
+        elif isinstance(chans, np.ndarray):
+            chans = (np.tile(chans, (n_topos, 1)).T if chans.ndim == 1
+                     else chans.T)
+
+        for ax, marks, msk in zip(iter_axes, iter_marks, chans):
+            this_marks = ax.plot(
+                self.chan_pos[msk, 0], self.chan_pos[msk, 1], **default_marker)
+            marks.append(this_marks)
 
 
 def _extract_topo_channels(ax):
