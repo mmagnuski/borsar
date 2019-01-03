@@ -622,7 +622,7 @@ class Clusters(object):
         return plot_cluster_contribution(self, dimname, axis=axis)
 
     def plot(self, cluster_idx=None, aggregate='mean', set_light=True,
-             vmin=None, vmax=None, **kwargs):
+             vmin=None, vmax=None, mark_kwargs=None, **kwargs):
         '''
         Plot cluster.
 
@@ -674,7 +674,8 @@ class Clusters(object):
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
             return plot_cluster_chan(self, cluster_idx, vmin=None, vmax=None,
-                                     aggregate=aggregate, **kwargs)
+                                     aggregate=aggregate,
+                                     mark_kwargs=mark_kwargs, **kwargs)
 
 
 # TODO - add special case for dimension='vert' and 'chan'
@@ -739,7 +740,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
-                      vmax=None, **kwargs):
+                      vmax=None, mark_kwargs=None, **kwargs):
     '''
     Plot cluster in source space.
 
@@ -757,6 +758,9 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Value mapped to maximum in the colormap. Inferred from data by default.
     title : str, optional
         Optional title for the figure.
+    mark_kwargs : dict | None, optional
+        Keyword arguments for ``Topo.mark_channels``. For example:
+        ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
     **kwargs : additional keyword arguments
         Additional arguments used in aggregation, defining the range to
         aggregate for given dimension. List of two values defines explicit
@@ -807,11 +811,16 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.solid_lines()
 
     # FIXME: temporary hack to make all channels more visible
-    topo.mark_channels(np.arange(len(clst_stat)), markersize=3,
+    topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
                        markerfacecolor='k', linewidth=0.)
 
     if len(clst) >= cluster_idx + 1:
-        topo.mark_channels(clst_mask)
+        if mark_kwargs is not None:
+            if 'markersize' not in mark_kwargs:
+                mark_kwargs.update({'markersize': 5})
+        else:
+            mark_kwargs = dict(markersize=5)
+        topo.mark_channels(clst_mask, **mark_kwargs)
 
     return topo
 
