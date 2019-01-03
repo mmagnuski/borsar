@@ -606,7 +606,7 @@ def test_chan_freq_clusters():
     assert len(topo.axes) == 2
     plt.close(topo.fig)
 
-    marker_kwargs = dict(marker='+', markersize=6)
+    marker_kwargs = dict(marker='+')
     topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
 
