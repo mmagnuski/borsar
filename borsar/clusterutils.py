@@ -47,6 +47,12 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
         return vmin, vmax
 
 
+# TODO:
+# - [ ] _aggregate_cluster aggregates by default everything except the spatial
+#       dimension. This would be problematic for spaces like [freq, time]
+#       consider adding ``along`` argument.
+# - [ ] beware of changing dimension order for some complex "facny index"
+#       operations
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                        retain_mass=0.65, ignore_space=True, **kwargs):
     '''Aggregate cluster mask and cluster stat map.'''
@@ -56,7 +62,8 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         # find indexing
         idx = clst.get_index(cluster_idx=cluster_idx, retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
-        reduce_axes = tuple(range(1, clst.stat.ndim))
+        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim) if not
+                            isinstance(idx[ix], (np.ndarray, list)))
         clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
                      >= mask_proportion if cluster_idx is not None else None)
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)

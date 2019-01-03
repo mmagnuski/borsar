@@ -585,10 +585,11 @@ class Clusters(object):
         idx = _index_from_dim(self.dimnames, self.dimcoords,
                               **normal_indexing)
 
-        # TODO - when retain mass is specified
+        # when retain mass is specified use it to get ranges for
+        # dimensions not adressed with kwargs
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
-                          if val == slice(None)]
+                          if isinstance(val, slice) and val == slice(None)]
             # check cluster limits only if some dim limits were not specified
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
@@ -798,7 +799,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
         ignore_space=True, **dim_kwargs)
 
-    # create pysurfer brain
+    # create Topo object
     from borsar.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
     topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,

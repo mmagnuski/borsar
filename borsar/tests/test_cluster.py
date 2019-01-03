@@ -598,6 +598,10 @@ def test_chan_freq_clusters():
     topo = clst.plot(freq=(10, 11.5), contours=4)
     plt.close(topo.fig)
 
+    # multi axes:
+    topo = clst.plot(cluster_idx=1, freq=[8, 10])
+    plt.close(topo.fig)
+
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
