@@ -319,6 +319,21 @@ class Clusters(object):
             `clst.select(n_points=5)` selects only those clusters that have at
             least 5 data points. Default to None which does not perform the
             selection.
+        **kwargs : additional arguments
+            Additional arguments used in aggregation, defining the points to
+            select (if argument value is a list of float) or the range to
+            aggregate for the dimension specified by the argument name. Tuple
+            of two values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+            defines specific points to pick: for example ``time=[0.1, 0.2]``
+            selects time points corresponding to 0.1 and 0.2 seconds.
+            Float argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the aggregated dimension - in this case time). If no kwarg is
+            passed for given dimension then the default value is ``0.65``.
+            This means that the range for such dimension is defined to retain
+            at least 65% of the cluster extent.
 
         Return
         ------
@@ -495,15 +510,15 @@ class Clusters(object):
         check_dims : list-like of int | None, optional
             Which dimensions to check. Defaults to None which checks all
             dimensions (with the exception of spatial if `ignore_space=True`).
-        kwargs : additional keyword arguments
-            Additional arguments the cluster mass to retain along specified
-            dimensions. Float argument between 0. and 1. - defines range that
-            is dependent on cluster mass. For example `time=0.75` defines time
-            range limits that retain at least 75% of the cluster (calculated
-            along given dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value of 0.65 is used - so that
-            cluster limits are defined to retain at least 65% of the relevant
-            cluster mass.
+        **kwargs : additional keyword arguments
+            Additional arguments defining the cluster extent to retain along
+            specified dimensions. Float argument between 0. and 1. - defines
+            range that is dependent on cluster mass. For example ``time=0.75``
+            defines time range limits that retain at least 75% of the cluster
+            (calculated along given dimension - in this case time). If no kwarg
+            is passed for given dimension then the default value of 0.65 is
+            used - so that cluster limits are defined to retain at least 65%
+            of the relevant cluster mass.
 
         Returns
         -------
@@ -552,7 +567,7 @@ class Clusters(object):
             If cluster_idx is passed then dimensions not adressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
             The default value is 0.65. See `kwargs`.
-        kwargs : additional arguments
+        **kwargs : additional arguments
             Additional arguments used in aggregation, defining the points to
             select (if argument value is a list of float) or the range to
             aggregate for the dimension specified by the argument name. Tuple
@@ -640,16 +655,25 @@ class Clusters(object):
             Value mapped to maximum in the colormap. Inferred from data by default.
         title : str, optional
             Optional title for the figure.
-        **kwargs : additional keyword arguments
-            Additional arguments used in aggregation, defining the range to
-            aggregate for given dimension. List of two values defines explicit
-            range: for example keyword argument `freq=[6, 8]` aggregates the
-            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-            dependent on cluster mass. For example `time=0.75` defines time range
-            that retains at least 75% of the cluster (calculated along the
-            aggregated dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value is 0.65 so that range is
-            defined to retain at least 65% of the cluster mass.
+        mark_kwargs : dict | None, optional
+            Keyword arguments for ``Topo.mark_channels``. For example:
+            ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
+            ``None`` defaults to ``{'markersize=5'}``.
+        **kwargs : additional arguments
+            Additional arguments used in aggregation, defining the points to
+            select (if argument value is a list of float) or the range to
+            aggregate for the dimension specified by the argument name. Tuple
+            of two values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+            defines specific points to pick: for example ``time=[0.1, 0.2]``
+            selects time points corresponding to 0.1 and 0.2 seconds.
+            Float argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the aggregated dimension - in this case time). If no kwarg is
+            passed for given dimension then the default value is ``0.65``.
+            This means that the range for such dimension is defined to retain
+            at least 65% of the cluster extent.
 
         Returns
         -------
@@ -741,8 +765,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
                       vmax=None, mark_kwargs=None, **kwargs):
-    '''
-    Plot cluster in source space.
+    '''Plot cluster in source space.
 
     Parameters
     ----------
@@ -756,21 +779,25 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Value mapped to minimum in the colormap. Inferred from data by default.
     vmax : float, optional
         Value mapped to maximum in the colormap. Inferred from data by default.
-    title : str, optional
-        Optional title for the figure.
     mark_kwargs : dict | None, optional
         Keyword arguments for ``Topo.mark_channels``. For example:
         ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
-    **kwargs : additional keyword arguments
-        Additional arguments used in aggregation, defining the range to
-        aggregate for given dimension. List of two values defines explicit
-        range: for example keyword argument `freq=[6, 8]` aggregates the
-        6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-        dependent on cluster mass. For example `time=0.75` defines time range
-        that retains at least 75% of the cluster (calculated along the
-        aggregated dimension - in this case time). If no kwarg is passed for
-        given dimension then the default value is 0.65 so that range is
-        defined to retain at least 65% of the cluster mass.
+        ``None`` defaults to ``{'markersize=5'}``.
+    **kwargs : additional arguments
+        Additional arguments used in aggregation, defining the points to
+        select (if argument value is a list of float) or the range to
+        aggregate for the dimension specified by the argument name. Tuple
+        of two values defines explicit range: for example keyword argument
+        ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+        defines specific points to pick: for example ``time=[0.1, 0.2]``
+        selects time points corresponding to 0.1 and 0.2 seconds.
+        Float argument between 0. and 1. defines range that is dependent on
+        cluster mass or extent. For example ``time=0.75`` defines time
+        range that retains at least 75% of the cluster extent (calculated
+        along the aggregated dimension - in this case time). If no kwarg is
+        passed for given dimension then the default value is ``0.65``.
+        This means that the range for such dimension is defined to retain
+        at least 65% of the cluster extent.
 
     Returns
     -------
@@ -780,7 +807,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     Examples
     --------
     > # to plot the first cluster within 8 - 10 Hz
-    > clst.plot(cluster_idx=0, freq=[8, 10])
+    > clst.plot(cluster_idx=0, freq=(8, 10))
     > # to plot the second cluster selecting frequencies that make up at least
     > # 70% of the cluster mass:
     > clst.plot(cluster_idx=1, freq=0.7)
