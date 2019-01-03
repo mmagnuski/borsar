@@ -324,16 +324,14 @@ class Clusters(object):
             select (if argument value is a list of float) or the range to
             aggregate for the dimension specified by the argument name. Tuple
             of two values defines explicit range: for example keyword argument
-            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
-            defines specific points to pick: for example ``time=[0.1, 0.2]``
-            selects time points corresponding to 0.1 and 0.2 seconds.
-            Float argument between 0. and 1. defines range that is dependent on
-            cluster mass or extent. For example ``time=0.75`` defines time
-            range that retains at least 75% of the cluster extent (calculated
-            along the aggregated dimension - in this case time). If no kwarg is
-            passed for given dimension then the default value is ``0.65``.
-            This means that the range for such dimension is defined to retain
-            at least 65% of the cluster extent.
+            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. Float argument
+            between 0. and 1. defines range that is dependent on cluster mass
+            or extent. For example ``time=0.75`` defines time range that
+            retains at least 75% of the cluster extent (calculated along the
+            aggregated dimension - in this case time). If no kwarg is passed
+            for given dimension then the default value is ``0.65``. This means
+            that the range for such dimension is defined to retain at least 65%
+            of the cluster extent.
 
         Return
         ------
@@ -349,9 +347,9 @@ class Clusters(object):
             self = _cluster_selection(self, sel)
 
         if (len(kwargs) > 0 or n_points_in is not None) and len(self) > 0:
-            # kwargs check should be in separate function
+            # kwargs check should be in a separate function
             if len(kwargs) > 0:
-                _check_dimnames_kwargs(self, **kwargs)
+                _check_dimnames_kwargs(self, allow_lists=False, **kwargs)
             dim_idx = _index_from_dim(self.dimnames, self.dimcoords, **kwargs)
 
             dims = np.arange(self.stat.ndim) + 1
@@ -1050,7 +1048,7 @@ def _check_dimname_arg(clst, dimname):
 
 
 def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
-                           **kwargs):
+                           allow_lists=True, **kwargs):
     '''Ensure that **kwargs are correct dimnames and dimcoords.'''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
@@ -1069,20 +1067,26 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
                    'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
 
+        if not allow_lists and isinstance(kwargs[dim], (list, np.ndarray)):
+            msg = ('Use of lists/numpy arrays of datapoints are not supported'
+                   ' in this context. Use range ((min, max) tuple) or mass/'
+                   'extent (float).')
+            raise TypeError(msg)
+
         if split_range_mass:
             dval = kwargs[dim]
             # TODO - more elaborate checks
-            dim_type = ('range' if isinstance(dval, (list, tuple)) else 'mass'
-                        if isinstance(dval, float) else None)
+            dim_type = ('range' if isinstance(dval, (list, tuple, np.ndarray))
+                        else 'mass' if isinstance(dval, float) else None)
             if dim_type == 'mass':
                 mass_indexing[dim] = dval
                 normal_indexing.pop(dim)
             elif dim_type is None:
                 raise TypeError('The values used in dimension name indexing '
-                                'have to be either specific points (list of '
-                                'values), ranges (tuple of two values) or '
-                                'cluster extent to retain (float), got {} for '
-                                'dimension {}.'.format(dval, dim))
+                                'have to be either specific points (list or '
+                                'array of values), ranges (tuple of two values'
+                                ') or cluster extent to retain (float), got '
+                                '{} for dimension {}.'.format(dval, dim))
     if split_range_mass:
         return normal_indexing, mass_indexing
 

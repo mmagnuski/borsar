@@ -16,7 +16,7 @@ from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
                             _index_from_dim, _clusters_safety_checks,
                             _check_description, _clusters_chan_vert_checks,
-                            Clusters)
+                            Clusters, _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
@@ -364,8 +364,8 @@ def test_clusters():
         clst2.dimcoords = None
         clst2.get_index(freq=(8.5, 10))
     clst2.dimcoords = dcoords
-    match = (r'either specific points \(list of values\), ranges \(tuple '
-             r'of two values\) or cluster extent to retain \(float\)')
+    match = (r'either specific points \(list or array of values\), ranges '
+             r'\(tuple of two values\) or cluster extent to retain \(float\)')
     with pytest.raises(TypeError, match=match):
         clst2.get_index(freq='abc')
 
@@ -456,6 +456,9 @@ def test_clusters():
     with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
                                    'fsaverage', None)
+
+    with pytest.raises(TypeError, match='context'):
+        _check_dimnames_kwargs(clst2, allow_lists=False, freq=[8, 9, 10])
 
     # _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir)
 
@@ -600,6 +603,11 @@ def test_chan_freq_clusters():
 
     # multi axes:
     topo = clst.plot(cluster_idx=1, freq=[8, 10])
+    assert len(topo.axes) == 2
+    plt.close(topo.fig)
+
+    marker_kwargs = dict(marker='+', markersize=6)
+    topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
 
 
