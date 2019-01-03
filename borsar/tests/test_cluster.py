@@ -173,10 +173,16 @@ def test_index_from_dim():
                  np.arange(-0.2, 0.51, step=0.1)]
     assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
     assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
-    assert (_index_from_dim(dimnames, dimcoords, freq=[10, 11.5]) ==
+    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5)) ==
             (slice(None), slice(4, 8), slice(None)))
-    assert (_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=[0, 0.3])
+    assert (_index_from_dim(dimnames, dimcoords, freq=(9.5, 10), time=(0, 0.3))
             == (slice(None), slice(3, 5), slice(2, 6)))
+    print(_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3)))
+    idx = _index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3))
+    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all() and
+            idx[2] == slice(2, 6))
+    with pytest.raises(TypeError):
+        _index_from_dim(dimnames, dimcoords, freq=[9.5], time=(0, 0.2, 0.3))
 
 
 def test_cluster_limits():
@@ -231,7 +237,7 @@ def test_clusters():
     assert len(clst2) == 3
 
     # selection with percentage_in
-    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
+    clst3 = clst2.copy().select(percentage_in=0.7, freq=(7, 9))
     assert len(clst3) == 1
 
     # using n_points_in without dimension
@@ -239,7 +245,7 @@ def test_clusters():
     assert len(clst3) == 2
 
     # n_points_in with dimension range
-    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
+    clst3 = clst2.copy().select(n_points_in=340, freq=(10.5, 12.5))
     assert len(clst3) == 1
 
     # selection that results in no clusters
@@ -334,8 +340,11 @@ def test_clusters():
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
     clst_0_freq_contrib[idx[1]].sum() > 0.75
 
-    idx = clst2.get_index(freq=[8, 10])
+    idx = clst2.get_index(freq=(8, 10))
     assert idx[1] == slice(2, 7)
+
+    idx = clst2.get_index(freq=[8, 10])
+    assert (idx[1] == [2, 6]).all()
 
     idx = clst2.get_index(cluster_idx=1, freq=0.6)
     contrib = clst2.get_contribution(1, 'freq')
@@ -347,16 +356,16 @@ def test_clusters():
     with pytest.raises(TypeError, match='Clusters has to have dimnames'):
         dnames = clst2.dimnames
         clst2.dimnames = None
-        clst2.get_index(freq=[10, 11])
+        clst2.get_index(freq=(10, 11))
     clst2.dimnames = dnames
 
     with pytest.raises(TypeError, match='Clusters has to have dimcoords'):
         dcoords = clst2.dimcoords
         clst2.dimcoords = None
-        clst2.get_index(freq=[8.5, 10])
+        clst2.get_index(freq=(8.5, 10))
     clst2.dimcoords = dcoords
-
-    match = r'either ranges \(list of two values\) or cluster mass'
+    match = (r'either specific points \(list of values\), ranges \(tuple '
+             r'of two values\) or cluster extent to retain \(float\)')
     with pytest.raises(TypeError, match=match):
         clst2.get_index(freq='abc')
 
@@ -480,7 +489,7 @@ def test_clusters():
 
     # _prepare_cluster_description
     clst_idx = 1
-    idx = clst2.get_index(freq=[8, 10])
+    idx = clst2.get_index(freq=(8, 10))
     got_desc = _prepare_cluster_description(clst, clst_idx, idx)
     pval_desc = format_pvalue(clst.pvals[clst_idx])
     correct_desc = '8.0 - 10.0 Hz\n{}'.format(pval_desc)
@@ -581,12 +590,12 @@ def test_chan_freq_clusters():
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
         info=info, description=data_dict['description'])
 
-    topo = clst.plot(cluster_idx=1, freq=[8, 8.5])
+    topo = clst.plot(cluster_idx=1, freq=(8, 8.5))
     plt.close(topo.fig)
     clst.clusters = None
-    topo = clst.plot(freq=[10, 11.5])
+    topo = clst.plot(freq=(10, 11.5))
     plt.close(topo.fig)
-    topo = clst.plot(freq=[10, 11.5], contours=4)
+    topo = clst.plot(freq=(10, 11.5), contours=4)
     plt.close(topo.fig)
 
 
