@@ -46,6 +46,80 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     if as_sparse:
         return sparse.coo_matrix(conn)
     return conn
+def cluster_3d(data, adjacency):
+    '''
+    Parameters
+    ----------
+    data : numpy array
+        Matrix of shape ``(channels, dim2, dim3)``
+    adjacency : numpy array
+        2d boolean matrix with information about channel adjacency.
+        If ``chann_conn[i, j]`` is True that means channel i and j are
+        adjacent.
+
+    Returns
+    -------
+    clusters - 3d integer matrix with cluster labels
+    '''
+    # data has to be bool
+    assert data.dtype == np.bool
+
+    # nested import
+    from skimage.measure import label
+
+    # label each channel separately
+    clusters = np.zeros(data.shape, dtype='int')
+    max_cluster_id = 0
+    n_chan = data.shape[0]
+    for ch in range(n_chan):
+        clusters[ch, :, :] = label(data[ch, :, :],
+            connectivity=1, background=False)
+
+        # relabel so that layers do not have same cluster ids
+        if ch > 0:
+            num_clusters = clusters[ch, :, :].max()
+            clusters[ch, clusters[ch,:] > 0] += max_cluster_id
+            max_cluster_id += num_clusters
+
+    # unrolled views into clusters for ease of channel comparison:
+    unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
+    # check channel neighbours and merge clusters across channels
+    for ch in range(n_chan - 1): # last chan will be already checked
+        ch1 = unrolled[ch]
+        ch1_ind = np.where(ch1)[0]
+        if len(ch1_ind) == 0:
+            continue # no clusters, no fun...
+
+        # get unchecked neighbours
+        neighbours = np.where(adjacency[ch + 1:, ch])[0]
+        if len(neighbours) > 0:
+            neighbours += ch + 1
+
+            for ngb in neighbours:
+                ch2 = unrolled[ngb]
+                for ind in ch1_ind:
+                    # relabel clusters if adjacent and not the same id
+                    if ch2[ind] and not (ch1[ind] == ch2[ind]):
+                        c1 = min(ch1[ind], ch2[ind])
+                        c2 = max(ch1[ind], ch2[ind])
+                        clusters[clusters == c2] = c1
+    return clusters
+
+
+def _get_cluster_fun(data, adjacency=None, backend='numpy'):
+    '''Return the correct clustering function depending on the data shape and
+    presence of an adjacency matrix.'''
+    has_adjacency = adjacency is not None
+    if data.ndim == 3 and has_adjacency:
+        if backend in ['numba', 'auto']:
+            if has_numba():
+                from .cluster_numba import cluster_3d_numba
+                return cluster_3d_numba
+            elif backend == 'numba':
+                raise ValueError('You need numba package to use the "numba" '
+                                 'backend.')
+        else:
+            return cluster_3d
 
 
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,

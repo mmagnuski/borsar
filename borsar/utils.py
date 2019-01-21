@@ -363,6 +363,15 @@ def silent_mne():
     mne.set_log_level(log_level)
 
 
+def has_numba():
+    """Check if numba is available."""
+    try:
+        from numba import jit
+        return True
+    except ImportError:
+        return False
+
+
 def _get_test_data_dir():
     '''Get test data directory.'''
     from borsar import __path__ as borsar_dir

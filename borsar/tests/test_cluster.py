@@ -16,7 +16,7 @@ from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
                             _index_from_dim, _clusters_safety_checks,
                             _check_description, _clusters_chan_vert_checks,
-                            Clusters, _check_dimnames_kwargs)
+                            Clusters, _check_dimnames_kwargs, cluster_3d)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
@@ -73,6 +73,31 @@ def test_contstruct_adjacency():
                    dtype=dtypes)
     with pytest.raises(ValueError):
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
+
+
+def test_clustering():
+    from skimage.filters import gaussian
+    from .cluster_numba import cluster_3d_numba
+    data = np.load(op.join(data_dir, 'test_clustering.npy'))
+
+    # smooth each 'channel' independently
+    for idx in range(data.shape[0]):
+        data[idx] = gaussian(data[idx])
+
+    # adjacency
+    T, F = True, False
+    mask_test = img_test > (img_test.mean() + img_test.std())
+
+    adj = np.array([[F, T, T, F, F],
+                    [T, F, T, F, T],
+                    [T, T, F, F, F],
+                    [F, F, F, F, T],
+                    [F, T, F, T, F]])
+
+    clst1 = cluster_3d(mask_test, adj)
+    clst2 = cluster_3d_numba(mask_test, adj)
+
+    assert (clst1 == clst2).all()
 
 
 def test_cluster_based_regression():
