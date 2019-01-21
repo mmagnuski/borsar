@@ -84,10 +84,10 @@ def test_clustering():
     for idx in range(data.shape[0]):
         data[idx] = gaussian(data[idx])
 
+    mask_test = data > (data.mean() + data.std())
+
     # adjacency
     T, F = True, False
-    mask_test = img_test > (img_test.mean() + img_test.std())
-
     adj = np.array([[F, T, T, F, F],
                     [T, F, T, F, T],
                     [T, T, F, F, F],
