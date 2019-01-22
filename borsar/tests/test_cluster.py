@@ -6,12 +6,13 @@ import pytest
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
-import pytest
-
+from skimage.filters import gaussian
 import mne
+
 import borsar
 from borsar.stats import format_pvalue
 from borsar.utils import download_test_data, _get_test_data_dir
+from borsar.cluster_numba import cluster_3d_numba
 from borsar.cluster import (construct_adjacency_matrix, read_cluster,
                             _get_mass_range, cluster_based_regression,
                             _index_from_dim, _clusters_safety_checks,
@@ -75,9 +76,7 @@ def test_contstruct_adjacency():
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
 
 
-def test_clustering():
-    from skimage.filters import gaussian
-    from .cluster_numba import cluster_3d_numba
+def test_numba_clustering():
     data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
     # smooth each 'channel' independently

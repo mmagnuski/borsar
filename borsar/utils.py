@@ -387,7 +387,7 @@ def download_test_data():
     data_dir = _get_test_data_dir()
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
                    op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
-                   'chan_alpha_range.hdf5']
+                   'chan_alpha_range.hdf5', 'test_clustering.npy']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 
