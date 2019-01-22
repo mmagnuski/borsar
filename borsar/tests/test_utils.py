@@ -9,7 +9,7 @@ from borsar.channels import get_ch_pos
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
                           find_range, find_index, silent_mne, read_info,
-                          write_info, _get_test_data_dir)
+                          write_info, _get_test_data_dir, has_numba)
 
 
 def almost_equal(val1, val2, error=1e-13):

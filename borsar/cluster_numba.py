@@ -15,8 +15,8 @@ def cluster_3d_numba(matrix, chan_conn):
     max_cluster_id = 0
     n_chan = matrix.shape[0]
     for ch in range(n_chan):
-        clusters[ch, :, :] = label(matrix[ch, :, :],
-            connectivity=1, background=False)
+        clusters[ch, :, :] = label(
+            matrix[ch, :, :], connectivity=1, background=False)
 
         # relabel so that layers do not have same cluster ids
         if ch > 0:
@@ -47,7 +47,7 @@ def replace_numba_3d(mat, val1, val2):
 def relabel_clusters(clusters, chan_conn):
     """Check channel neighbours and merge clusters across channels."""
     n_chan, n_x, n_y = clusters.shape
-    for ch in range(n_chan - 1): # last channel will be already checked
+    for ch in range(n_chan - 1):  # last channel will be already checked
         # get unchecked neighbours
         neighbours = np.where(chan_conn[ch + 1:, ch])[0]
         if neighbours.shape[0] > 0:

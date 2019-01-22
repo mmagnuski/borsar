@@ -72,23 +72,23 @@ def cluster_3d(data, adjacency):
     max_cluster_id = 0
     n_chan = data.shape[0]
     for ch in range(n_chan):
-        clusters[ch, :, :] = label(data[ch, :, :],
-            connectivity=1, background=False)
+        clusters[ch, :, :] = label(
+            data[ch, :, :], connectivity=1, background=False)
 
         # relabel so that layers do not have same cluster ids
         if ch > 0:
             num_clusters = clusters[ch, :, :].max()
-            clusters[ch, clusters[ch,:] > 0] += max_cluster_id
+            clusters[ch, clusters[ch, :] > 0] += max_cluster_id
             max_cluster_id += num_clusters
 
     # unrolled views into clusters for ease of channel comparison:
     unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
     # check channel neighbours and merge clusters across channels
-    for ch in range(n_chan - 1): # last chan will be already checked
+    for ch in range(n_chan - 1):  # last chan will be already checked
         ch1 = unrolled[ch]
         ch1_ind = np.where(ch1)[0]
         if len(ch1_ind) == 0:
-            continue # no clusters, no fun...
+            continue  # no clusters, no fun...
 
         # get unchecked neighbours
         neighbours = np.where(adjacency[ch + 1:, ch])[0]
@@ -127,6 +127,7 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy'):
 # TODO : add tail=0 to control for tail selection
 def find_clusters(data, threshold, adjacency=False, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True):
+    """FIX: Add docs."""
     if cluster_fun is None and backend == 'auto':
         backend = 'mne' if data.ndim < 3 else 'auto'
 
@@ -149,7 +150,7 @@ def find_clusters(data, threshold, adjacency=False, cluster_fun=None,
         # borsar clustering
         # -----------------
         if cluster_fun is None:
-            cluster_fun = _get_cluster_fun(t_values, adjacency=adjacency,
+            cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
                                            backend=backend)
         # positive clusters
         # -----------------
@@ -158,7 +159,7 @@ def find_clusters(data, threshold, adjacency=False, cluster_fun=None,
         # TODO - consider numba optimization of this part too:
         cluster_id = np.unique(pos_clusters)[1:]
         pos_clusters = [pos_clusters == id for id in cluster_id]
-        cluster_stats = [t_values[clst].sum() for clst in pos_clusters]
+        cluster_stats = [data[clst].sum() for clst in pos_clusters]
 
         # negative clusters
         # -----------------
@@ -167,7 +168,7 @@ def find_clusters(data, threshold, adjacency=False, cluster_fun=None,
         # TODO - consider numba optimization of this part too:
         cluster_id = np.unique(neg_clusters)[1:]
         neg_clusters = [neg_clusters == id for id in cluster_id]
-        cluster_stats = np.array(cluster_stats + [t_values[clst].sum()
+        cluster_stats = np.array(cluster_stats + [data[clst].sum()
                                                   for clst in neg_clusters])
         clusters = pos_clusters + neg_clusters
 
