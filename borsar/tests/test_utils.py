@@ -165,7 +165,7 @@ def test_get_dropped_epochs():
 
 
 def test_has_numba():
-    if_nuba = has_numba()
+    if_numba = has_numba()
     if if_numba:
         try:
             from numba import jit
