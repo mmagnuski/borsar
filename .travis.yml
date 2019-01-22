@@ -17,8 +17,8 @@ install:
   - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
   - conda env create -f environment.yml
   - source activate mne
-  - conda install skimage numba
-  - pip install codecov tqdm
+  - conda install numba
+  - pip install codecov tqdm scikit-image
   - python setup.py develop
 
 script:
