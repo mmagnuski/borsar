@@ -2,30 +2,30 @@ import numpy as np
 from numba import jit
 
 
-def cluster_3d_numba(matrix, chan_conn):
+def cluster_3d_numba(data, adjacency=None):
     """Cluster data using numba-optimized functions."""
-    # matrix has to be bool
-    assert matrix.dtype == np.bool
+    # data has to be bool
+    assert data.dtype == np.bool
 
     # nested import
     from skimage.measure import label
 
     # label each channel separately
-    clusters = np.zeros(matrix.shape, dtype='int')
+    clusters = np.zeros(data.shape, dtype='int')
     max_cluster_id = 0
-    n_chan = matrix.shape[0]
+    n_chan = data.shape[0]
     for ch in range(n_chan):
         clusters[ch, :, :] = label(
-            matrix[ch, :, :], connectivity=1, background=False)
+            data[ch, :, :], connectivity=1, background=False)
 
         # relabel so that layers do not have same cluster ids
+        num_clusters = clusters[ch, :, :].max()
         if ch > 0:
-            num_clusters = clusters[ch, :, :].max()
             clusters[ch, clusters[ch] > 0] += max_cluster_id
-            max_cluster_id += num_clusters
+        max_cluster_id += num_clusters
 
     # unrolled views into clusters for ease of channel comparison:
-    return relabel_clusters(clusters, chan_conn)
+    return relabel_clusters(clusters, adjacency)
 
 
 @jit(nopython=True)

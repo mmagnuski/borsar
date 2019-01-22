@@ -76,10 +76,10 @@ def cluster_3d(data, adjacency):
             data[ch, :, :], connectivity=1, background=False)
 
         # relabel so that layers do not have same cluster ids
+        num_clusters = clusters[ch, :, :].max()
         if ch > 0:
-            num_clusters = clusters[ch, :, :].max()
             clusters[ch, clusters[ch, :] > 0] += max_cluster_id
-            max_cluster_id += num_clusters
+        max_cluster_id += num_clusters
 
     # unrolled views into clusters for ease of channel comparison:
     unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]

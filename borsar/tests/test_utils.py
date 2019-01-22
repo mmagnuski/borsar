@@ -164,6 +164,17 @@ def test_get_dropped_epochs():
     assert (np.array([0, 2, 3]) == get_dropped_epochs(epochs)).all()
 
 
+def test_has_numba():
+    if_nuba = has_numba()
+    if if_numba:
+        try:
+            from numba import jit:
+            numba_imported = True
+        except ImportError:
+            numba_imported = False
+        assert numba_imported
+
+
 def test_silent_mne():
     raw = create_fake_raw(n_channels=2, n_samples=10, sfreq=10.)
     mntg = mne.channels.Montage(np.random.random((2, 3)), ['A', 'B'],

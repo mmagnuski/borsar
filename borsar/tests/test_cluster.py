@@ -13,11 +13,12 @@ import borsar
 from borsar.stats import format_pvalue
 from borsar.utils import download_test_data, _get_test_data_dir
 from borsar.cluster_numba import cluster_3d_numba
-from borsar.cluster import (construct_adjacency_matrix, read_cluster,
-                            _get_mass_range, cluster_based_regression,
+from borsar.cluster import (Clusters, cluster_3d, find_clusters,
+                            construct_adjacency_matrix, read_cluster,
+                            cluster_based_regression, _get_mass_range,
                             _index_from_dim, _clusters_safety_checks,
                             _check_description, _clusters_chan_vert_checks,
-                            Clusters, _check_dimnames_kwargs, cluster_3d)
+                            _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
@@ -97,6 +98,23 @@ def test_numba_clustering():
     clst2 = cluster_3d_numba(mask_test, adj)
 
     assert (clst1 == clst2).all()
+
+
+def test_find_clusters():
+    threshold = 2.
+    T, F = True, False
+    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
+    data = np.array([[[2.1, 2., 2.3], [1.2, -2.1, -2.3], [2.5, -2.05, 1.3]],
+                     [[2.5, 2.4, 2.2], [0.3, -2.4, 0.7], [2.3, -2.1, 0.7]],
+                     [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
+    correct_clst = [data > threshold, data < - threshold]
+    for backend in ['auto', 'numpy', 'numba']:
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend=backend)
+        assert (clst[0] == correct_clst[0]).all()
+        assert (clst[1] == correct_clst[1]).all()
+        assert data[correct_clst[0]].sum() == stat[0]
+        assert data[correct_clst[1]].sum() == stat[1]
 
 
 def test_cluster_based_regression():
