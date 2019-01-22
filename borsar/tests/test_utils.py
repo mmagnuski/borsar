@@ -168,7 +168,7 @@ def test_has_numba():
     if_nuba = has_numba()
     if if_numba:
         try:
-            from numba import jit:
+            from numba import jit
             numba_imported = True
         except ImportError:
             numba_imported = False

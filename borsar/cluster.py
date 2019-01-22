@@ -23,7 +23,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         ch_names = neighbours['label'].tolist()
 
     n_channels = len(ch_names)
-    conn = np.zeros((n_channels, n_channels), dtype='bool')
+    adj = np.zeros((n_channels, n_channels), dtype='bool')
 
     for ii, chan in enumerate(ch_names):
         ngb_ind = np.where(neighbours['label'] == chan)[0]
@@ -42,10 +42,12 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         connections = [ch_names.index(ch) for ch in neighbours['neighblabel']
                        [ngb_ind] if ch in ch_names]
         chan_ind = ch_names.index(chan)
-        conn[chan_ind, connections] = True
+        adj[chan_ind, connections] = True
     if as_sparse:
-        return sparse.coo_matrix(conn)
-    return conn
+        return sparse.coo_matrix(adj)
+    return adj
+
+
 def cluster_3d(data, adjacency):
     '''
     Parameters
@@ -534,7 +536,7 @@ class Clusters(object):
         percentage_in : None | float
             Select clusters by percentage participation in range of the data
             space specified in **kwargs. For example
-            `clst.select(percentage_in=0.15, freq=[3, 7])` selects only those
+            ``clst.select(percentage_in=0.15, freq=(3, 7))`` selects only those
             clusters that have at least 15% of their mass in 3 - 7 Hz frequency
             range. Defaults to None which does not select clusters by their
             participation in data space.
