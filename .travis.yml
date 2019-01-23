@@ -13,6 +13,13 @@ matrix:
     - os: osx
       env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
 
+before_install:
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+      brew update;
+    else
+      sudo apt-get update;
+    fi
+
 install:
   # Rvm overrides cd with a function so that it can hook into it to run
   # some scripts, see https://github.com/travis-ci/travis-ci/issues/8703
