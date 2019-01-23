@@ -200,13 +200,13 @@ def test_cluster_based_regression_3d_simulated():
     pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
 
     # create pos cluster
-    wght = 1.4
+    wght = 1.9
     pos_idx = tuple([slice(None)] + pos_clst)
     wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
     data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
 
     # create neg cluster
-    wght = -1.1
+    wght = -1.5
     neg_idx = tuple([slice(None)] + neg_clst)
     wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
     data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
