@@ -229,7 +229,7 @@ def test_cluster_based_regression_3d_simulated():
                     np.where(clst_stat < 0)[0][0])
 
     # assert that clusters are similar to locations of original effects
-    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.9
+    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
     assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.1
     assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.5
     assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.1
