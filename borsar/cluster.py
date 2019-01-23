@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse
 
-from borsar.utils import find_index, find_range
+from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t, format_pvalue
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
@@ -23,7 +23,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         ch_names = neighbours['label'].tolist()
 
     n_channels = len(ch_names)
-    conn = np.zeros((n_channels, n_channels), dtype='bool')
+    adj = np.zeros((n_channels, n_channels), dtype='bool')
 
     for ii, chan in enumerate(ch_names):
         ngb_ind = np.where(neighbours['label'] == chan)[0]
@@ -42,19 +42,228 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         connections = [ch_names.index(ch) for ch in neighbours['neighblabel']
                        [ngb_ind] if ch in ch_names]
         chan_ind = ch_names.index(chan)
-        conn[chan_ind, connections] = True
+        adj[chan_ind, connections] = True
     if as_sparse:
-        return sparse.coo_matrix(conn)
-    return conn
+        return sparse.coo_matrix(adj)
+    return adj
 
 
+def cluster_3d(data, adjacency):
+    '''
+    Parameters
+    ----------
+    data : numpy array
+        Matrix of shape ``(channels, dim2, dim3)``
+    adjacency : numpy array
+        2d boolean matrix with information about channel adjacency.
+        If ``chann_conn[i, j]`` is True that means channel i and j are
+        adjacent.
+
+    Returns
+    -------
+    clusters - 3d integer matrix with cluster labels
+    '''
+    # data has to be bool
+    assert data.dtype == np.bool
+
+    # nested import
+    from skimage.measure import label
+
+    # label each channel separately
+    clusters = np.zeros(data.shape, dtype='int')
+    max_cluster_id = 0
+    n_chan = data.shape[0]
+    for ch in range(n_chan):
+        clusters[ch, :, :] = label(
+            data[ch, :, :], connectivity=1, background=False)
+
+        # relabel so that layers do not have same cluster ids
+        num_clusters = clusters[ch, :, :].max()
+        if ch > 0:
+            clusters[ch, clusters[ch, :] > 0] += max_cluster_id
+        max_cluster_id += num_clusters
+
+    # unrolled views into clusters for ease of channel comparison:
+    unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
+    # check channel neighbours and merge clusters across channels
+    for ch in range(n_chan - 1):  # last chan will be already checked
+        ch1 = unrolled[ch]
+        ch1_ind = np.where(ch1)[0]
+        if len(ch1_ind) == 0:
+            continue  # no clusters, no fun...
+
+        # get unchecked neighbours
+        neighbours = np.where(adjacency[ch + 1:, ch])[0]
+        if len(neighbours) > 0:
+            neighbours += ch + 1
+
+            for ngb in neighbours:
+                ch2 = unrolled[ngb]
+                for ind in ch1_ind:
+                    # relabel clusters if adjacent and not the same id
+                    if ch2[ind] and not (ch1[ind] == ch2[ind]):
+                        c1 = min(ch1[ind], ch2[ind])
+                        c2 = max(ch1[ind], ch2[ind])
+                        clusters[clusters == c2] = c1
+    return clusters
+
+
+def _get_cluster_fun(data, adjacency=None, backend='numpy'):
+    '''Return the correct clustering function depending on the data shape and
+    presence of an adjacency matrix.'''
+    has_adjacency = adjacency is not None
+    if data.ndim == 3 and has_adjacency:
+        if backend in ['numba', 'auto']:
+            if has_numba():
+                from .cluster_numba import cluster_3d_numba
+                return cluster_3d_numba
+            elif backend == 'numba':
+                raise ValueError('You need numba package to use the "numba" '
+                                 'backend.')
+            else:
+                return cluster_3d
+        else:
+            return cluster_3d
+
+
+# TODO : add tail=0 to control for tail selection
+def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
+                  backend='auto', mne_reshape_clusters=True):
+    """FIX: Add docs."""
+    if cluster_fun is None and backend == 'auto':
+        backend = 'mne' if data.ndim < 3 else 'auto'
+
+    if backend == 'mne':
+        # mne clustering
+        # --------------
+        from mne.stats.cluster_level import (
+            _find_clusters, _cluster_indices_to_mask)
+
+        data = (data.ravel() if adjacency is not None else data)
+        clusters, cluster_stats = _find_clusters(
+            data, threshold=threshold, tail=0, connectivity=adjacency)
+
+        if mne_reshape_clusters:
+            if adjacency is not None:
+                clusters = _cluster_indices_to_mask(clusters,
+                                                    np.prod(data.shape))
+            clusters = [clst.reshape(data.shape) for clst in clusters]
+    else:
+        # borsar clustering
+        # -----------------
+        if cluster_fun is None:
+            cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
+                                           backend=backend)
+        # positive clusters
+        # -----------------
+        pos_clusters = cluster_fun(data > threshold, adjacency=adjacency)
+
+        # TODO - consider numba optimization of this part too:
+        cluster_id = np.unique(pos_clusters)[1:]
+        pos_clusters = [pos_clusters == id for id in cluster_id]
+        cluster_stats = [data[clst].sum() for clst in pos_clusters]
+
+        # negative clusters
+        # -----------------
+        neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency)
+
+        # TODO - consider numba optimization of this part too:
+        cluster_id = np.unique(neg_clusters)[1:]
+        neg_clusters = [neg_clusters == id for id in cluster_id]
+        cluster_stats = np.array(cluster_stats + [data[clst].sum()
+                                                  for clst in neg_clusters])
+        clusters = pos_clusters + neg_clusters
+
+    return clusters, cluster_stats
+
+
+# - [ ] FIXME: consider cluster_pred always adressing preds (you never want
+#              cluster the intercept, and if you do you'd need a one sample
+#              t test and thus a different permutation scheme)
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
-                             progressbar=True, return_distribution=False):
-    '''TODO: add DOCs!'''
+                             cluster_pred=None, backend='auto',
+                             progressbar=True, return_distribution=False,
+                             within=None):
+    '''Compute cluster-based permutation test with regression as the
+    statistical function.
+
+    Parameters
+    ----------
+    data : numpy array
+        N-dimensional numpy array with data to predict with regression. The
+        first dimension has to correspond to observations. If ``adjacency`` was
+        given the last dimension has to correspond to adjacency space (for
+        example channels or vertices).
+    preds : numpy array
+        Predictors array of shape ``(n_observations, n_predictors)`` to use in
+        regression.
+    adjacency : numpy array, optional
+        Adjacency matrix for the last ``data`` dimension. If ``None`` (default)
+        lattice/grid adjacency is used.
+    n_permutations : int
+        Number of permutations to perferom to get a monte-carlo estimate of the
+        null hypothesis distribution. More permutations result in more
+        accurrate p values. Default is 1000.
+    stat_threshold : float | None
+        Cluster inclusion threshold in t value. Only data points exceeding this
+        value of the t statistic (either ``t value > stat_threshold`` or
+        ``t value < -stat_threshold``) form clusters. Default is ``None``,
+        which means that cluster inclusion threshold is set according to
+        ``alpha_threshold``. If both ``stat_threshold`` and ``alpha_threshold``
+        are set, ``stat_threshold`` takes priority.
+    alpha_threshold : float | None
+        Cluster inclusion threshold in critical p value. Only data points where
+        p value of the predictor effect lower than the critical value form
+        clusters. Default is 0.05.
+    cluster_pred : int
+        Specify which predictor to use in clustering. Must be an integer: a
+        zero-based index for the t values matrix returned by
+        ``compute_regression_t``.
+    backend : str
+        Clustering backend. The default is 'numpy' but 'numba' can be also
+        chosen. 'numba' should be faster for 3d clustering but requires the
+        numba package.
+    progressbar : bool
+        Whether to report the progress of permutations using a progress bar.
+        The default is ``True`` which uses tqdm progress bar.
+    return_distribution : bool
+        Whether to retrun the permutation distribution as an additional, fourth
+        output argument.
+    within : None | list | ndarray
+        For within-subject regression you need to pass additional array or list
+        with subject identifiers. For example if rows 1 - 4 of ``data`` belong
+        to subject 1 and rows 5 - 8 to subject 2 you would use
+        ``within=[1, 1, 1, 1, 2, 2, 2, 2]``. This information is used to add
+        subject-specific intercepts and permute the predictor of interest
+        (``cluster_pred``) within subjects.
+        Please note that this option is experimental, and using permutation
+        tests with within-subject regression is not guaranteed to give relevant
+        correction. Permuting the predictors within subjects changes the null
+        hypothesis to "there is no relationship between predictor and data in
+        ANY of the subjects" so it may be possible that having the
+        relationship only in some subjects would be enough to reject the null
+        hypothesis. Instead of within-subject regression you could use a two
+        step analysis, where you calculate maps of t values for the predictor
+        of interest and use a cluster based test against zero on the calculated
+        t value maps (the null hypothesis is then that the data are
+        symmetrically scattered around zero across participants).
+
+    Returns
+    -------
+    t_values : numpy array
+        Statistical map of t values for the effect of predictor of interest.
+    clusters : list of numpy arrays
+        List of boolean numpy arrays. Consecutive arrays correspond to boolean
+        cluster masks.
+    cluster_p : numpy array
+        Numpy array of cluster-level p values.
+    distributions : dict
+        Dictionary of positive null distribution (``distributions['pos']``) and
+        negative null distribution (``distributions['neg']``). Returned only if
+        ``return_distribution`` was set to ``True``.
+    '''
     # data has to have observations as 1st dim and channels/vert as last dim
-    from mne.stats.cluster_level import (_setup_connectivity, _find_clusters,
-                                         _cluster_indices_to_mask)
 
     assert preds.ndim == 1 or (preds.ndim == 2) & (preds.shape[1] == 1), (
         '`preds` must be 1d array or 2d array where the second dimension is'
@@ -65,15 +274,18 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         df = data.shape[0] - 2 # in future: preds.shape[1]
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
 
-    # TODO - move progressbar code from DiamSar
+    # TODO - move progressbar code from DiamSar!
     #      - then support tqdm pbar as input
     #      - use autonotebook
     if progressbar:
         from tqdm import tqdm
         pbar = tqdm(total=n_permutations)
 
+    use_3d_clustering = data.ndim > 3 and adjacency is not None
+
     n_obs = data.shape[0]
-    if adjacency is not None:
+    if adjacency is not None and not use_3d_clustering:
+        from mne.stats.cluster_level import _setup_connectivity
         adjacency = _setup_connectivity(adjacency, np.prod(data.shape[1:]),
                                         data.shape[1])
 
@@ -81,17 +293,36 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     neg_dist = np.zeros(n_permutations)
     perm_preds = preds.copy()
 
+    if within is not None:
+        # ...cluster_pred
+        pass
+    elif cluster_pred is None:
+        cluster_pred = 1
+
     # regression on non-permuted data
-    t_values = compute_regression_t(data, preds)[1]
+    t_values = compute_regression_t(data, preds)[cluster_pred]
 
-    cluster_data = (t_values.ravel() if adjacency is not None
-                    else t_values)
-    clusters, cluster_stats = _find_clusters(
-        cluster_data, threshold=stat_threshold, tail=0, connectivity=adjacency)
+    if use_3d_clustering:
+        # use 3d clustering
+        cluster_fun = _get_cluster_fun(t_values, adjacency=adjacency,
+                                       backend=backend)
+        # we need to transpose dimensions for 3d clustering
+        # FIXME/TODO - this could be eliminated by creating a single unified
+        #              clustering function / API
+        data_dims = np.array(list(range(data.ndim)))
+        data_dims[1], data_dims[-1] = data_dims[-1], 1
+        data = data.transpose(data_dims)
+        t_values = t_values.transpose(data_dims[1:] - 1)
+    else:
+        backend = 'mne'
+        cluster_fun = None
 
-    if adjacency is not None:
-        clusters = _cluster_indices_to_mask(clusters, np.prod(data.shape[1:]))
-    clusters = [clst.reshape(data.shape[1:]) for clst in clusters]
+    clusters, cluster_stats = find_clusters(
+        t_values, stat_threshold, adjacency=adjacency, cluster_fun=cluster_fun,
+        backend=backend)
+
+    if use_3d_clustering:
+        t_values = t_values.transpose(data_dims[1:] - 1)
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -105,17 +336,16 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         # permute predictors
         perm_inds = np.random.permutation(n_obs)
         this_perm = perm_preds[perm_inds]
-        perm_tvals = compute_regression_t(data, this_perm)
+        perm_tvals = compute_regression_t(data, this_perm)[cluster_pred]
 
         # cluster
-        cluster_data = (perm_tvals[1].ravel() if adjacency is not None
-                        else perm_tvals[1])
-        _, perm_cluster_stats = _find_clusters(
-            cluster_data, threshold=stat_threshold, tail=0,
-            connectivity=adjacency)
+        _, perm_cluster_stats = find_clusters(
+            perm_tvals, stat_threshold, adjacency=adjacency,
+            cluster_fun=cluster_fun, backend=backend,
+            mne_reshape_clusters=False)
 
         # if any clusters were found - add max statistic
-        if perm_cluster_stats.shape[0] > 0:
+        if len(perm_cluster_stats) > 0:
             max_val = perm_cluster_stats.max()
             min_val = perm_cluster_stats.min()
 
@@ -129,13 +359,16 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2 # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
+    cluster_p *= 2  # because we use two-tail
+    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
     cluster_p = cluster_p[cluster_order]
     clusters = [clusters[i] for i in cluster_order]
+
+    if use_3d_clustering:
+        clusters = [clst.transpose(data_dims[1:] - 1) for clst in clusters]
 
     if return_distribution:
         distribution = dict(pos=pos_dist, neg=neg_dist)
@@ -303,7 +536,7 @@ class Clusters(object):
         percentage_in : None | float
             Select clusters by percentage participation in range of the data
             space specified in **kwargs. For example
-            `clst.select(percentage_in=0.15, freq=[3, 7])` selects only those
+            ``clst.select(percentage_in=0.15, freq=(3, 7))`` selects only those
             clusters that have at least 15% of their mass in 3 - 7 Hz frequency
             range. Defaults to None which does not select clusters by their
             participation in data space.

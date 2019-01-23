@@ -6,17 +6,18 @@ import pytest
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
-import pytest
-
+from skimage.filters import gaussian
 import mne
+
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir
-from borsar.cluster import (construct_adjacency_matrix, read_cluster,
-                            _get_mass_range, cluster_based_regression,
+from borsar.utils import download_test_data, _get_test_data_dir, has_numba
+from borsar.cluster import (Clusters, cluster_3d, find_clusters,
+                            construct_adjacency_matrix, read_cluster,
+                            cluster_based_regression, _get_mass_range,
                             _index_from_dim, _clusters_safety_checks,
                             _check_description, _clusters_chan_vert_checks,
-                            Clusters, _check_dimnames_kwargs)
+                            _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
@@ -75,6 +76,52 @@ def test_contstruct_adjacency():
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
 
 
+def test_numba_clustering():
+    if has_numba():
+        from borsar.cluster_numba import cluster_3d_numba
+        data = np.load(op.join(data_dir, 'test_clustering.npy'))
+
+        # smooth each 'channel' independently
+        for idx in range(data.shape[0]):
+            data[idx] = gaussian(data[idx])
+
+        mask_test = data > (data.mean() + data.std())
+
+        # adjacency
+        T, F = True, False
+        adj = np.array([[F, T, T, F, F],
+                        [T, F, T, F, T],
+                        [T, T, F, F, F],
+                        [F, F, F, F, T],
+                        [F, T, F, T, F]])
+
+        clst1 = cluster_3d(mask_test, adj)
+        clst2 = cluster_3d_numba(mask_test, adj)
+
+        assert (clst1 == clst2).all()
+
+
+def test_find_clusters():
+    threshold = 2.
+    T, F = True, False
+    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
+    data = np.array([[[2.1, 2., 2.3], [1.2, -2.1, -2.3], [2.5, -2.05, 1.3]],
+                     [[2.5, 2.4, 2.2], [0.3, -2.4, 0.7], [2.3, -2.1, 0.7]],
+                     [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
+    correct_clst = [data > threshold, data < - threshold]
+    backends = ['auto', 'numpy']
+    if has_numba():
+        backends.append('numba')
+
+    for backend in backends:
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend=backend)
+        assert (clst[0] == correct_clst[0]).all()
+        assert (clst[1] == correct_clst[1]).all()
+        assert data[correct_clst[0]].sum() == stat[0]
+        assert data[correct_clst[1]].sum() == stat[1]
+
+
 def test_cluster_based_regression():
     data_dir = _get_test_data_dir()
 
@@ -101,7 +148,7 @@ def test_cluster_based_regression():
 
     # for small p-values the differences should be smaller,
     # for large they could reach up to 0.095
-    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.095, 0.095]).all()
+    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.095, 0.11]).all()
 
     # distributions should be very similar
     # ------------------------------------
@@ -132,6 +179,7 @@ def test_cluster_based_regression():
 
     # TEST 2
     # ======
+    # smoke test for running cluster_based_regression with adjacency
     data = np.random.random((15, 4, 4))
     preds = np.random.random(15)
 
@@ -141,6 +189,55 @@ def test_cluster_based_regression():
 
     tvals, clst, clst_p = cluster_based_regression(data, preds,
                                                    adjacency=adjacency)
+
+
+def test_cluster_based_regression_3d_simulated():
+    # ground truth - cluster locations
+    T, F = True, False
+    data = np.random.normal(size=(10, 3, 5, 5))
+    adjacency = np.array([[F, T, T], [T, F, T], [T, T, F]])
+    pos_clst = [[0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+                [1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 2, 3],
+                [1, 2, 2, 0, 1, 1, 2, 3, 0, 0, 3, 3]]
+    neg_clst = [[0, 0, 0, 0, 2, 2, 2],
+                [3, 4, 4, 4, 3, 4, 4],
+                [4, 2, 3, 4, 1, 1, 2]]
+    pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
+
+    # create pos cluster
+    wght = 1.9
+    pos_idx = tuple([slice(None)] + pos_clst)
+    wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
+    data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # create neg cluster
+    wght = -1.5
+    neg_idx = tuple([slice(None)] + neg_clst)
+    wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
+    data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # prepare data and run cluster_based_regression
+    reg_data = data.copy().swapaxes(1, -1)
+    stat, clst, pvals = cluster_based_regression(
+        reg_data, pred, adjacency=adjacency, stat_threshold=2.,
+        progressbar=False)
+
+    # swapaxes back to orig size
+    stat = stat.swapaxes(0, -1)
+    clst = [c.swapaxes(0, -1) for c in clst]
+
+    # find pos and neg clusters
+    clst_stat = np.array([stat[c].sum() for c in clst])
+    pos_clst_idx = (pvals[clst_stat > 0].argmin() +
+                    np.where(clst_stat > 0)[0][0])
+    neg_clst_idx = (pvals[clst_stat < 0].argmin() +
+                    np.where(clst_stat < 0)[0][0])
+
+    # assert that clusters are similar to locations of original effects
+    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
+    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.1
+    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.5
+    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.1
 
 
 def test_get_mass_range():

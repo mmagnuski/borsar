@@ -363,6 +363,15 @@ def silent_mne():
     mne.set_log_level(log_level)
 
 
+def has_numba():
+    """Check if numba is available."""
+    try:
+        from numba import jit
+        return True
+    except ImportError:
+        return False
+
+
 def _get_test_data_dir():
     '''Get test data directory.'''
     from borsar import __path__ as borsar_dir
@@ -378,7 +387,7 @@ def download_test_data():
     data_dir = _get_test_data_dir()
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
                    op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
-                   'chan_alpha_range.hdf5']
+                   'chan_alpha_range.hdf5', 'test_clustering.npy']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 

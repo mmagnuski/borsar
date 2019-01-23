@@ -1,15 +1,34 @@
-language: python
-python:
-  - "3.5"
-  - "3.6"
+language: c
+dist: xenial
+sudo: required
+
+matrix:
+  include:
+    - os: linux
+      env: USE_NUMBA="yes" TRAVIS_PYTHON_VERSION=3.6
+
+    - os: linux
+      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
+
+    - os: osx
+      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
+
+before_install:
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+      brew update;
+    else
+      sudo apt-get update;
+    fi
+  - git clone https://github.com/astropy/ci-helpers.git
+  - source ci-helpers/travis/setup_conda.sh
+
 install:
-  - sudo apt-get update
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
+  # Rvm overrides cd with a function so that it can hook into it to run
+  # some scripts, see https://github.com/travis-ci/travis-ci/issues/8703
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+      unset -f cd;
+    fi;
   - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
 
@@ -17,7 +36,10 @@ install:
   - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
   - conda env create -f environment.yml
   - source activate mne
-  - pip install codecov tqdm
+  - if [ "${USE_NUMBA}" == "yes" ]; then
+      conda install numba;
+    fi
+  - pip install codecov tqdm scikit-image
   - python setup.py develop
 
 script:

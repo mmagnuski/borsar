@@ -9,7 +9,7 @@ from borsar.channels import get_ch_pos
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
                           find_range, find_index, silent_mne, read_info,
-                          write_info, _get_test_data_dir)
+                          write_info, _get_test_data_dir, has_numba)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -162,6 +162,17 @@ def test_get_dropped_epochs():
 
     epochs.drop([0])
     assert (np.array([0, 2, 3]) == get_dropped_epochs(epochs)).all()
+
+
+def test_has_numba():
+    if_numba = has_numba()
+    if if_numba:
+        try:
+            from numba import jit
+            numba_imported = True
+        except ImportError:
+            numba_imported = False
+        assert numba_imported
 
 
 def test_silent_mne():
