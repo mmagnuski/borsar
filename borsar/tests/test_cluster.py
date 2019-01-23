@@ -174,6 +174,7 @@ def test_cluster_based_regression():
 
     # TEST 2
     # ======
+    # smoke test for running cluster_based_regression with adjacency
     data = np.random.random((15, 4, 4))
     preds = np.random.random(15)
 
@@ -183,6 +184,55 @@ def test_cluster_based_regression():
 
     tvals, clst, clst_p = cluster_based_regression(data, preds,
                                                    adjacency=adjacency)
+
+
+def test_cluster_based_regression_3d_simulated():
+    # ground truth - cluster locations
+    T, F = True, False
+    data = np.random.normal(size=(10, 3, 5, 5))
+    adjacency = np.array([[F, T, T], [T, F, T], [T, T, F]])
+    pos_clst = [[0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+                [1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 2, 3],
+                [1, 2, 2, 0, 1, 1, 2, 3, 0, 0, 3, 3]]
+    neg_clst = [[0, 0, 0, 0, 2, 2, 2],
+                [3, 4, 4, 4, 3, 4, 4],
+                [4, 2, 3, 4, 1, 1, 2]]
+    pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
+
+    # create pos cluster
+    wght = 1.4
+    pos_idx = tuple([slice(None)] + pos_clst)
+    wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
+    data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # create neg cluster
+    wght = -1.1
+    neg_idx = tuple([slice(None)] + neg_clst)
+    wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
+    data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # prepare data and run cluster_based_regression
+    reg_data = data.copy().swapaxes(1, -1)
+    stat, clst, pvals = cluster_based_regression(
+        reg_data, pred, adjacency=adjacency, stat_threshold=2.,
+        progressbar=False)
+
+    # swapaxes back to orig size
+    stat = stat.swapaxes(0, -1)
+    clst = [c.swapaxes(0, -1) for c in clst]
+
+    # find pos and neg clusters
+    clst_stat = np.array([stat[c].sum() for c in clst])
+    pos_clst_idx = (pvals[clst_stat > 0].argmin() +
+                    np.where(clst_stat > 0)[0][0])
+    neg_clst_idx = (pvals[clst_stat < 0].argmin() +
+                    np.where(clst_stat < 0)[0][0])
+
+    # assert that clusters are similar to locations of original effects
+    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.9
+    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.1
+    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.5
+    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.1
 
 
 def test_get_mass_range():
