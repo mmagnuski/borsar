@@ -12,7 +12,6 @@ import mne
 import borsar
 from borsar.stats import format_pvalue
 from borsar.utils import download_test_data, _get_test_data_dir, has_numba
-from borsar.cluster_numba import cluster_3d_numba
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
                             cluster_based_regression, _get_mass_range,
@@ -78,26 +77,28 @@ def test_contstruct_adjacency():
 
 
 def test_numba_clustering():
-    data = np.load(op.join(data_dir, 'test_clustering.npy'))
+    if has_numba():
+        from borsar.cluster_numba import cluster_3d_numba
+        data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
-    # smooth each 'channel' independently
-    for idx in range(data.shape[0]):
-        data[idx] = gaussian(data[idx])
+        # smooth each 'channel' independently
+        for idx in range(data.shape[0]):
+            data[idx] = gaussian(data[idx])
 
-    mask_test = data > (data.mean() + data.std())
+        mask_test = data > (data.mean() + data.std())
 
-    # adjacency
-    T, F = True, False
-    adj = np.array([[F, T, T, F, F],
-                    [T, F, T, F, T],
-                    [T, T, F, F, F],
-                    [F, F, F, F, T],
-                    [F, T, F, T, F]])
+        # adjacency
+        T, F = True, False
+        adj = np.array([[F, T, T, F, F],
+                        [T, F, T, F, T],
+                        [T, T, F, F, F],
+                        [F, F, F, F, T],
+                        [F, T, F, T, F]])
 
-    clst1 = cluster_3d(mask_test, adj)
-    clst2 = cluster_3d_numba(mask_test, adj)
+        clst1 = cluster_3d(mask_test, adj)
+        clst2 = cluster_3d_numba(mask_test, adj)
 
-    assert (clst1 == clst2).all()
+        assert (clst1 == clst2).all()
 
 
 def test_find_clusters():
