@@ -5,18 +5,23 @@ sudo: false
 matrix:
   include:
     - os: linux
-      env: USE_NUMBA="yes"
+      env: USE_NUMBA="yes" TRAVIS_PYTHON_VERSION=3.6
 
     - os: linux
-      env: USE_NUMBA="no"
+      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
 
     - os: osx
-      env: USE_NUMBA="no"
+      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
 
 install:
+  # Rvm overrides cd with a function so that it can hook into it to run
+  # some scripts, see https://github.com/travis-ci/travis-ci/issues/8703
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+      unset -f cd;
+    fi;
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
       sudo apt-get update;
-    fi
+    fi;
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
