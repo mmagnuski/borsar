@@ -110,7 +110,7 @@ def test_find_clusters():
                      [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
     correct_clst = [data > threshold, data < - threshold]
     backends = ['auto', 'numpy']
-    if has_numba:
+    if has_numba():
         backends.append('numba')
 
     for backend in backends:
