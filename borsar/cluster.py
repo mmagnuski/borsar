@@ -127,7 +127,7 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy'):
 
 
 # TODO : add tail=0 to control for tail selection
-def find_clusters(data, threshold, adjacency=False, cluster_fun=None,
+def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True):
     """FIX: Add docs."""
     if cluster_fun is None and backend == 'auto':
@@ -309,10 +309,10 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         # we need to transpose dimensions for 3d clustering
         # FIXME/TODO - this could be eliminated by creating a single unified
         #              clustering function / API
-        data_dims = list(range(data.ndim))
+        data_dims = np.array(list(range(data.ndim)))
         data_dims[1], data_dims[-1] = data_dims[-1], 1
         data = data.transpose(data_dims)
-        t_values = t_values.transpose(data_dims[1:])
+        t_values = t_values.transpose(data_dims[1:] - 1)
     else:
         backend = 'mne'
         cluster_fun = None
@@ -322,7 +322,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         backend=backend)
 
     if use_3d_clustering:
-        t_values = t_values.reshape(data_dims[1:])
+        t_values = t_values.transpose(data_dims[1:] - 1)
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -368,7 +368,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     clusters = [clusters[i] for i in cluster_order]
 
     if use_3d_clustering:
-        clusters = [clst.reshape(data_dims[1:]) for clst in clusters]
+        clusters = [clst.transpose(data_dims[1:] - 1) for clst in clusters]
 
     if return_distribution:
         distribution = dict(pos=pos_dist, neg=neg_dist)
