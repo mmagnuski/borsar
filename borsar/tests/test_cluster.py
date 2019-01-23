@@ -11,7 +11,7 @@ import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir
+from borsar.utils import download_test_data, _get_test_data_dir, has_numba
 from borsar.cluster_numba import cluster_3d_numba
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
@@ -108,7 +108,11 @@ def test_find_clusters():
                      [[2.5, 2.4, 2.2], [0.3, -2.4, 0.7], [2.3, -2.1, 0.7]],
                      [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
     correct_clst = [data > threshold, data < - threshold]
-    for backend in ['auto', 'numpy', 'numba']:
+    backends = ['auto', 'numpy']
+    if has_numba:
+        backends.append('numba')
+
+    for backend in backends:
         clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                    backend=backend)
         assert (clst[0] == correct_clst[0]).all()

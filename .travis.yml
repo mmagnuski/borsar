@@ -1,7 +1,18 @@
 language: python
 python:
-  - "3.5"
   - "3.6"
+
+matrix:
+  include:
+    - os: linux
+      env: USE_NUMBA="yes"
+
+    - os: linux
+      env: USE_NUMBA="no"
+
+    - os: osx
+      env: USE_NUMBA="no"
+
 install:
   - sudo apt-get update
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -17,7 +28,9 @@ install:
   - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
   - conda env create -f environment.yml
   - source activate mne
-  - conda install numba
+  - if [ "${USE_NUMBA}" == "yes" ]; then
+      conda install numba;
+    fi
   - pip install codecov tqdm scikit-image
   - python setup.py develop
 
