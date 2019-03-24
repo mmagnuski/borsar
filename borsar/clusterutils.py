@@ -7,7 +7,8 @@ def _get_units(dimname, fullname=False):
     if not fullname:
         return {'freq': 'Hz', 'time': 's', 'vert': 'vert'}[dimname]
     else:
-        return {'freq': 'hertz', 'time': 'seconds', 'vert': 'vertices'}[dimname]
+        return {'freq': 'hertz', 'time': 'seconds',
+                'vert': 'vertices'}[dimname]
 
 
 def _check_stc(clst):
