@@ -5,16 +5,21 @@ from borsar.stats import format_pvalue
 def _get_units(dimname, fullname=False):
     '''Return unit for specified dimension name.'''
     if not fullname:
-        return {'freq': 'Hz', 'time': 's'}[dimname]
+        return {'freq': 'Hz', 'time': 's', 'vert': 'vert'}[dimname]
     else:
-        return {'freq': 'hertz', 'time': 'seconds'}[dimname]
+        return {'freq': 'hertz', 'time': 'seconds', 'vert': 'vertices'}[dimname]
 
 
 def _check_stc(clst):
     '''Make sure Clusters has a list of mne.SourceEstimate in stc attribute.'''
     import mne
     if clst.stc is None:
-        vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
+        if clst.vertices is None:
+            vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
+        else:
+            lh, rh = [clst.vertices[hemi] for hemi in ['lh', 'rh']]
+            vert = [clst.src[0]['vertno'][lh], clst.src[1]['vertno'][rh]]
+
         assert clst.dimnames.index('vert') == 0
 
         tmin, tstep = 1., 1.

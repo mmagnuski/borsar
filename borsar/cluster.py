@@ -412,6 +412,8 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
+#      - [ ] add repr so that Cluster has nice text representation
+#      - [ ]
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -463,6 +465,10 @@ class Clusters(object):
         When using source space ('vert' is one of the dimnames) you need to
         pass a Freesurfer subjects directory (path to the folder contraining
         subjects as subfolders).
+    vertices : array of int, optional
+        Indices of vertices of the source space that were used in the
+        clustering. Only necessary if you performed the cluster based
+        permutation test on a selected part of the source space.
     description : str | dict, optional
         Optional description of the Clusters - for example analysis parameters
         and some other additional details.
@@ -471,7 +477,8 @@ class Clusters(object):
     '''
     def __init__(self, clusters, pvals, stat, dimnames=None, dimcoords=None,
                  info=None, src=None, subject=None, subjects_dir=None,
-                 description=None, sort_pvals=True, safety_checks=True):
+                 vertices=None, description=None, sort_pvals=True,
+                 safety_checks=True):
 
         if safety_checks:
             # basic safety checks
@@ -479,8 +486,8 @@ class Clusters(object):
                 clusters, pvals, stat, dimnames, dimcoords, description)
 
             # check channel or source space
-            _clusters_chan_vert_checks(dimnames, info, src, subject,
-                                       subjects_dir)
+            vertices = _clusters_chan_vert_checks(dimnames, info, src, subject,
+                                                  subjects_dir, vertices)
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
@@ -505,6 +512,7 @@ class Clusters(object):
         self.description = description
         self.dimcoords = dimcoords
         self.clusters = clusters
+        self.vertices = vertices
         self.dimnames = dimnames
         self.subject = subject
         self.pvals = pvals
@@ -1232,7 +1240,9 @@ def _check_description(description):
                             'ionary, got {}.'.format(type(description)))
 
 
-def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
+# TODO - [ ] move to clusterutils?
+def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir,
+                               vertices):
     '''Safety checks for Clusters spatial dimension.'''
     import mne
     if dimnames is not None and 'chan' in dimnames:
@@ -1254,6 +1264,26 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
             raise TypeError('You must pass a `subjects_dir` freesurfer folder'
                             ' name in order to use "vert" dimension. Use '
                             '`subjects_dir` keyword argument.')
+
+        if vertices is not None:
+            # check against left and right hemi
+            vert_num_lh = src[0]['vertno'].shape[0]
+            vert_num_rh = src[1]['vertno'].shape[0]
+            vert_num_all = vert_num_lh + vert_num_rh
+            vert_idx_in_src = (vertices < vert_num_all).all()
+            if not vert_idx_in_src:
+                raise ValueError(('Some vertex indices go beyond the '
+                                  'available source space extent. Number of '
+                                  'used vertices (lh + rh) = {:d}, while '
+                                  'maximum index in the ``vertices`` = '
+                                  '{:d}.').format(vert_num_all, vertices.max()))
+
+            # turn to lh, rh dictionary
+            lh_mask = vertices < vert_num_lh
+            vertices = {'lh': vertices[lh_mask],
+                        'rh': vertices[~lh_mask] - vert_num_lh}
+
+    return vertices
 
 
 def _check_dimname_arg(clst, dimname):
