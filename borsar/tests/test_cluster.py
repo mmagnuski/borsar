@@ -541,18 +541,26 @@ def test_clusters():
 
     # _clusters_chan_vert_checks
     with pytest.raises(TypeError, match='must pass an `mne.Info`'):
-        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None)
+        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
+                                   None)
 
     with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None)
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
+                                   None)
 
     with pytest.raises(TypeError, match='must pass a subject string'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   None, None)
+                                   None, None, None)
 
     with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', None)
+                                   'fsaverage', None, None)
+
+    n_vert = len(fwd['src'][0]['vertno']) + len(fwd['src'][1]['vertno'])
+    vertices = np.arange(n_vert + 1)
+    with pytest.raises(ValueError, match='vertex indices go beyond'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   'fsaverage', data_dir, vertices)
 
     with pytest.raises(TypeError, match='context'):
         _check_dimnames_kwargs(clst2, allow_lists=False, freq=[8, 9, 10])
