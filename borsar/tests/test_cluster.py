@@ -540,27 +540,42 @@ def test_clusters():
         _check_description(['abc'])
 
     # _clusters_chan_vert_checks
+    # --------------------------
+
+    # sensor space (chan dimname) require passing an mne.Info
     with pytest.raises(TypeError, match='must pass an `mne.Info`'):
         _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
                                    None)
 
+    # source space (vert dimname) require mne.SourceSpaces
     with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
                                    None)
 
+    # source space also requires subject ...
     with pytest.raises(TypeError, match='must pass a subject string'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
                                    None, None, None)
 
+    # ... ad subjects_dir
     with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
                                    'fsaverage', None, None)
 
-    n_vert = len(fwd['src'][0]['vertno']) + len(fwd['src'][1]['vertno'])
+    # if vertices are used - they can't exceeds source space size
+    n_vert_lh = len(fwd['src'][0]['vertno'])
+    n_vert = n_vert_lh + len(fwd['src'][1]['vertno'])
     vertices = np.arange(n_vert + 1)
-    with pytest.raises(ValueError, match='vertex indices go beyond'):
+    with pytest.raises(ValueError, match='vertex indices exceed'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
                                    'fsaverage', data_dir, vertices)
+
+    # if correct vertices are passed they are turned to a dictionary
+    vertices = np.array([2, 5, n_vert_lh + 2, n_vert_lh + 5])
+    vertices = _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                          'fsaverage', data_dir, vertices)
+    assert (vertices['lh'] == np.array([2, 5])).all()
+    assert (vertices['rh'] == np.array([2, 5])).all()
 
     with pytest.raises(TypeError, match='context'):
         _check_dimnames_kwargs(clst2, allow_lists=False, freq=[8, 9, 10])

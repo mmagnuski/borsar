@@ -1272,8 +1272,8 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir,
             vert_num_all = vert_num_lh + vert_num_rh
             vert_idx_in_src = (vertices < vert_num_all).all()
             if not vert_idx_in_src:
-                msg = ('Some vertex indices go beyond the available source '
-                       'space extent. Number of used vertices (lh + rh) = '
+                msg = ('Some vertex indices exceed the available source '
+                       'space size. Number of vertices in the src (lh + rh) = '
                        '{:d}, while maximum index in the ``vertices`` = {:d}.')
                 raise ValueError(msg.format(vert_num_all, vertices.max()))
 
