@@ -2,16 +2,20 @@ language: c
 dist: xenial
 sudo: required
 
+env:
+  global: PYTHON_VERSION=3.6 TRAVIS_PYTHON_VERSION=3.6 CONDA_VERSION=">=4.3.27"
+          CONDA_ENVIRONMENT="environment.yml"
+
 matrix:
   include:
     - os: linux
-      env: USE_NUMBA="yes" TRAVIS_PYTHON_VERSION=3.6
+      env: USE_NUMBA="yes"
 
     - os: linux
-      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
+      env: USE_NUMBA="no"
 
     - os: osx
-      env: USE_NUMBA="no" TRAVIS_PYTHON_VERSION=3.6
+      env: USE_NUMBA="no"
 
 before_install:
   - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
@@ -19,9 +23,9 @@ before_install:
     else
       sudo apt-get update;
     fi
+  - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
   - git clone https://github.com/astropy/ci-helpers.git
   - source ci-helpers/travis/setup_conda.sh
-  - pip install vtk
 
 install:
   # Rvm overrides cd with a function so that it can hook into it to run
@@ -34,8 +38,6 @@ install:
   - conda info -a
 
   # install dependencies
-  - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
-  - conda env create -f environment.yml
   - source activate mne
   - if [ "${USE_NUMBA}" == "yes" ]; then
       conda install numba;
