@@ -38,7 +38,6 @@ install:
   - conda info -a
 
   # install dependencies
-  - source activate mne
   - if [ "${USE_NUMBA}" == "yes" ]; then
       conda install numba;
     fi
