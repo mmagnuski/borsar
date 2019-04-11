@@ -707,7 +707,7 @@ class Clusters(object):
         self._current += 1
         return clst
 
-    def save(self, fname, description=None):
+    def save(self, fname, description=None, overwrite=False):
         '''
         Save Clusters to hdf5 file.
 
@@ -730,7 +730,7 @@ class Clusters(object):
                      'stat': self.stat, 'dimnames': self.dimnames,
                      'dimcoords': self.dimcoords, 'subject': self.subject,
                      'description': description}
-        h5io.write_hdf5(fname, data_dict)
+        h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
