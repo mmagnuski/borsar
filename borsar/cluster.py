@@ -984,7 +984,7 @@ class Clusters(object):
                                     aggregate=aggregate, set_light=set_light,
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
-            return plot_cluster_chan(self, cluster_idx, vmin=None, vmax=None,
+            return plot_cluster_chan(self, cluster_idx, vmin=vmin, vmax=vmax,
                                      aggregate=aggregate,
                                      mark_kwargs=mark_kwargs, **kwargs)
 
