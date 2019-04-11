@@ -1128,7 +1128,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
                        markerfacecolor='k', linewidth=0.)
 
-    if len(clst) >= cluster_idx + 1:
+    if clst_mask is not None and clst_mask.any():
         if mark_kwargs is not None:
             if 'markersize' not in mark_kwargs:
                 mark_kwargs.update({'markersize': 5})

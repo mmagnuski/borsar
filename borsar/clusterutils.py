@@ -56,29 +56,66 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
 # TODO:
 # - [ ] _aggregate_cluster aggregates by default everything except the spatial
 #       dimension. This would be problematic for spaces like [freq, time]
-#       consider adding ``along`` argument.
+#       consider adding ``along`` argument (or ``dim``?).
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                        retain_mass=0.65, ignore_space=True, **kwargs):
     '''Aggregate cluster mask and cluster stat map.'''
     do_aggregation = clst.stat.ndim > 1
-    cluster_idx = None if len(clst) < cluster_idx + 1 else cluster_idx
+    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
+                   else cluster_idx)
+    n_clusters = len(cluster_idx)
+
+    # FIXME - throw an error instead if at least one cluster idx exceeds
+    #         number of clusters in the `clst` object
+    cluster_idx = None if len(clst) < max(cluster_idx) + 1 else cluster_idx
+
+    # aggregating multiple clusters is eligible only when the dimname kwargs
+    # exhaust the aggregated space and no dimension is set by retained mass
+    if isinstance(cluster_idx, list) and do_aggregation:
+        dimnames = clst.dimnames.copy()
+        if ignore_space and dimnames[0] in ['chan', 'vert']:
+            dimnames.pop(0)
+
+        non_exhausted = list()
+        for dimname in dimnames:
+            if dimname not in kwargs:
+                non_exhausted.append(dimname)
+            elif isinstance(kwargs[dimname], float):
+                non_exhausted.append(dimname)
+        if len(non_exhausted) > 0:
+            raise ValueError('If aggregating multiple clusters all the '
+                             'aggregated dimensions must be fully specified ('
+                             'without referring to retained cluster mass). '
+                             'Some dimensions were not fully specified: '
+                             '{}'.format(', '.join(non_exhausted)))
+
     if do_aggregation:
         # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx, retain_mass=retain_mass,
+        idx = clst.get_index(cluster_idx=cluster_idx[0], retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
-        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim) if not
-                            isinstance(idx[ix], (np.ndarray, list)))
-        clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
-                     >= mask_proportion if cluster_idx is not None else None)
+        # FIXME - `reduce_axes` assumes `ignore_space=True`:
+        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim)
+                            if not isinstance(idx[ix], (np.ndarray, list)))
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
+
+        clst_idx = (slice(None),) + idx
+        reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
+        clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
+                     axis=reduce_mask_axes) >= mask_proportion
+                     if cluster_idx is not None else None)
     else:
         # no aggregation
         idx = (slice(None),)
         clst_stat = clst.stat.copy()
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx is not None
                      else None)
+
+    # aggregate masks if more clusters
+    if clst_mask is not None:
+        clst_mask = clst_mask.any(axis=0)
+
     return clst_mask, clst_stat, idx
 
 
