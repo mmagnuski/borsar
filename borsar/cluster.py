@@ -170,8 +170,17 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         # mne clustering
         # --------------
         from mne.stats.cluster_level import (
-            _find_clusters, _cluster_indices_to_mask)
+            _find_clusters, _cluster_indices_to_mask, _setup_connectivity)
 
+        # FIXME more checks for adjacency and data when using mne!
+        if adjacency is not None and isinstance(adjacency, np.ndarray):
+            if not sparse.issparse(adjacency):
+                adjacency = sparse.coo_matrix(adjacency)
+            if adjacency.ndim == 2:
+                adjacency = _setup_connectivity(adjacency, np.prod(data.shape),
+                                                data.shape[0])
+
+        orig_data_shape = data.shape
         data = (data.ravel() if adjacency is not None else data)
         clusters, cluster_stats = _find_clusters(
             data, threshold=threshold, tail=0, connectivity=adjacency)
@@ -180,7 +189,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
             if adjacency is not None:
                 clusters = _cluster_indices_to_mask(clusters,
                                                     np.prod(data.shape))
-            clusters = [clst.reshape(data.shape) for clst in clusters]
+            clusters = [clst.reshape(orig_data_shape) for clst in clusters]
     else:
         # borsar clustering
         # -----------------
