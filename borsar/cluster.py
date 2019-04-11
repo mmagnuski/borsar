@@ -526,14 +526,16 @@ class Clusters(object):
             _ensure_correct_info(self)
 
 
-    # - [ ] add warning if all clusters removed
-    # - [ ] consider select to _not_ work inplace
+# - [ ] more tests for select (n_points was not working)
+# - [ ] add warning if all clusters removed
+# - [ ] consider select to _not_ work inplace or make sure all methods
+#       work this way
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
                n_points=None, **kwargs):
         '''
         Select clusters by p value threshold or its location in the data space.
 
-        Note that this method works in-place.
+        .. note:: ``select`` method works in-place.
 
         Parameters
         ----------
@@ -585,6 +587,12 @@ class Clusters(object):
         # select clusters by p value threshold
         if p_threshold is not None:
             sel = self.pvals < p_threshold
+            self = _cluster_selection(self, sel)
+
+        if n_points is not None:
+            dims = np.arange(self.stat.ndim) + 1
+            cluster_size = self.clusters.sum(axis=tuple(dims))
+            sel = cluster_size > n_points
             self = _cluster_selection(self, sel)
 
         if (len(kwargs) > 0 or n_points_in is not None) and len(self) > 0:
