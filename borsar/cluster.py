@@ -50,6 +50,8 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
 
 def cluster_3d(data, adjacency):
     '''
+    Cluster three-dimensional data given adjacency matrix.
+
     Parameters
     ----------
     data : numpy array
@@ -61,7 +63,8 @@ def cluster_3d(data, adjacency):
 
     Returns
     -------
-    clusters - 3d integer matrix with cluster labels
+    clusters : array of int
+        3d integer matrix with cluster labels.
     '''
     # data has to be bool
     assert data.dtype == np.bool
@@ -129,7 +132,37 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy'):
 # TODO : add tail=0 to control for tail selection
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True):
-    """FIX: Add docs."""
+    """Find clusters in data array given cluster membership threshold and
+    optionally adjacency matrix.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data array to cluster.
+    threshold : float
+        Threshold value for cluster membership.
+    adjacency : numpy bool array | list, optional
+        Boolean adjacency matrix. Can be dense or sparse. None by default,
+        which assumes standard lattuce adjacency.
+    cluster_fun : function
+        FIXME - is this needed?
+    backend : str
+        Clustering backend: ``'auto'``, ``'mne'`` or ``'borsar'``. ``'mne'``
+        backend can be used only for < 3d data.
+    mne_reshape_clusters : bool
+        When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
+        the original data shape after obtaining them from mne. Not used for
+        other backends.
+
+    Returns
+    -------
+    clusters : list
+        List of boolean arrays informing about membership in consecutive
+        clusters. For example `clusters[0]` informs about data points that
+        belong to the first cluster.
+    cluster_stats : numpy array
+        Array with cluster statistics - usually sum of cluster members' values.
+    """
     if cluster_fun is None and backend == 'auto':
         backend = 'mne' if data.ndim < 3 else 'auto'
 
@@ -413,7 +446,7 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
 #      - [ ] add repr so that Cluster has nice text representation
-#      - [ ]
+#      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -890,8 +923,6 @@ class Clusters(object):
 
         Parameters
         ----------
-        clst : Clusters
-            Clusters object to use in plotting.
         cluster_idx : int
             Cluster index to plot.
         aggregate : str
@@ -924,7 +955,7 @@ class Clusters(object):
 
         Returns
         -------
-        topo : borsar.viz.Topo class | pysurfer.Brain
+        topo : borsar.viz.Topo | pysurfer.Brain
             Figure object used in plotting - borsar.viz.Topo for channel-level
             plotting and pysurfer.Brain for plots on brain surface.
 
@@ -932,8 +963,8 @@ class Clusters(object):
         --------
         > # to plot the first cluster within 8 - 10 Hz
         > clst.plot(cluster_idx=0, freq=(8, 10))
-        > # to plot the second cluster selecting frequencies that make up at least
-        > # 70% of the cluster mass:
+        > # to plot the second cluster selecting frequencies that make up at
+        > # least 70% of the cluster mass:
         > clst.plot(cluster_idx=1, freq=0.7)
         '''
         if self.dimnames is None:
@@ -1012,7 +1043,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
                       vmax=None, mark_kwargs=None, **kwargs):
-    '''Plot cluster in source space.
+    '''Plot cluster in sensor space.
 
     Parameters
     ----------
