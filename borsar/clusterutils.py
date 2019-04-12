@@ -101,7 +101,7 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
 
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
-    cluster_idx = None if len(clst) < max(cluster_idx) + 1 else cluster_idx
+    cluster_idx = [None] if len(clst) < max(cluster_idx) + 1 else cluster_idx
 
     # aggregating multiple clusters is eligible only when the dimname kwargs
     # exhaust the aggregated space and no dimension is set by retained mass
@@ -137,12 +137,12 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
         clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
                      axis=reduce_mask_axes) >= mask_proportion
-                     if cluster_idx is not None else None)
+                     if cluster_idx[0] is not None else None)
     else:
         # no aggregation
         idx = (slice(None),)
         clst_stat = clst.stat.copy()
-        clst_mask = (clst.clusters[cluster_idx] if cluster_idx is not None
+        clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
 
     # aggregate masks if more clusters
