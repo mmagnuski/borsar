@@ -535,6 +535,18 @@ def test_clusters():
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
 
+    with pytest.raises(ValueError, match='dimensions must be fully specified'):
+        mask, stat, idx = _aggregate_cluster(clst2, [0, 1])
+
+    # aggregate two clusters in 2d
+    mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
+    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10))
+    correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(axis=-1)
+                    >= 0.5).any(axis=0)
+    assert idx == correct_idx
+    assert (stat == clst2.stat[idx].mean(axis=-1)).all()
+    assert (mask == correct_mask).all()
+
     # _aggregate_cluster - 1d
     slice_idx = 2
     clst_1d = Clusters([c[:, slice_idx] for c in clst2.clusters[:2]],
