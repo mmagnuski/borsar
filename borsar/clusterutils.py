@@ -56,12 +56,44 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
 # TODO:
 # - [ ] _aggregate_cluster aggregates by default everything except the spatial
 #       dimension. This would be problematic for spaces like [freq, time]
-#       consider adding ``along`` argument (or ``dim``?).
+#       consider adding ``along`` or ``dim`` argument. Then ``ignore_space``
+#       could be removed.
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                        retain_mass=0.65, ignore_space=True, **kwargs):
-    '''Aggregate cluster mask and cluster stat map.'''
+    '''Aggregate cluster mask and cluster stat map.
+
+    Parameters
+    ----------
+    clst : borsar.Clusters
+        Clusters object to use in aggregation.
+    cluster_idx : int | list of int
+        Cluster index ord indices to aggregate.
+    mask_proportion : float
+        When aggregating cluster mask: retain only mask elements that
+        participate at least in ``mask_proportion`` part of the aggregated
+        space. The default is 0.5.
+    retain_mass : float
+        If a dimension has to be aggregated but is not specified in
+        ``**kwargs`` - define range to aggregate over by retaining at least
+        ``retain_mass`` proportion of cluster mass along that dimension.
+        FIXME - add note about "see also".
+    ignore_space : bool
+        Ignore spatial dimension in aggregation.
+    kwargs
+        FIXME - copy from other Cluster methods.
+
+    Returns
+    -------
+    clst_mask : bool ndarray
+        Aggregated cluster mask.
+    clst_stat : ndarray
+        Aggregated cluster stats array.
+    idx : tuple of indexers
+        Indexers for the aggregated dimensions.
+        See ``borsar.Cluster.get_index``
+    '''
     do_aggregation = clst.stat.ndim > 1
     cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
                    else cluster_idx)
@@ -73,7 +105,7 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
 
     # aggregating multiple clusters is eligible only when the dimname kwargs
     # exhaust the aggregated space and no dimension is set by retained mass
-    if isinstance(cluster_idx, list) and do_aggregation:
+    if n_clusters > 1 and do_aggregation:
         dimnames = clst.dimnames.copy()
         if ignore_space and dimnames[0] in ['chan', 'vert']:
             dimnames.pop(0)
@@ -93,7 +125,8 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
 
     if do_aggregation:
         # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx[0], retain_mass=retain_mass,
+        idx = clst.get_index(cluster_idx=cluster_idx[0],
+                             retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
         # FIXME - `reduce_axes` assumes `ignore_space=True`:
         reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim)
@@ -113,6 +146,8 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                      else None)
 
     # aggregate masks if more clusters
+    # CONSIDER - this could be made optional later,
+    # especially with cluster colors
     if clst_mask is not None:
         clst_mask = clst_mask.any(axis=0)
 
