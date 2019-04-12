@@ -337,8 +337,12 @@ def test_clusters():
     clst3 = clst2.copy().select(percentage_in=0.7, freq=(7, 9))
     assert len(clst3) == 1
 
-    # using n_points_in without dimension
+    # using n_points_in without dimension ...
     clst3 = clst2.copy().select(n_points_in=2900)
+    assert len(clst3) == 2
+
+    # ... works the same as using n_points
+    clst3 = clst2.copy().select(n_points=2900)
     assert len(clst3) == 2
 
     # n_points_in with dimension range
@@ -482,101 +486,6 @@ def test_clusters():
         clst2.plot()
     clst2.dimnames = dnames
 
-
-    # error checks
-    # ------------
-
-    # error check for _clusters_safety_checks
-    tmp = list()
-    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
-    with pytest.raises(ValueError, match='have to be of the same shape.'):
-        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
-
-    clusters[1] = clusters[1][:, :2]
-    with pytest.raises(TypeError, match='have to be boolean arrays.'):
-        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
-
-    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
-    with pytest.raises(TypeError, match='must be a numpy array.'):
-        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
-
-    stat = np.zeros((2, 3))
-    with pytest.raises(ValueError, match='same shape as stat.'):
-        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
-
-    with pytest.raises(TypeError, match='list of arrays or one array'):
-        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
-
-    stat = np.zeros((2, 2))
-    with pytest.raises(TypeError, match='list of floats or numpy array'):
-        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
-
-    with pytest.raises(TypeError, match='`dimnames` must be a list'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
-
-    match_str = "are not strings, for example: <class 'int'>"
-    with pytest.raises(TypeError, match=match_str):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
-
-    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
-                                tmp, tmp)
-
-    with pytest.raises(ValueError, match='must be the first dimension'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
-                                tmp, tmp)
-
-    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
-                                'abc', tmp)
-
-    match = 'The length of each dimension coordinate'
-    with pytest.raises(ValueError, match=match):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
-                                [np.arange(2), np.arange(3)], tmp)
-
-    # _check_description
-    with pytest.raises(TypeError, match='has to be either a string or a dict'):
-        _check_description(['abc'])
-
-    # _clusters_chan_vert_checks
-    # --------------------------
-
-    # sensor space (chan dimname) require passing an mne.Info
-    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
-        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
-                                   None)
-
-    # source space (vert dimname) require mne.SourceSpaces
-    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
-                                   None)
-
-    # source space also requires subject ...
-    with pytest.raises(TypeError, match='must pass a subject string'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   None, None, None)
-
-    # ... ad subjects_dir
-    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', None, None)
-
-    # if vertices are used - they can't exceeds source space size
-    n_vert_lh = len(fwd['src'][0]['vertno'])
-    n_vert = n_vert_lh + len(fwd['src'][1]['vertno'])
-    vertices = np.arange(n_vert + 1)
-    with pytest.raises(ValueError, match='vertex indices exceed'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', data_dir, vertices)
-
-    # if correct vertices are passed they are turned to a dictionary
-    vertices = np.array([2, 5, n_vert_lh + 2, n_vert_lh + 5])
-    vertices = _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                          'fsaverage', data_dir, vertices)
-    assert (vertices['lh'] == np.array([2, 5])).all()
-    assert (vertices['rh'] == np.array([2, 5])).all()
-
     with pytest.raises(TypeError, match='context'):
         _check_dimnames_kwargs(clst2, allow_lists=False, freq=[8, 9, 10])
 
@@ -660,6 +569,114 @@ def test_clusters():
     clst_empty = Clusters(
         list(), np.zeros(0), clst2.stat[slice_idx],
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+
+
+def test_clusters_safety_checks():
+
+    # _clusters_safety_checks
+    # -----------------------
+
+    # clusters have to be of the same shape
+    tmp = list()
+    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
+    with pytest.raises(ValueError, match='have to be of the same shape.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    # clusters have to be boolean arrays
+    clusters[1] = clusters[1][:, :2]
+    with pytest.raises(TypeError, match='have to be boolean arrays.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    # stat has to be a numpy array
+    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
+    with pytest.raises(TypeError, match='must be a numpy array.'):
+        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
+
+    # stat has to be of the same shape as each cluster
+    stat = np.zeros((2, 3))
+    with pytest.raises(ValueError, match='same shape as stat.'):
+        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
+
+    # clusters have to be a list of arrays or one array
+    with pytest.raises(TypeError, match='list of arrays or one array'):
+        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
+
+    # pvals have to be a list of floats or numpy array
+    stat = np.zeros((2, 2))
+    with pytest.raises(TypeError, match='list of floats or numpy array'):
+        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
+
+    # dimnames have to be a list
+    with pytest.raises(TypeError, match='`dimnames` must be a list'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
+
+    # each dimnames element has to be a string
+    match_str = "are not strings, for example: <class 'int'>"
+    with pytest.raises(TypeError, match=match_str):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
+
+    # there has to be the same number of dimnames as there are stat dimensions
+    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
+                                tmp, tmp)
+
+    # spatial dimension has to be the first one
+    with pytest.raises(ValueError, match='must be the first dimension'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
+                                tmp, tmp)
+
+    # dimcoords has to be a list
+    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                'abc', tmp)
+
+    # each dimcoords element has to match the leangth of corresponding stat dim
+    match = 'The length of each dimension coordinate'
+    with pytest.raises(ValueError, match=match):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                [np.arange(2), np.arange(3)], tmp)
+
+    # _check_description
+    with pytest.raises(TypeError, match='has to be either a string or a dict'):
+        _check_description(['abc'])
+
+    # _clusters_chan_vert_checks
+    # --------------------------
+
+    # sensor space (chan dimname) require passing an mne.Info
+    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
+        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
+                                   None)
+
+    # source space (vert dimname) require mne.SourceSpaces
+    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
+                                   None)
+
+    # source space also requires subject ...
+    with pytest.raises(TypeError, match='must pass a subject string'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   None, None, None)
+
+    # ... ad subjects_dir
+    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   'fsaverage', None, None)
+
+    # if vertices are used - they can't exceeds source space size
+    n_vert_lh = len(fwd['src'][0]['vertno'])
+    n_vert = n_vert_lh + len(fwd['src'][1]['vertno'])
+    vertices = np.arange(n_vert + 1)
+    with pytest.raises(ValueError, match='vertex indices exceed'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                   'fsaverage', data_dir, vertices)
+
+    # if correct vertices are passed they are turned to a dictionary
+    vertices = np.array([2, 5, n_vert_lh + 2, n_vert_lh + 5])
+    vertices = _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                          'fsaverage', data_dir, vertices)
+    assert (vertices['lh'] == np.array([2, 5])).all()
+    assert (vertices['rh'] == np.array([2, 5])).all()
 
 
 def test_cluster_pvals_and_polarity_sorting():
