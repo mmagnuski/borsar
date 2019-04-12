@@ -13,6 +13,25 @@ from borsar.channels import find_channels
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     Construct adjacency matrix out of neighbours structure (fieldtrip format).
+
+    Parameters
+    ----------
+    neighbours : structured array | dict
+        FieldTrip neighbours structure represented either as numpy structured
+        array or dictionary. Needs to contain ``'label'`` and ``'neighblabel'``
+        fields / keys.
+    ch_names : list of str, optional
+        List of channel names to use. Defaults to ``None`` which uses all
+        channel names in ``neighbours`` in the same order as they appear in
+        ``neighbours['label']``.
+    as_sparse : bool
+        Whether to return the adjacency matrix in sparse format. Defaults to
+        ``False`` which returns adjacency matrix in dense format.
+
+    Returns
+    -------
+    adj : numpy array
+        Constructed adjacency matrix.
     '''
     # checks for ch_names
     if ch_names is not None:

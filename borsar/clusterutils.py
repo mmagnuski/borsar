@@ -81,8 +81,21 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         FIXME - add note about "see also".
     ignore_space : bool
         Ignore spatial dimension in aggregation.
-    kwargs
-        FIXME - copy from other Cluster methods.
+    **kwargs : additional arguments
+        Additional arguments used in aggregation, defining the points to
+        select (if argument value is a list of float) or the range to
+        aggregate for the dimension specified by the argument name. Tuple
+        of two values defines explicit range: for example keyword argument
+        ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+        defines specific points to pick: for example ``time=[0.1, 0.2]``
+        selects time points corresponding to 0.1 and 0.2 seconds.
+        Float argument between 0. and 1. defines range that is dependent on
+        cluster mass or extent. For example ``time=0.75`` defines time
+        range that retains at least 75% of the cluster extent (calculated
+        along the aggregated dimension - in this case time). If no kwarg is
+        passed for given dimension then the default value is ``0.65``.
+        This means that the range for such dimension is defined to retain
+        at least 65% of the cluster extent.
 
     Returns
     -------
