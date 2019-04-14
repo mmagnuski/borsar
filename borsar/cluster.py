@@ -163,12 +163,16 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     adjacency : numpy bool array | list, optional
         Boolean adjacency matrix. Can be dense or sparse. None by default,
         which assumes standard lattuce adjacency.
-    cluster_fun : function
-        FIXME - is this needed?
-    backend : str
-        Clustering backend: ``'auto'``, ``'mne'`` or ``'borsar'``. ``'mne'``
-        backend can be used only for < 3d data.
-    mne_reshape_clusters : bool
+    cluster_fun : function, optional
+        Clustering function to use. ``None`` by default which selects relevant
+        clustering function based on adjacency and number of data dimensions.
+    backend : str, optional
+        Clustering backend: ``'auto'``, ``'mne'``, ``'borsar'``, ``'numpy'``
+        or ``'numba'``. ``'mne'`` backend can be used only for < 3d data.
+        ``'borsar'`` leads to selection of numba backend if numba is available,
+        otherwise numpy is used. Default is ``'auto'`` which selects the
+        relevant backend automatically.
+    mne_reshape_clusters : bool, optional
         When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.

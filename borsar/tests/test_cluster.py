@@ -121,6 +121,21 @@ def test_find_clusters():
         assert data[correct_clst[0]].sum() == stat[0]
         assert data[correct_clst[1]].sum() == stat[1]
 
+    # check using mne backend
+    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
+    data = np.array([[1., 1.5, 2.1, 2.3, 1.8], [1., 1.4, 1.9, 2.3, 2.2],
+                     [0.1, 0.8, 1.5, 1.9, 2.1]])
+    correct_clst = data.T > threshold
+
+    with pytest.raises(ValueError, match='of the correct size'):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='mne')
+
+    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
+                               backend='mne')
+    assert (clst[0] == correct_clst).all()
+
+
 
 def test_cluster_based_regression():
     data_dir = _get_test_data_dir()
@@ -541,8 +556,8 @@ def test_clusters():
     # aggregate two clusters in 2d
     mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
     correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10))
-    correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(axis=-1)
-                    >= 0.5).any(axis=0)
+    correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
+                    axis=-1) >= 0.5).any(axis=0)
     assert idx == correct_idx
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == correct_mask).all()
@@ -581,6 +596,7 @@ def test_clusters():
     clst_empty = Clusters(
         list(), np.zeros(0), clst2.stat[slice_idx],
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+    assert len(clst_empty) == 0
 
 
 def test_clusters_safety_checks():
