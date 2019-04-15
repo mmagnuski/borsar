@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 
 
+# - [ ] add option to return residuals
 def compute_regression_t(data, preds, return_p=False):
     '''Compute regression t values for whole multidimensional data space.
 

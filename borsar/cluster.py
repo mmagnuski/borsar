@@ -13,6 +13,25 @@ from borsar.channels import find_channels
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     Construct adjacency matrix out of neighbours structure (fieldtrip format).
+
+    Parameters
+    ----------
+    neighbours : structured array | dict
+        FieldTrip neighbours structure represented either as numpy structured
+        array or dictionary. Needs to contain ``'label'`` and ``'neighblabel'``
+        fields / keys.
+    ch_names : list of str, optional
+        List of channel names to use. Defaults to ``None`` which uses all
+        channel names in ``neighbours`` in the same order as they appear in
+        ``neighbours['label']``.
+    as_sparse : bool
+        Whether to return the adjacency matrix in sparse format. Defaults to
+        ``False`` which returns adjacency matrix in dense format.
+
+    Returns
+    -------
+    adj : numpy array
+        Constructed adjacency matrix.
     '''
     # checks for ch_names
     if ch_names is not None:
@@ -50,6 +69,8 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
 
 def cluster_3d(data, adjacency):
     '''
+    Cluster three-dimensional data given adjacency matrix.
+
     Parameters
     ----------
     data : numpy array
@@ -61,7 +82,8 @@ def cluster_3d(data, adjacency):
 
     Returns
     -------
-    clusters - 3d integer matrix with cluster labels
+    clusters : array of int
+        3d integer matrix with cluster labels.
     '''
     # data has to be bool
     assert data.dtype == np.bool
@@ -129,7 +151,41 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy'):
 # TODO : add tail=0 to control for tail selection
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True):
-    """FIX: Add docs."""
+    """Find clusters in data array given cluster membership threshold and
+    optionally adjacency matrix.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data array to cluster.
+    threshold : float
+        Threshold value for cluster membership.
+    adjacency : numpy bool array | list, optional
+        Boolean adjacency matrix. Can be dense or sparse. None by default,
+        which assumes standard lattuce adjacency.
+    cluster_fun : function, optional
+        Clustering function to use. ``None`` by default which selects relevant
+        clustering function based on adjacency and number of data dimensions.
+    backend : str, optional
+        Clustering backend: ``'auto'``, ``'mne'``, ``'borsar'``, ``'numpy'``
+        or ``'numba'``. ``'mne'`` backend can be used only for < 3d data.
+        ``'borsar'`` leads to selection of numba backend if numba is available,
+        otherwise numpy is used. Default is ``'auto'`` which selects the
+        relevant backend automatically.
+    mne_reshape_clusters : bool, optional
+        When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
+        the original data shape after obtaining them from mne. Not used for
+        other backends.
+
+    Returns
+    -------
+    clusters : list
+        List of boolean arrays informing about membership in consecutive
+        clusters. For example `clusters[0]` informs about data points that
+        belong to the first cluster.
+    cluster_stats : numpy array
+        Array with cluster statistics - usually sum of cluster members' values.
+    """
     if cluster_fun is None and backend == 'auto':
         backend = 'mne' if data.ndim < 3 else 'auto'
 
@@ -137,8 +193,17 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         # mne clustering
         # --------------
         from mne.stats.cluster_level import (
-            _find_clusters, _cluster_indices_to_mask)
+            _find_clusters, _cluster_indices_to_mask, _setup_connectivity)
 
+        # FIXME more checks for adjacency and data when using mne!
+        if adjacency is not None and isinstance(adjacency, np.ndarray):
+            if not sparse.issparse(adjacency):
+                adjacency = sparse.coo_matrix(adjacency)
+            if adjacency.ndim == 2:
+                adjacency = _setup_connectivity(adjacency, np.prod(data.shape),
+                                                data.shape[0])
+
+        orig_data_shape = data.shape
         data = (data.ravel() if adjacency is not None else data)
         clusters, cluster_stats = _find_clusters(
             data, threshold=threshold, tail=0, connectivity=adjacency)
@@ -147,7 +212,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
             if adjacency is not None:
                 clusters = _cluster_indices_to_mask(clusters,
                                                     np.prod(data.shape))
-            clusters = [clst.reshape(data.shape) for clst in clusters]
+            clusters = [clst.reshape(orig_data_shape) for clst in clusters]
     else:
         # borsar clustering
         # -----------------
@@ -413,7 +478,7 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
 #      - [ ] add repr so that Cluster has nice text representation
-#      - [ ]
+#      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -526,14 +591,16 @@ class Clusters(object):
             _ensure_correct_info(self)
 
 
-    # - [ ] add warning if all clusters removed
-    # - [ ] consider select to _not_ work inplace
+# - [ ] more tests for select (n_points was not working)
+# - [ ] add warning if all clusters removed
+# - [ ] consider select to _not_ work inplace or make sure all methods
+#       work this way
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
                n_points=None, **kwargs):
         '''
         Select clusters by p value threshold or its location in the data space.
 
-        Note that this method works in-place.
+        .. note:: ``select`` method works in-place.
 
         Parameters
         ----------
@@ -585,6 +652,12 @@ class Clusters(object):
         # select clusters by p value threshold
         if p_threshold is not None:
             sel = self.pvals < p_threshold
+            self = _cluster_selection(self, sel)
+
+        if n_points is not None:
+            dims = np.arange(self.stat.ndim) + 1
+            cluster_size = self.clusters.sum(axis=tuple(dims))
+            sel = cluster_size > n_points
             self = _cluster_selection(self, sel)
 
         if (len(kwargs) > 0 or n_points_in is not None) and len(self) > 0:
@@ -657,7 +730,7 @@ class Clusters(object):
         self._current += 1
         return clst
 
-    def save(self, fname, description=None):
+    def save(self, fname, description=None, overwrite=False):
         '''
         Save Clusters to hdf5 file.
 
@@ -680,7 +753,7 @@ class Clusters(object):
                      'stat': self.stat, 'dimnames': self.dimnames,
                      'dimcoords': self.dimcoords, 'subject': self.subject,
                      'description': description}
-        h5io.write_hdf5(fname, data_dict)
+        h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
@@ -882,8 +955,6 @@ class Clusters(object):
 
         Parameters
         ----------
-        clst : Clusters
-            Clusters object to use in plotting.
         cluster_idx : int
             Cluster index to plot.
         aggregate : str
@@ -916,7 +987,7 @@ class Clusters(object):
 
         Returns
         -------
-        topo : borsar.viz.Topo class | pysurfer.Brain
+        topo : borsar.viz.Topo | pysurfer.Brain
             Figure object used in plotting - borsar.viz.Topo for channel-level
             plotting and pysurfer.Brain for plots on brain surface.
 
@@ -924,8 +995,8 @@ class Clusters(object):
         --------
         > # to plot the first cluster within 8 - 10 Hz
         > clst.plot(cluster_idx=0, freq=(8, 10))
-        > # to plot the second cluster selecting frequencies that make up at least
-        > # 70% of the cluster mass:
+        > # to plot the second cluster selecting frequencies that make up at
+        > # least 70% of the cluster mass:
         > clst.plot(cluster_idx=1, freq=0.7)
         '''
         if self.dimnames is None:
@@ -936,7 +1007,7 @@ class Clusters(object):
                                     aggregate=aggregate, set_light=set_light,
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
-            return plot_cluster_chan(self, cluster_idx, vmin=None, vmax=None,
+            return plot_cluster_chan(self, cluster_idx, vmin=vmin, vmax=vmax,
                                      aggregate=aggregate,
                                      mark_kwargs=mark_kwargs, **kwargs)
 
@@ -1004,7 +1075,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
                       vmax=None, mark_kwargs=None, **kwargs):
-    '''Plot cluster in source space.
+    '''Plot cluster in sensor space.
 
     Parameters
     ----------
@@ -1080,7 +1151,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
                        markerfacecolor='k', linewidth=0.)
 
-    if len(clst) >= cluster_idx + 1:
+    if clst_mask is not None and clst_mask.any():
         if mark_kwargs is not None:
             if 'markersize' not in mark_kwargs:
                 mark_kwargs.update({'markersize': 5})
