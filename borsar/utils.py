@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import warnings
 
 import numpy as np
 from contextlib import contextmanager
@@ -358,9 +359,11 @@ def silent_mne():
     Context manager that silences warnings from mne-python.
     '''
     import mne
-    log_level = mne.set_log_level('error', return_old_level=True)
-    yield
-    mne.set_log_level(log_level)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        log_level = mne.set_log_level('CRITICAL', return_old_level=True)
+        yield
+        mne.set_log_level(log_level)
 
 
 def has_numba():

@@ -664,6 +664,16 @@ def test_clusters_safety_checks():
         _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
                                 [np.arange(2), np.arange(3)], tmp)
 
+    # number of dimcoords has to match the number of dimensions
+    stat = np.random.rand(5, 10)
+    clusters = [np.random.rand(5, 10) > 0.8 for _ in range(3)]
+    info = mne.create_info([l for l in list('abcde')], 250.)
+
+    with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
+        temp_clst = Clusters(clusters, [0.1, 0.1, 0.15], stat,
+                             dimnames=['chan', 'time'], dimcoords=[None],
+                             info=info)
+
     # _check_description
     with pytest.raises(TypeError, match='has to be either a string or a dict'):
         _check_description(['abc'])

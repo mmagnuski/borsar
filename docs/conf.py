@@ -3,6 +3,7 @@
 # Configuration file for the Sphinx documentation builder.
 
 # import sphinx_gallery
+from numpydoc import docscrape
 
 
 # add custom styles
@@ -177,3 +178,10 @@ sphinx_gallery_conf = {
         'mayavi': 'http://docs.enthought.com/mayavi/mayavi',
         'borsar': 'http://borsar.github.io/'}
 }
+
+# -- numpydoc ----------------------------------------------------------------
+docscrape.ClassDoc.extra_public_methods = (
+    '__getitem__', '__iter__', '__len__')
+numpydoc_class_members_toctree = False
+numpydoc_attributes_as_param_list = False
+numpydoc_xref_param_type = True

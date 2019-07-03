@@ -595,8 +595,10 @@ class Clusters(object):
 # - [ ] add warning if all clusters removed
 # - [ ] consider select to _not_ work inplace or make sure all methods
 #       work this way
+# - [ ] FIXME - better docs for kwargs - they are only used along with
+#       percentage_in and n_points_in
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
-               n_points=None, **kwargs):
+               n_points=None, selection=None, **kwargs):
         '''
         Select clusters by p value threshold or its location in the data space.
 
@@ -627,6 +629,10 @@ class Clusters(object):
             `clst.select(n_points=5)` selects only those clusters that have at
             least 5 data points. Default to None which does not perform the
             selection.
+        selection : list-like of int | list-like of boolean | None
+            Which clusters to select. Used when the user knows which clusters
+            should be selected instead of using criteria like p value or
+            cluster surface.
         **kwargs : additional arguments
             Additional arguments used in aggregation, defining the points to
             select (if argument value is a list of float) or the range to
@@ -648,6 +654,10 @@ class Clusters(object):
         '''
         if self.clusters is None:
             return self
+
+        if selection is not None:
+            # FIXME additional checks for ``selection``
+            self = _cluster_selection(self, selection)
 
         # select clusters by p value threshold
         if p_threshold is not None:
@@ -757,7 +767,8 @@ class Clusters(object):
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
-    def get_contribution(self, cluster_idx=None, along=None, norm=True):
+    def get_contribution(self, cluster_idx=None, along=None, norm=True,
+                         idx=None):
         '''
         Get mass percentage contribution to given clusters along specified
         dimension.
@@ -784,26 +795,40 @@ class Clusters(object):
             cluster_idx = np.arange(len(self))
 
         along = 0 if along is None else along
-        idx = _check_dimname_arg(self, along)
+        dim_idx = _check_dimname_arg(self, along)
 
+        # one line for each cluster
         if isinstance(cluster_idx, (list, np.ndarray)):
             alldims = list(range(self.stat.ndim + 1))
             alldims.remove(0)
-            alldims.remove(idx + 1)
-            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
+            alldims.remove(dim_idx + 1)
+
+            clst = self.clusters[cluster_idx]
+            if idx is not None:
+                clst = clst[(slice(None),) + idx]
+
+            contrib = clst.sum(axis=tuple(alldims))
             if norm:
                 contrib = contrib / contrib.sum(axis=-1, keepdims=True)
         else:
             alldims = list(range(self.stat.ndim))
-            alldims.remove(idx)
-            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
+            alldims.remove(dim_idx)
+
+            clst = self.clusters[cluster_idx]
+            if idx is not None:
+                clst = clst[idx]
+
+            contrib = clst.sum(axis=tuple(alldims))
             if norm:
                 contrib = contrib / contrib.sum()
         return contrib
 
     # TODO: consider continuous vs discontinuous limits
+    # TODO: consider merging more with get_index?
+    # TODO: rename to `get_limits()`
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           ignore_space=True, check_dims=None, **kwargs):
+                           ignore_space=True, check_dims=None, idx=None,
+                           **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -849,19 +874,23 @@ class Clusters(object):
             check_dims.remove(0)
 
         limits = list()
-        for idx in range(self.stat.ndim):
-            if idx in check_dims:
-                dimname = self.dimnames[idx]
+        for dim_idx in range(self.stat.ndim):
+            if dim_idx in check_dims:
+                dimname = self.dimnames[dim_idx]
                 mass = kwargs[dimname] if dimname in kwargs else retain_mass
-                contrib = self.get_contribution(cluster_idx, along=dimname)
+                contrib = self.get_contribution(cluster_idx, along=dimname,
+                                                idx=idx)
 
                 # curent method - start at max and extend
-                adj = not (idx == 0 and has_space)
-                limits.append(_get_mass_range(contrib, mass, adjacent=adj))
+                adj = not (dim_idx == 0 and has_space)
+                lims = _get_mass_range(contrib, mass, adjacent=adj)
+                limits.append(lims)
             else:
                 limits.append(slice(None))
         return tuple(limits)
 
+    # TODO - make sure the when one dim is specified with coords and other with
+    #        mass to retain, the mass is taken only from the part specified?
     def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
                   **kwargs):
         '''
@@ -914,6 +943,7 @@ class Clusters(object):
 
         # when retain mass is specified use it to get ranges for
         # dimensions not adressed with kwargs
+        # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
                           if isinstance(val, slice) and val == slice(None)]
@@ -921,7 +951,7 @@ class Clusters(object):
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
                     cluster_idx, ignore_space=ignore_space,
-                    retain_mass=retain_mass, **mass_indexing)
+                    retain_mass=retain_mass, idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx
@@ -1049,6 +1079,8 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
         dimlabel = '{} bins'.format(_get_full_dimname(dimension))
     else:
         dimcoords = clst.dimcoords[idx]
+        if dimcoords is None:
+            dimcoords = np.arange(clst.stat.shape[idx])
         dimlabel = '{} ({})'.format(_get_full_dimname(dimension),
                                     _get_units(dimension))
 
@@ -1091,8 +1123,8 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Value mapped to maximum in the colormap. Inferred from data by default.
     mark_kwargs : dict | None, optional
         Keyword arguments for ``Topo.mark_channels``. For example:
-        ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
-        ``None`` defaults to ``{'markersize=5'}``.
+        ``mark_kwargs={'markersize': 3}`` to change the size of the markers.
+        ``None`` defaults to ``{'markersize: 5'}``.
     **kwargs : additional arguments
         Additional arguments used in aggregation, defining the points to
         select (if argument value is a list of float) or the range to
@@ -1148,8 +1180,8 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.solid_lines()
 
     # FIXME: temporary hack to make all channels more visible
-    topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
-                       markerfacecolor='k', linewidth=0.)
+    # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
+    #                    markerfacecolor='k', linewidth=0.)
 
     if clst_mask is not None and clst_mask.any():
         if mark_kwargs is not None:
@@ -1247,8 +1279,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         n_clusters = clusters.shape[0]
         if n_clusters > 0:
             if not stat.shape == clusters.shape[1:]:
-                raise ValueError('Every cluster has to have the same shape as '
-                                 'stat.')
+                msg = ('Every cluster has to have the same shape as stat. '
+                       '`stat` has shape {} while `clusters` have shape {}.')
+                raise ValueError(msg.format(stat.shape, clusters.shape[1:]))
         else:
             clusters = None
     elif clusters is not None:
@@ -1287,7 +1320,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         if not isinstance(dimcoords, list):
             raise TypeError('`dimcoords` must be a list of dimension '
                              'coordinates. Got {}.'.format(type(dimcoords)))
-
+        if not len(dimcoords) == stat.ndim:
+            raise ValueError('Length of `dimcoords` must be the same as number'
+                             ' of dimensions in the `stat`.')
         dims = list(range(len(dimcoords)))
         if dimnames[0] in ['chan', 'vert']:
             dims.pop(0)
@@ -1484,18 +1519,33 @@ def _get_mass_range(contrib, mass, adjacent=True):
 
 
 def _cluster_selection(clst, sel):
-    '''Select Clusters according to selection vector `sel`'''
-    if sel.all():
+    '''Select Clusters according to selection vector `sel`. Works in-place.
+
+    Parameters
+    ----------
+    clst : borsar.Clusters
+        Clusters to select from.
+    sel : list-like of bool | list-like of int
+        Clusters to select.
+
+    Returns
+    -------
+    clst : borsar.Clusters
+        Selected clusters.
+    '''
+    if sel.dtype == 'bool' and sel.all():
         return clst
     if sel.dtype == 'bool':
         sel = np.where(sel)[0]
 
     if len(sel) > 0:
+        # select relevant fields
         clst.cluster_polarity = [clst.cluster_polarity[idx]
                                  for idx in sel]
         clst.clusters = clst.clusters[sel]
         clst.pvals = clst.pvals[sel]
     else:
+        # no cluster selected - returning empty Clusters
         clst.cluster_polarity = []
         clst.clusters = None
         clst.pvals = None
