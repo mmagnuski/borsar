@@ -4,9 +4,7 @@ from scipy import sparse
 from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t, format_pvalue
 from borsar._viz3d import plot_cluster_src
-from borsar.clusterutils import (_label_from_cluster, _get_clim,
-                                 _prepare_cluster_description,
-                                 _aggregate_cluster, _get_units)
+from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
 from borsar.channels import find_channels
 
 
