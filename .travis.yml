@@ -3,8 +3,8 @@ dist: xenial
 sudo: required
 
 env:
-  global: PYTHON_VERSION=3.7 TRAVIS_PYTHON_VERSION=3.7 CONDA_VERSION=">=4.3.27"
-          CONDA_ENVIRONMENT="environment.yml" DEBUG=True
+  global: PYTHON_VERSION=3.7 TRAVIS_PYTHON_VERSION=3.7 CONDA_VERSION=">=4.7.5"
+          CONDA_ENVIRONMENT="environment.yml"
 
 matrix:
   include:
@@ -23,7 +23,7 @@ before_install:
     else
       sudo apt-get update;
     fi
-  - curl -O https://raw.githubusercontent.com/mne-tools/mne-python/master/environment.yml
+  - curl -O https://raw.githubusercontent.com/mmagnuski/borsar/master/environment.yml
   - git clone https://github.com/astropy/ci-helpers.git
   - source ci-helpers/travis/setup_conda.sh
 

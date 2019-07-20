@@ -670,9 +670,8 @@ def test_clusters_safety_checks():
     info = mne.create_info([l for l in list('abcde')], 250.)
 
     with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
-        temp_clst = Clusters(clusters, [0.1, 0.1, 0.15], stat,
-                             dimnames=['chan', 'time'], dimcoords=[None],
-                             info=info)
+        Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
+                 dimcoords=[None], info=info)
 
     # _check_description
     with pytest.raises(TypeError, match='has to be either a string or a dict'):

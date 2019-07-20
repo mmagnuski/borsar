@@ -18,6 +18,7 @@ def _check_stc(clst):
         if clst.vertices is None:
             vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
         else:
+            # this should use _to_data_vert when it is moved from DiamSar
             lh, rh = [clst.vertices[hemi] for hemi in ['lh', 'rh']]
             vert = [clst.src[0]['vertno'][lh], clst.src[1]['vertno'][rh]]
 
