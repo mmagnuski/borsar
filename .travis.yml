@@ -3,8 +3,8 @@ dist: xenial
 sudo: required
 
 env:
-  global: PYTHON_VERSION=3.6 TRAVIS_PYTHON_VERSION=3.6 CONDA_VERSION=">=4.3.27"
-          CONDA_ENVIRONMENT="environment.yml"
+  global: PYTHON_VERSION=3.7 TRAVIS_PYTHON_VERSION=3.7 CONDA_VERSION=">=4.3.27"
+          CONDA_ENVIRONMENT="environment.yml" DEBUG=True
 
 matrix:
   include:
