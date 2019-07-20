@@ -60,12 +60,12 @@ class Topo(object):
             if multi_axes:
                 from mne.viz.utils import _validate_if_list_of_axes
                 _validate_if_list_of_axes(axes, obligatory_len=n_topos)
-                plt.sca(axes[0]) # FIXME - this may not be needed in future
+                plt.sca(axes[0])  # FIXME - this may not be needed in future
             else:
                 if squeezed and isinstance(axes, list):
                     axes = axes[0]
                     kwargs['axes'] = axes
-                plt.sca(axes) # FIXME - this may not be needed in future
+                plt.sca(axes)  # FIXME - this may not be needed in future
             self.axes = axes
         elif multi_axes:
             fig, axes = plt.subplots(ncols=n_topos)
@@ -86,7 +86,7 @@ class Topo(object):
 
             for topo_idx in range(n_topos):
                 this_im, this_lines = plot_topomap(
-                    self.values[:, topo_idx],info, axes=self.axes[topo_idx],
+                    self.values[:, topo_idx], info, axes=self.axes[topo_idx],
                     **kwargs)
                 # get channel objects and channel positions from topo
                 this_chans, chan_pos = _extract_topo_channels(this_im.axes)
