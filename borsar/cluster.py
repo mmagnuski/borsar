@@ -796,9 +796,9 @@ class Clusters(object):
         return_many = True
         if cluster_idx is None:
             cluster_idx = np.arange(len(self))
-        if (not isinstance(cluster_idx, (list, np.ndarray)) and
-            (isinstance(cluster_idx, int) or
-             np.issubdtype(cluster_idx, np.integer))):
+        if (not isinstance(cluster_idx, (list, np.ndarray))
+            and (isinstance(cluster_idx, int)
+                 or np.issubdtype(cluster_idx, np.integer))):
             cluster_idx = [cluster_idx]
             return_many = False
 
