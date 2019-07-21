@@ -29,9 +29,9 @@ def test_topo():
     ch, pos = _extract_topo_channels(topo.axes)
 
     # test 1 x channels vector
-    topo = Topo(alpha_topo[np.newaxis, :], raw.info, show=False)
+    topo = Topo(alpha_topo[:, np.newaxis], raw.info, show=False)
     fig, ax = plt.subplots()
-    topo = Topo(alpha_topo[np.newaxis, :], raw.info, axes=[ax], show=False)
+    topo = Topo(alpha_topo[:, np.newaxis], raw.info, axes=[ax], show=False)
 
     fig, ax = plt.subplots()
     with pytest.raises(RuntimeError):

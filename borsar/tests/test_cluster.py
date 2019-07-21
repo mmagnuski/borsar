@@ -367,6 +367,8 @@ def test_clusters():
     # using `selection` arg
     clst3 = clst2.copy().select(selection=[0, 1])
     assert len(clst3) == 2
+    clst3 = clst2.copy().select(selection=np.array([0, 1]))
+    assert len(clst3) == 2
 
     # selection that results in no clusters
     clst_no = clst.copy().select(p_threshold=0.05)

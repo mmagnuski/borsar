@@ -1525,7 +1525,7 @@ def _cluster_selection(clst, sel):
     ----------
     clst : borsar.Clusters
         Clusters to select from.
-    sel : list-like of bool | list-like of int
+    sel : list-like of int | array of bool
         Clusters to select.
 
     Returns
@@ -1533,10 +1533,11 @@ def _cluster_selection(clst, sel):
     clst : borsar.Clusters
         Selected clusters.
     '''
-    if sel.dtype == 'bool' and sel.all():
-        return clst
-    if sel.dtype == 'bool':
-        sel = np.where(sel)[0]
+    if isinstance(sel, np.ndarray):
+        if sel.dtype == 'bool' and sel.all():
+            return clst
+        if sel.dtype == 'bool':
+            sel = np.where(sel)[0]
 
     if len(sel) > 0:
         # select relevant fields
