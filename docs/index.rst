@@ -12,7 +12,7 @@ Welcome to borsar's documentation!
 Installation
 ============
 
-It's best to use the `Anaconda Python distribution <https://www.continuum.io/downloads>`_.
+It's best to use the `Anaconda Python distribution <https://www.anaconda.com/distribution/>`_.
 
 borsar has the following dependencies:
 
