@@ -593,8 +593,6 @@ class Clusters(object):
 # - [ ] add warning if all clusters removed
 # - [ ] consider select to _not_ work inplace or make sure all methods
 #       work this way
-# - [ ] FIXME - better docs for kwargs - they are only used along with
-#       percentage_in and n_points_in
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
                n_points=None, selection=None, **kwargs):
         '''
@@ -632,18 +630,21 @@ class Clusters(object):
             should be selected instead of using criteria like p value or
             cluster surface.
         **kwargs : additional arguments
-            Additional arguments used in aggregation, defining the points to
-            select (if argument value is a list of float) or the range to
-            aggregate for the dimension specified by the argument name. Tuple
-            of two values defines explicit range: for example keyword argument
-            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. Float argument
-            between 0. and 1. defines range that is dependent on cluster mass
-            or extent. For example ``time=0.75`` defines time range that
-            retains at least 75% of the cluster extent (calculated along the
-            aggregated dimension - in this case time). If no kwarg is passed
-            for given dimension then the default value is ``0.65``. This means
-            that the range for such dimension is defined to retain at least 65%
-            of the cluster extent.
+            Additional arguments when selection is meant to be performed only
+            based on some subspace of the effects. Defines the points to use in
+            the selection (if argument value is a list of float) or the range to
+            use for the dimension specified by the argument name. Tuple of two
+            values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` performs selection on the 6 - 8 Hz range. Float
+            argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the specified dimension - in this case time).
+            If no kwarg is passed for given dimension then the whole extent of
+            that dimension is used in the selection.
+            Using ``**kwargs`` makes sense only when performing selection via
+            ``percentage_in`` or ``n_points_in``. Otherwise ``*kwargs`` are
+            ignored.
 
         Return
         ------
