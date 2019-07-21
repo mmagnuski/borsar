@@ -398,14 +398,19 @@ def test_clusters():
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
 
+    # along as int
+    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+
     # get_contribution when no cluster_idx is passed
     all_contrib = clst2.get_contribution(along='freq')
     assert all_contrib.shape[0] == len(clst2)
     assert all_contrib.shape[1] == clst2.stat.shape[1]
 
-    # along as int
-    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
-    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+    # get_contribution with idx argument
+    all_contrib = clst2.get_contribution(along='freq', idx=(None, [0, 1, 2]))
+    assert all_contrib.shape[0] == len(clst2)
+    assert all_contrib.shape[1] == 3
 
     # non string
     match = r'has to be string \(dimension name\) or int \(dimension index\)'
@@ -696,9 +701,11 @@ def test_clusters_safety_checks():
                                    None, None, None)
 
     # ... ad subjects_dir
-    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', None, None)
+    subjects_dir = mne.utils.get_subjects_dir()
+    if subjects_dir is None:
+        with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+            _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                       'fsaverage', None, None)
 
     # if vertices are used - they can't exceeds source space size
     n_vert_lh = len(fwd['src'][0]['vertno'])

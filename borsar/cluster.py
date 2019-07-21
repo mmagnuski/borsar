@@ -632,9 +632,9 @@ class Clusters(object):
         **kwargs : additional arguments
             Additional arguments when selection is meant to be performed only
             based on some subspace of the effects. Defines the points to use in
-            the selection (if argument value is a list of float) or the range to
-            use for the dimension specified by the argument name. Tuple of two
-            values defines explicit range: for example keyword argument
+            the selection (if argument value is a list of float) or the range
+            to use for the dimension specified by the argument name. Tuple of
+            two values defines explicit range: for example keyword argument
             ``freq=(6, 8)`` performs selection on the 6 - 8 Hz range. Float
             argument between 0. and 1. defines range that is dependent on
             cluster mass or extent. For example ``time=0.75`` defines time
@@ -782,6 +782,9 @@ class Clusters(object):
             calculated. Default is to calculate along the first dimension.
         norm : bool, optional
             Whether to normalize contributions. Defaults to `True`.
+        idx : tuple
+            Tuple for numpy array indexing that selects some subspace of
+            interest.
 
         Returns
         -------
@@ -790,37 +793,35 @@ class Clusters(object):
             contributions) if `norm=True` or integer values (number of
             elements) if `norm=False`.
         '''
+        return_many = True
         if cluster_idx is None:
             cluster_idx = np.arange(len(self))
+        if (not isinstance(cluster_idx, (list, np.ndarray)) and
+            (isinstance(cluster_idx, int) or
+             np.issubdtype(cluster_idx, np.integer))):
+            cluster_idx = [cluster_idx]
+            return_many = False
 
         along = 0 if along is None else along
         dim_idx = _check_dimname_arg(self, along)
 
         # one line for each cluster
-        if isinstance(cluster_idx, (list, np.ndarray)):
-            alldims = list(range(self.stat.ndim + 1))
-            alldims.remove(0)
-            alldims.remove(dim_idx + 1)
+        alldims = list(range(self.stat.ndim + 1))
+        alldims.remove(0)
+        alldims.remove(dim_idx + 1)
 
-            clst = self.clusters[cluster_idx]
-            if idx is not None:
-                clst = clst[(slice(None),) + idx]
+        clst = self.clusters[cluster_idx]
+        if idx is not None:
+            clst = clst[(slice(None),) + idx]
 
-            contrib = clst.sum(axis=tuple(alldims))
-            if norm:
-                contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+        contrib = clst.sum(axis=tuple(alldims))
+        if norm:
+            contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+
+        if return_many:
+            return contrib
         else:
-            alldims = list(range(self.stat.ndim))
-            alldims.remove(dim_idx)
-
-            clst = self.clusters[cluster_idx]
-            if idx is not None:
-                clst = clst[idx]
-
-            contrib = clst.sum(axis=tuple(alldims))
-            if norm:
-                contrib = contrib / contrib.sum()
-        return contrib
+            return contrib[0]
 
     # TODO: consider continuous vs discontinuous limits
     # TODO: consider merging more with get_index?
