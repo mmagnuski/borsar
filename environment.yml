@@ -16,6 +16,7 @@ dependencies:
 - statsmodels
 - jupyter
 - pytest
+- pytest-cov
 - joblib
 - psutil
 - numpydoc
