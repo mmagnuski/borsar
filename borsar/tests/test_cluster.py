@@ -364,6 +364,10 @@ def test_clusters():
     clst3 = clst2.copy().select(n_points_in=340, freq=(10.5, 12.5))
     assert len(clst3) == 1
 
+    # using `selection` arg
+    clst3 = clst2.copy().select(selection=[0, 1])
+    assert len(clst3) == 2
+
     # selection that results in no clusters
     clst_no = clst.copy().select(p_threshold=0.05)
     assert len(clst_no) == 0
