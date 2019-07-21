@@ -41,7 +41,7 @@ def compute_regression_t(data, preds, return_p=False):
     prediction = (preds[:, :, np.newaxis] * coefs[np.newaxis, :]
                   ).sum(axis=1)
     MSE = (((data - prediction) ** 2).sum(axis=0, keepdims=True) / df)
-    SE = np.sqrt(MSE * np.diag(np.linalg.inv(preds.T @ preds))[:, np.newaxis])
+    SE = np.sqrt(MSE * np.diag(np.linalg.pinv(preds.T @ preds))[:, np.newaxis])
     t_vals = (coefs / SE).reshape([n_preds, *original_shape[1:]])
 
     if return_p:

@@ -28,6 +28,11 @@ def test_topo():
     topo.mark_channels([1, 2, 3, 6, 8], markersize=10.)
     ch, pos = _extract_topo_channels(topo.axes)
 
+    # test 1 x channels vector
+    topo = Topo(alpha_topo[:, np.newaxis], raw.info, show=False)
+    fig, ax = plt.subplots()
+    topo = Topo(alpha_topo[:, np.newaxis], raw.info, axes=[ax], show=False)
+
     fig, ax = plt.subplots()
     with pytest.raises(RuntimeError):
         ch, pos = _extract_topo_channels(ax)
@@ -61,11 +66,11 @@ def test_multi_topo():
 
     # test changing line width
     tp.set_linewidth(0.35)
+
     linewidths = list()
     for lines in tp.lines:
         for line in lines.collections:
             linewidths.append(line.get_linewidths()[0])
-
     assert (np.array(linewidths) == 0.35).all()
 
     # other tests
@@ -73,7 +78,7 @@ def test_multi_topo():
     tp.remove_levels(0.)
     tp.mark_channels([1, 2, 3, 6, 8], markersize=10.)
 
-    # test different markers per topo:
+    # test different marks per topo:
     fig, axes = plt.subplots(ncols=3)
     tp = Topo(freq_topos, raw.info, axes=axes)
     mark_idxs = [[0, 1], [3, 5], [9, 10, 13]]

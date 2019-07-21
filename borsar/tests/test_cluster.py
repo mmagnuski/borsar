@@ -364,6 +364,12 @@ def test_clusters():
     clst3 = clst2.copy().select(n_points_in=340, freq=(10.5, 12.5))
     assert len(clst3) == 1
 
+    # using `selection` arg
+    clst3 = clst2.copy().select(selection=[0, 1])
+    assert len(clst3) == 2
+    clst3 = clst2.copy().select(selection=np.array([0, 1]))
+    assert len(clst3) == 2
+
     # selection that results in no clusters
     clst_no = clst.copy().select(p_threshold=0.05)
     assert len(clst_no) == 0
@@ -398,14 +404,19 @@ def test_clusters():
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
 
+    # along as int
+    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+
     # get_contribution when no cluster_idx is passed
     all_contrib = clst2.get_contribution(along='freq')
     assert all_contrib.shape[0] == len(clst2)
     assert all_contrib.shape[1] == clst2.stat.shape[1]
 
-    # along as int
-    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
-    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+    # get_contribution with idx argument
+    all_contrib = clst2.get_contribution(along='freq', idx=(None, [0, 1, 2]))
+    assert all_contrib.shape[0] == len(clst2)
+    assert all_contrib.shape[1] == 3
 
     # non string
     match = r'has to be string \(dimension name\) or int \(dimension index\)'
@@ -664,6 +675,15 @@ def test_clusters_safety_checks():
         _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
                                 [np.arange(2), np.arange(3)], tmp)
 
+    # number of dimcoords has to match the number of dimensions
+    stat = np.random.rand(5, 10)
+    clusters = [np.random.rand(5, 10) > 0.8 for _ in range(3)]
+    info = mne.create_info([l for l in list('abcde')], 250.)
+
+    with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
+        Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
+                 dimcoords=[None], info=info)
+
     # _check_description
     with pytest.raises(TypeError, match='has to be either a string or a dict'):
         _check_description(['abc'])
@@ -687,9 +707,11 @@ def test_clusters_safety_checks():
                                    None, None, None)
 
     # ... ad subjects_dir
-    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', None, None)
+    subjects_dir = mne.utils.get_subjects_dir()
+    if subjects_dir is None:
+        with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+            _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
+                                       'fsaverage', None, None)
 
     # if vertices are used - they can't exceeds source space size
     n_vert_lh = len(fwd['src'][0]['vertno'])

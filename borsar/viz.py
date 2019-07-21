@@ -43,10 +43,15 @@ class Topo(object):
         self.info = info
         self.values = values
 
+        squeezed = False
+        if self.values.ndim > 1 and self.values.shape[1] == 1:
+            self.values = self.values[:, 0]
+            squeezed = True
+
         # handle multiple axes
-        multi_axes = values.ndim > 1
+        multi_axes = self.values.ndim > 1
         if multi_axes:
-            n_topos = values.shape[1]
+            n_topos = self.values.shape[1]
 
         # FIXME: split axis checking and plotting into separate methods
         has_axis = 'axes' in kwargs.keys()
@@ -54,10 +59,13 @@ class Topo(object):
             axes = kwargs['axes']
             if multi_axes:
                 from mne.viz.utils import _validate_if_list_of_axes
-                _validate_if_list_of_axes(axes, obligatory_len=values.shape[1])
-                plt.sca(axes[0])
+                _validate_if_list_of_axes(axes, obligatory_len=n_topos)
+                plt.sca(axes[0])  # FIXME - this may not be needed in future
             else:
-                plt.sca(axes)
+                if squeezed and isinstance(axes, list):
+                    axes = axes[0]
+                    kwargs['axes'] = axes
+                plt.sca(axes)  # FIXME - this may not be needed in future
             self.axes = axes
         elif multi_axes:
             fig, axes = plt.subplots(ncols=n_topos)
@@ -77,9 +85,9 @@ class Topo(object):
                 kwargs.pop('axes')
 
             for topo_idx in range(n_topos):
-                this_im, this_lines = plot_topomap(values[:, topo_idx], info,
-                                                   axes=self.axes[topo_idx],
-                                                   **kwargs)
+                this_im, this_lines = plot_topomap(
+                    self.values[:, topo_idx], info, axes=self.axes[topo_idx],
+                    **kwargs)
                 # get channel objects and channel positions from topo
                 this_chans, chan_pos = _extract_topo_channels(this_im.axes)
 
@@ -88,7 +96,7 @@ class Topo(object):
                 chans.append(this_chans)
             self.chan_pos = chan_pos
         else:
-            im, lines = plot_topomap(values, info, **kwargs)
+            im, lines = plot_topomap(self.values, info, **kwargs)
 
             self.marks = list()
             self.axes = axes if has_axis else im.axes
