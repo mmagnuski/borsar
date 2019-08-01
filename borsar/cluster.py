@@ -499,12 +499,14 @@ class Clusters(object):
         time where space corresponds to channels or vertices (in the source
         space).
     dimnames : list of str, optional
-        List of dimension names. For example `['chan', 'freq']` or `['vert',
-        'time']`. The length of `dimnames` has to mach `stat.ndim`.
-        If 'chan' dimname is given, you also need to provide `mne.Info`
-        corresponding to the channels via info keyword argument.
-        If 'vert' dimname is given, you also need to provide forward, subject
-        and subjects_dir via respective keyword arguments.
+        List of dimension names. For example ``['chan', 'freq']`` or ``['vert',
+        'time']``. The length of `dimnames` has to mach ``stat.ndim``.
+        If 'chan' dimname is given, you also need to provide ``mne.Info``
+        corresponding to the channels via ``info`` keyword argument.
+        If ``'vert'`` dimname is given, you also need to provide
+        ``mne.SourceSpaces`` via ``src`` keyword argument. You also have to
+        specify ``subject`` and ``subjects_dir`` via respective keyword
+        arguments.
     dimcoords : list of arrays, optional
         List of arrays, where each array contains coordinates (labels) for
         consecutive elements in corresponding dimension. For example if your
@@ -513,13 +515,26 @@ class Clusters(object):
         represent channel names while b) `dimcoords[1]` should have length of
         `stat.shape[1]` and its consecutive elements should represent centers
         of frequency bins (in Hz).
+        When first dimension corresponds to channels and all channels provided
+        in ``info`` object appear in the same order in the data - there is no
+        need to specify channel names in ``dimcoords``. In such situation the
+        respective ``dimcoords`` for channels can be ``None``.
+        When the first dimension corresponds to the vertices in the source
+        space then the ``dimcoords`` should specify vertex indices with respect
+        to the provided ``src`` (``mne.SourceSpaces``). These indices have to
+        be with respect to vertices used in the source space, not all possible
+        vertices present in the original brain model. Becasue of that filling
+        ``dimcoords`` with vertex indices should only be used when the analysis
+        was not conducted on the whole ``src`` space, but on subselection of
+        vertices (for example: only frontal regions). Ohterwise ``dimcoords``
+        corresponding to ``'vert'`` dimension can be left as ``None``.
     info : mne.Info, optional
         When using channel space ('chan' is one of the dimnames) you need to
-        provide information about channel position in mne.Info file (for
-        example `epochs.info`).
+        provide information about channel position in ``mne.Info`` object (for
+        example ``epochs.info``).
     src : mne.SourceSpaces, optional
         When using source space ('vert' is one of the dimnames) you need to
-        pass mne.SourceSpaces
+        pass ``mne.SourceSpaces`` corresponding to the data.
     subject : str, optional
         When using source space ('vert' is one of the dimnames) you need to
         pass a subject name (name of the freesurfer directory with file for
@@ -528,10 +543,6 @@ class Clusters(object):
         When using source space ('vert' is one of the dimnames) you need to
         pass a Freesurfer subjects directory (path to the folder contraining
         subjects as subfolders).
-    vertices : array of int, optional
-        Indices of vertices of the source space that were used in the
-        clustering. Only necessary if you performed the cluster based
-        permutation test on a selected part of the source space.
     description : str | dict, optional
         Optional description of the Clusters - for example analysis parameters
         and some other additional details.
@@ -540,8 +551,7 @@ class Clusters(object):
     '''
     def __init__(self, clusters, pvals, stat, dimnames=None, dimcoords=None,
                  info=None, src=None, subject=None, subjects_dir=None,
-                 vertices=None, description=None, sort_pvals=True,
-                 safety_checks=True):
+                 description=None, sort_pvals=True, safety_checks=True):
 
         if safety_checks:
             # basic safety checks
@@ -549,8 +559,8 @@ class Clusters(object):
                 clusters, pvals, stat, dimnames, dimcoords, description)
 
             # check channel or source space
-            vertices = _clusters_chan_vert_checks(dimnames, info, src, subject,
-                                                  subjects_dir, vertices)
+            dimcoords = _clusters_chan_vert_checks(dimnames, dimcoords, info,
+                                                   src, subject, subjects_dir)
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
@@ -575,7 +585,6 @@ class Clusters(object):
         self.description = description
         self.dimcoords = dimcoords
         self.clusters = clusters
-        self.vertices = vertices
         self.dimnames = dimnames
         self.subject = subject
         self.pvals = pvals
@@ -1086,7 +1095,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
     # make sure we have an axes to plot to
     if axis is None:
-        axis = plt.axes()
+        axis = plt.gca()
 
     # plot cluster contribution
     for idx in picks:
@@ -1347,8 +1356,8 @@ def _check_description(description):
 
 
 # TODO - [ ] move to clusterutils?
-def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir,
-                               vertices):
+def _clusters_chan_vert_checks(dimnames, dimcoords, info, src, subject,
+                               subjects_dir):
     '''Safety checks for Clusters spatial dimension.'''
     import mne
     if dimnames is not None and 'chan' in dimnames:
@@ -1371,7 +1380,10 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir,
                             ' name in order to use "vert" dimension. Use '
                             '`subjects_dir` keyword argument.')
 
+        vertices = dimcoords[0]
         if vertices is not None:
+            # FIXME - move to separate function
+            # FIXME - allow for dict of indices
             # check against left and right hemi
             vert_num_lh = src[0]['vertno'].shape[0]
             vert_num_rh = src[1]['vertno'].shape[0]
@@ -1387,8 +1399,9 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir,
             lh_mask = vertices < vert_num_lh
             vertices = {'lh': vertices[lh_mask],
                         'rh': vertices[~lh_mask] - vert_num_lh}
+            dimcoords[0] = vertices
 
-    return vertices
+    return dimcoords
 
 
 def _check_dimname_arg(clst, dimname):

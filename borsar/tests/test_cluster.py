@@ -696,37 +696,38 @@ def test_clusters_safety_checks():
         _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
                                    None)
 
-    # source space (vert dimname) require mne.SourceSpaces
+    # source space (vert dimname) requires mne.SourceSpaces
     with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
         _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
                                    None)
 
     # source space also requires subject ...
     with pytest.raises(TypeError, match='must pass a subject string'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   None, None, None)
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, fwd['src'],
+                                   None, None)
 
-    # ... ad subjects_dir
+    # ... and subjects_dir
     subjects_dir = mne.utils.get_subjects_dir()
     if subjects_dir is None:
         with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
-            _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                       'fsaverage', None, None)
+            _clusters_chan_vert_checks(['vert', 'freq'], None, None,
+                                       fwd['src'], 'fsaverage', None)
 
     # if vertices are used - they can't exceeds source space size
     n_vert_lh = len(fwd['src'][0]['vertno'])
     n_vert = n_vert_lh + len(fwd['src'][1]['vertno'])
     vertices = np.arange(n_vert + 1)
     with pytest.raises(ValueError, match='vertex indices exceed'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', data_dir, vertices)
+        _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                   None, fwd['src'], 'fsaverage', data_dir)
 
     # if correct vertices are passed they are turned to a dictionary
     vertices = np.array([2, 5, n_vert_lh + 2, n_vert_lh + 5])
-    vertices = _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                          'fsaverage', data_dir, vertices)
-    assert (vertices['lh'] == np.array([2, 5])).all()
-    assert (vertices['rh'] == np.array([2, 5])).all()
+    dimcoords = _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                           None, fwd['src'], 'fsaverage',
+                                           data_dir)
+    assert (dimcoords[0]['lh'] == np.array([2, 5])).all()
+    assert (dimcoords[0]['rh'] == np.array([2, 5])).all()
 
 
 def test_cluster_pvals_and_polarity_sorting():
