@@ -1095,7 +1095,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
     # make sure we have an axes to plot to
     if axis is None:
-        axis = plt.axes()
+        axis = plt.gca()
 
     # plot cluster contribution
     for idx in picks:
