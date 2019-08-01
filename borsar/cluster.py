@@ -560,7 +560,7 @@ class Clusters(object):
 
             # check channel or source space
             dimcoords = _clusters_chan_vert_checks(dimnames, dimcoords, info,
-                                                  src, subject, subjects_dir)
+                                                   src, subject, subjects_dir)
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
