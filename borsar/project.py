@@ -1,4 +1,3 @@
-import os
 import os.path as op
 import pandas as pd
 
@@ -24,7 +23,6 @@ class Paths(object):
         if task not in self.tasks[study]:
             self.tasks[study] = task
         # else raise warning?
-
 
     def add_path(self, name, path, study=None, task=None, relative_to=None):
         '''FIXME: DOCS'''
@@ -72,7 +70,8 @@ class Paths(object):
     def _add_path(self, study, task, name, path):
         '''FIXME: DOCS'''
         if self.paths is None:
-            self.paths = pd.DataFrame(columns=['study', 'task', 'name', 'path'])
+            colnames = ['study', 'task', 'name', 'path']
+            self.paths = pd.DataFrame(columns=colnames)
 
         idx = self.paths.shape[0]
         self.paths.loc[idx, 'study'] = study

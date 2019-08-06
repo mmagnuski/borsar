@@ -1,19 +1,18 @@
-import os.path as op
-
 from borsar.project import Paths
 
 # create tempdir structure first?
 # when adding path and no such path: warn
 # when retrieving path and no such path: error
 
+
 def test_paths():
     pth = Paths()
     pth.register_study('study1')
-    pth.add_path('main', r'temp\std1', study='study1')
+    pth.add_path('main', r'temp/std1', study='study1')
     pth.add_path('test1', 'abc')
     pth.add_path('test2', 'abc', relative_to='main')
     pth.add_path('test3', 'abc', study='study1')
-    pth.add_path('test4', r'temp\std1\abc', relative_to=False)
+    pth.add_path('test4', r'temp/std1/abc', relative_to=False)
 
     # test1, test2, test3 and test4 should be the same path
     test1_path = pth._get_path('test1', 'study1', '')
@@ -35,6 +34,3 @@ def test_paths():
     test1_path = pth._get_path('test1', 'study1', 'task1')
     test2_path = pth._get_path('test2', 'study1', 'task1')
     assert test1_path == test2_path
-
-
-    # ...
