@@ -4,28 +4,64 @@ import pandas as pd
 
 class Paths(object):
     def __init__(self):
-        '''FIXME: DOCS'''
+        '''Paths object allows for convenient storage and access to various
+        study and task-level paths.
+        '''
         self.studies = list()
         self.tasks = dict()
         self.paths = None
 
     def register_study(self, study):
-        '''FIXME: DOCS'''
+        '''Register study.
+
+        Parameters
+        ----------
+        study : str
+            Name of the study to register.
+        '''
         if study not in self.studies:
             self.studies.append(study)
             self.tasks[study] = list()
         # else raise warning?
 
     def register_task(self, task, study=None):
-        '''FIXME: DOCS'''
+        '''Register task for given study.
+
+        Parameters
+        ----------
+        task : str
+            Name of the study to register.
+        '''
         study = self._check_set_study(study, msg='register tasks')
 
         if task not in self.tasks[study]:
             self.tasks[study] = task
         # else raise warning?
 
-    def add_path(self, name, path, study=None, task=None, relative_to=None):
-        '''FIXME: DOCS'''
+    def add_path(self, name, path, study=None, task=None, relative_to='main'):
+        '''Add path to given study and task.
+
+        Parameters
+        ----------
+        name : str
+            Name of the path. This name is used to later get the path from
+            Paths object.
+        path : str
+            Path to add.
+        study : str | None
+            Study name for which the path should be registered. If None, the
+            first added study is chosen.
+        task : str | None
+            Task name for which the path should be registered. If ``None``, no
+            specific task is used - that is task is ``""``. Because of this
+            ``None`` nad ``""`` work the same way (no specific task).
+        relative_to : str | bool
+            Specifies the name of the path, which the current ``path`` is
+            relative to. By default main path of given study and task is used.
+            If there is no main path for given study-task combination, the main
+            study path is used. If the path added should not be relative use
+            ``relative_to=False``.
+        '''
         study = self._check_set_study(study, msg='add paths')
 
         if task is None:
@@ -112,6 +148,7 @@ class Paths(object):
             return path, ispresent
 
     def _check_set_study(self, study, msg=None):
+        '''Check if study is present.'''
         if study is None:
             if len(self.studies) == 0:
                 full_msg = 'You have to register a study first.'
