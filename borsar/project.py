@@ -1,4 +1,7 @@
 import os.path as op
+from warnings import warn
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -63,14 +66,9 @@ class Paths(object):
             ``relative_to=False``.
         '''
         study = self._check_set_study(study, msg='add paths')
-
-        if task is None:
-            task = ""
-        if relative_to is None:
-            relative_to = 'main'
-
-        # FIXME: add _validate_study_and_task for checking whether study and
-        #        tasks are valid
+        task = self._check_set_task(study, task)
+        if isinstance(path, str):
+            path = Path(path)
 
         # check if main pressent
         no_main = self.paths is None
@@ -99,7 +97,7 @@ class Paths(object):
                 relative_path = main
             else:
                 relative_path = self._get_path(relative_to, study, task)
-            path = op.join(relative_path, path)
+            path = relative_path / path
 
         self._add_path(study, task, name, path)
 
@@ -109,11 +107,25 @@ class Paths(object):
             colnames = ['study', 'task', 'name', 'path']
             self.paths = pd.DataFrame(columns=colnames)
 
-        idx = self.paths.shape[0]
+        selected = self._find(name, study, task)
+        if selected.shape[0] == 0:
+            idx = self.paths.shape[0]
+        else:
+            idx = selected.index[0]
+            msg = 'There is already path "{}" for study "{}", task "{}". '
+            msg = msg.format(name, study, task) + "Overwriting."
+            warn(msg, RuntimeWarning)
+
         self.paths.loc[idx, 'study'] = study
         self.paths.loc[idx, 'task'] = task
         self.paths.loc[idx, 'name'] = name
         self.paths.loc[idx, 'path'] = path
+
+    def _find(self, name, study, task):
+        '''Find path with specific name for given study and task.'''
+        query_str = 'study == "{}" & task == "{}" & name == "{}"'
+        selected = self.paths.query(query_str.format(study, task, name))
+        return selected
 
     def _get_path(self, name, study, task, raise_error=True):
         '''Check if given path is present for specified study and task.
@@ -122,8 +134,7 @@ class Paths(object):
         if self.paths is None:
             ispresent = False
         else:
-            query_str = 'study == "{}" & task == "{}" & name == "{}"'
-            selected = self.paths.query(query_str.format(study, task, name))
+            selected = self._find(name, study, task)
             ispresent = selected.shape[0] > 0
 
         if not ispresent:
@@ -159,6 +170,27 @@ class Paths(object):
                 raise ValueError(full_msg)
             else:
                 study = self.studies[0]
+        else:
+            # check if such study is present
+            if study not in self.studies:
+                full_msg = 'No study "{}" found.'
+                raise ValueError(full_msg.format(study))
         return study
+
+    def _check_set_task(self, study, task):
+        '''Check if task is present.'''
+        if task is None:
+            task = ""
+
+        # check if given task is present for this study
+        if not task == "":
+            has_task = task in self.tasks[study]
+            if not has_task:
+                # no task, throw error
+                full_msg = ('No task "{}" found for study "{}". You have to '
+                            'register this task first.')
+                raise ValueError(full_msg.format(task, study))
+
+        return task
 
     # def _retrieve_path(self, name, study, task)
