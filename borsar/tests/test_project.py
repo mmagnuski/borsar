@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from borsar.project import Paths
 
 # create tempdir structure first?
@@ -50,11 +51,11 @@ def test_paths():
 
     # use relative_to=some_name
     pth.add_path('rodżer', 'another', relative_to='test2')
-    expected_path = r'temp\std1\abc\another'
+    expected_path = str(Path(r'temp\std1\abc\another'))
     assert str(object=pth._get_path('rodżer', 'study1', '')) == expected_path
 
     pth.add_path('rodżer2', 'another', task='task1', relative_to='test2')
-    expected_path = r'temp\std1\tsk1\another'
+    expected_path = str(Path(r'temp\std1\tsk1\another'))
     assert (str(object=pth._get_path('rodżer2', 'study1', 'task1'))
             == expected_path)
 
@@ -85,7 +86,6 @@ def test_paths():
     msg = 'Could not find path "sarna" for study "study1"'
     with pytest.raises(ValueError, match=msg):
         pth._get_path('sarna', 'study1', '')
-
 
     # _check_set_study when no such study
     msg = 'No study "study3" found'
