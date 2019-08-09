@@ -153,7 +153,7 @@ class Paths(object):
                 # CONSIDER: maybe add more detalis about what
                 #           can and can't be found
                 msg = 'Could not find path "{}" for study "{}"'
-                msg.format(name, study)
+                msg = msg.format(name, study)
                 if task:
                     msg += ', task "{}".'
                     msg.format(task)
