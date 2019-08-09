@@ -46,4 +46,6 @@ def test_paths():
     new_test2_path = test2_path.replace('tsk1', 'tsk1b')
     assert str(pth._get_path('test2', 'study1', 'task1')) == new_test2_path
 
-    # pth.register_study('study2', tasks=['a', 'b', 'c'])
+    pth.register_study('study2', tasks=['a', 'b', 'c'])
+    assert 'study2' in pth.studies
+    assert all([task in pth.tasks['study2'] for task in list('abc')])

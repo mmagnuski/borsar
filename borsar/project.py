@@ -1,4 +1,3 @@
-import os.path as op
 from warnings import warn
 from pathlib import Path
 
@@ -14,18 +13,28 @@ class Paths(object):
         self.tasks = dict()
         self.paths = None
 
-    def register_study(self, study):
+    def register_study(self, study, tasks=None):
         '''Register study.
 
         Parameters
         ----------
         study : str
             Name of the study to register.
+        tasks : None | list of str
+            If list of string: allows to additionaly register tasks along
+            study registration. If ``None`` (default) - no tasks are
+            registered.
         '''
         if study not in self.studies:
             self.studies.append(study)
             self.tasks[study] = list()
-        # else raise warning?
+        else:
+            warn('Study "{}" has been already registered.'.format(study),
+                 RuntimeWarning)
+
+        if isinstance(tasks, list):
+            for task in tasks:
+                self.register_task(task, study=study)
 
     def register_task(self, task, study=None):
         '''Register task for given study.
@@ -38,8 +47,10 @@ class Paths(object):
         study = self._check_set_study(study, msg='register tasks')
 
         if task not in self.tasks[study]:
-            self.tasks[study] = task
-        # else raise warning?
+            self.tasks[study].append(task)
+        else:
+            msg = 'Task "{}" has been already registered for study "{}".'
+            warn(msg.format(task, study), RuntimeWarning)
 
     def add_path(self, name, path, study=None, task=None, relative_to='main'):
         '''Add path to given study and task.
@@ -102,7 +113,7 @@ class Paths(object):
         self._add_path(study, task, name, path)
 
     def _add_path(self, study, task, name, path):
-        '''FIXME: DOCS'''
+        '''Add path to given study and task under specific name.'''
         if self.paths is None:
             colnames = ['study', 'task', 'name', 'path']
             self.paths = pd.DataFrame(columns=colnames)
@@ -192,5 +203,3 @@ class Paths(object):
                 raise ValueError(full_msg.format(task, study))
 
         return task
-
-    # def _retrieve_path(self, name, study, task)
