@@ -51,13 +51,12 @@ def test_paths():
 
     # use relative_to=some_name
     pth.add_path('rodżer', 'another', relative_to='test2')
-    expected_path = str(Path(r'temp\std1\abc\another'))
-    assert str(object=pth._get_path('rodżer', 'study1', '')) == expected_path
+    expected_path = Path(r'temp\std1\abc\another')
+    assert pth._get_path('rodżer', 'study1', '') == expected_path
 
     pth.add_path('rodżer2', 'another', task='task1', relative_to='test2')
-    expected_path = str(Path(r'temp\std1\tsk1\another'))
-    assert (str(object=pth._get_path('rodżer2', 'study1', 'task1'))
-            == expected_path)
+    expected_path = Path(r'temp\std1\tsk1\another')
+    assert pth._get_path('rodżer2', 'study1', 'task1') == expected_path
 
     msg = 'Task "task1" has been already registered for study "study1".'
     with pytest.warns(RuntimeWarning, match=msg):
