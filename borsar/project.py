@@ -1,3 +1,4 @@
+import types
 from warnings import warn
 from pathlib import Path
 
@@ -12,6 +13,7 @@ class Paths(object):
         self.studies = list()
         self.tasks = dict()
         self.paths = None
+        self.data = None
 
     def register_study(self, study, tasks=None):
         '''Register study.
@@ -52,6 +54,14 @@ class Paths(object):
             msg = 'Task "{}" has been already registered for study "{}".'
             warn(msg.format(task, study), RuntimeWarning)
 
+    def register_data(self, name, data, study=None, task=None, cache=False):
+        '''FIXME.'''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        idx = self._add(study, task, name, data, to='data')
+        self.data.loc[idx, 'cache'] = cache
+
     def add_path(self, name, path, study=None, task=None, relative_to='main'):
         '''Add path to given study and task.
 
@@ -84,13 +94,12 @@ class Paths(object):
         # check if main pressent
         no_main = self.paths is None
         if not no_main:
-            main, has_main = self._get_path('main', study, task,
-                                            raise_error=False)
+            main, has_main = self._get('main', study, task, raise_error=False)
             no_main = not has_main
 
             if no_main and task:
-                main, has_main = self._get_path('main', study, '',
-                                                raise_error=False)
+                main, has_main = self._get('main', study, '',
+                                           raise_error=False)
                 no_main = not has_main
 
         if relative_to == 'main' and no_main and not (name == 'main'):
@@ -107,53 +116,108 @@ class Paths(object):
             if relative_to == 'main':
                 relative_path = main
             else:
-                relative_path = self._get_path(relative_to, study, task)
+                relative_path = self._get(relative_to, study, task)
             path = relative_path / path
 
-        self._add_path(study, task, name, path)
+        self._add(study, task, name, path)
 
-    def _add_path(self, study, task, name, path):
+    # CONSIDER: allow for fetching unique paths without specifying
+    #           study and task
+    # CONSIDER: allow to set as_str in some Paths settings
+    def get_path(self, name, study=None, task=None, as_str=True):
+        '''Get path corresponding to specified name for given study and task.
+
+        Parameters
+        ----------
+        study : str | None
+            Study name. First registered study if ``None``.
+        task : str | None
+            Task name. First registered task for given study if ``None``.
+        as_str : bool
+            Whether to return the path as string (when ``True``) or as
+            ``pathlib.Path`` object (when ``False``). ``True`` by default.
+
+        Returns
+        -------
+        path : str | pathlib.Path
+            Path corresponding to given name, study and task.
+        '''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        path = self._get(name, study, task)
+        if as_str:
+            path = str(path)
+        return path
+
+    def get_data(self, name, study=None, task=None):
+        '''FIXME.'''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        idx = self._get(name, study, task, find_in='data')
+        data = self.data.loc[idx, 'data']
+        if isinstance(data, types.FunctionType):
+            data = data(self, study=study, task=task)
+
+        if self.data.loc[idx, 'cache']:
+            self.data.at[idx, 'data'] = data
+
+        return data
+
+    def _add(self, study, task, name, obj, to='paths'):
         '''Add path to given study and task under specific name.'''
+        df = self.paths if to == 'paths' else self.data
+
         if self.paths is None:
             colnames = ['study', 'task', 'name', 'path']
-            self.paths = pd.DataFrame(columns=colnames)
+            df = pd.DataFrame(columns=colnames)
+            setattr(self, to, df)
 
-        selected = self._find(name, study, task)
+        selected = self._find(name, study, task, find_in=to)
         if selected.shape[0] == 0:
-            idx = self.paths.shape[0]
+            idx = df.shape[0]
         else:
             idx = selected.index[0]
-            msg = 'There is already path "{}" for study "{}", task "{}". '
-            msg = msg.format(name, study, task) + "Overwriting."
+            what = 'path' if to == 'paths' else 'data'
+            msg = 'There is already {} "{}" for study "{}", task "{}". '
+            msg = msg.format(what, name, study, task) + "Overwriting."
             warn(msg, RuntimeWarning)
 
-        self.paths.loc[idx, 'study'] = study
-        self.paths.loc[idx, 'task'] = task
-        self.paths.loc[idx, 'name'] = name
-        self.paths.loc[idx, 'path'] = path
+        df.loc[idx, 'study'] = study
+        df.loc[idx, 'task'] = task
+        df.loc[idx, 'name'] = name
+        if to == 'paths':
+            df.loc[idx, 'path'] = obj
+        else:
+            df.loc[idx, 'data'] = obj
+        return idx
 
-    def _find(self, name, study, task):
+    def _find(self, name, study, task, find_in='paths'):
         '''Find path with specific name for given study and task.'''
         query_str = 'study == "{}" & task == "{}" & name == "{}"'
-        selected = self.paths.query(query_str.format(study, task, name))
+        df = self.paths if find_in == 'paths' else self.data
+        selected = df.query(query_str.format(study, task, name))
         return selected
 
-    def _get_path(self, name, study, task, raise_error=True):
+    def _get(self, name, study, task, raise_error=True, find_in='paths'):
         '''Check if given path is present for specified study and task.
         Return the path if ``raise_error=True`` or return the path and
         information about it's presence if ``raise_error=False``.'''
-        if self.paths is None:
+        df = self.paths if find_in == 'paths' else self.data
+        if df is None:
             ispresent = False
         else:
-            selected = self._find(name, study, task)
+            selected = self._find(name, study, task, find_in=find_in)
             ispresent = selected.shape[0] > 0
 
         if not ispresent:
             if raise_error:
                 # CONSIDER: maybe add more detalis about what
                 #           can and can't be found
-                msg = 'Could not find path "{}" for study "{}"'
-                msg = msg.format(name, study)
+                what = 'path' if find_in == 'paths' else 'data'
+                msg = 'Could not find {} "{}" for study "{}"'
+                msg = msg.format(what, name, study)
                 if task:
                     msg += ', task "{}".'
                     msg.format(task)
@@ -162,7 +226,9 @@ class Paths(object):
             else:
                 path = None
         else:
-            path = selected.path.iloc[0]
+            # FIXME: both path and data should return idx
+            path = (selected.path.iloc[0] if find_in == 'paths'
+                    else selected.data.index[0])
 
         if raise_error:
             return path

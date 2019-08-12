@@ -1,3 +1,4 @@
+import types
 import pytest
 from pathlib import Path
 from borsar.project import Paths
@@ -24,7 +25,7 @@ def test_paths():
         pth.register_study('study1')
 
     # _get_path when pth.paths is None
-    _, ispresent = pth._get_path('main', 'study1', '', raise_error=False)
+    _, ispresent = pth._get('main', 'study1', '', raise_error=False)
     assert not ispresent
 
     pth.add_path('main', r'temp/std1', study='study1')
@@ -34,10 +35,10 @@ def test_paths():
     pth.add_path('test4', r'temp/std1/abc', relative_to=False)
 
     # test1, test2, test3 and test4 should be the same path
-    test1_path = str(pth._get_path('test1', 'study1', ''))
-    test2_path = str(pth._get_path('test2', 'study1', ''))
-    test3_path = str(pth._get_path('test3', 'study1', ''))
-    test4_path = str(pth._get_path('test4', 'study1', ''))
+    test1_path = str(pth._get('test1', 'study1', ''))
+    test2_path = str(pth._get('test2', 'study1', ''))
+    test3_path = str(pth._get('test3', 'study1', ''))
+    test4_path = str(pth._get('test4', 'study1', ''))
     assert test1_path == test2_path == test3_path == test4_path
 
     # now add task
@@ -52,11 +53,11 @@ def test_paths():
     # use relative_to=some_name
     pth.add_path('rodżer', 'another', relative_to='test2')
     expected_path = Path('temp/std1/abc/another')
-    assert pth._get_path('rodżer', 'study1', '') == expected_path
+    assert pth._get('rodżer', 'study1', '') == expected_path
 
     pth.add_path('rodżer2', 'another', task='task1', relative_to='test2')
     expected_path = Path('temp/std1/tsk1/another')
-    assert pth._get_path('rodżer2', 'study1', 'task1') == expected_path
+    assert pth._get('rodżer2', 'study1', 'task1') == expected_path
 
     msg = 'Task "task1" has been already registered for study "study1".'
     with pytest.warns(RuntimeWarning, match=msg):
@@ -66,8 +67,8 @@ def test_paths():
     # then add_path to study/task
 
     # test1 and test2 should be the same
-    test1_path = str(pth._get_path('test1', 'study1', 'task1'))
-    test2_path = str(pth._get_path('test2', 'study1', 'task1'))
+    test1_path = str(pth._get('test1', 'study1', 'task1'))
+    test2_path = str(pth._get('test2', 'study1', 'task1'))
     assert test1_path == test2_path
 
     # check overwriting
@@ -75,7 +76,7 @@ def test_paths():
         pth.add_path('test2', 'tsk1b', study='study1', task='task1')
 
     new_test2_path = test2_path.replace('tsk1', 'tsk1b')
-    assert str(pth._get_path('test2', 'study1', 'task1')) == new_test2_path
+    assert str(pth._get('test2', 'study1', 'task1')) == new_test2_path
 
     pth.register_study('study2', tasks=['a', 'b', 'c'])
     assert 'study2' in pth.studies
@@ -84,7 +85,7 @@ def test_paths():
     # _get_path with ispresent=False that raises error
     msg = 'Could not find path "sarna" for study "study1"'
     with pytest.raises(ValueError, match=msg):
-        pth._get_path('sarna', 'study1', '')
+        pth._get('sarna', 'study1', '')
 
     # _check_set_study when no such study
     msg = 'No study "study3" found'
@@ -95,3 +96,27 @@ def test_paths():
     msg = 'No task "aa" found for study "study2"'
     with pytest.raises(ValueError, match=msg):
         pth.add_path('ulala', 'ojoj', study='study2', task='aa')
+
+
+def test_paths_data():
+    pth = Paths()
+    pth.register_study('test_study')
+
+    def read_fun(p, **args):
+        assert isinstance(p, Paths)
+        assert 'task' in args.keys()
+        assert 'study' in args.keys()
+        return [1, 2, 3]
+
+    pth.register_data('data1', read_fun)
+    data = pth.get_data('data1')
+    assert data == [1, 2, 3]
+
+    # pth.data has function
+    assert isinstance(pth.data.loc[0, 'data'], types.FunctionType)
+
+    # now with caching
+    pth.register_data('data1', read_fun, cache=True)
+    data = pth.get_data('data1')
+    assert data == [1, 2, 3]
+    assert pth.data.loc[0, 'data'] == [1, 2, 3]
