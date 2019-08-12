@@ -71,6 +71,17 @@ def test_paths():
     test2_path = str(pth._get('test2', 'study1', 'task1'))
     assert test1_path == test2_path
 
+    # now the same using get_path
+    args = dict(study='study1', task='task1')
+    test1_path = pth.get_path('test1', **args)
+    test2_path = pth.get_path('test2', **args)
+    assert test1_path == test2_path
+
+    args['as_str'] = False
+    test1_path = pth.get_path('test1', **args)
+    test2_path2 = pth.get_path('test2', **args)
+    assert test1_path == test2_path2
+
     # check overwriting
     with pytest.warns(RuntimeWarning, match='Overwriting'):
         pth.add_path('test2', 'tsk1b', study='study1', task='task1')
@@ -86,6 +97,10 @@ def test_paths():
     msg = 'Could not find path "sarna" for study "study1"'
     with pytest.raises(ValueError, match=msg):
         pth._get('sarna', 'study1', '')
+
+    msg = 'Could not find path "sarna" for study "study1", task "task1"'
+    with pytest.raises(ValueError, match=msg):
+        pth._get('sarna', 'study1', 'task1')
 
     # _check_set_study when no such study
     msg = 'No study "study3" found'

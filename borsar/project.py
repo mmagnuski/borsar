@@ -220,7 +220,7 @@ class Paths(object):
                 msg = msg.format(what, name, study)
                 if task:
                     msg += ', task "{}".'
-                    msg.format(task)
+                    msg = msg.format(task)
 
                 raise ValueError(msg)
             else:
