@@ -41,7 +41,8 @@ install:
   - if [ "${USE_NUMBA}" == "yes" ]; then
       conda install numba;
     fi
-  - pip install codecov tqdm scikit-image
+  - conda install scikit-image
+  - pip install codecov tqdm
   - python setup.py develop
 
 script:

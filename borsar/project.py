@@ -1,0 +1,271 @@
+import types
+from warnings import warn
+from pathlib import Path
+
+import pandas as pd
+
+
+class Paths(object):
+    def __init__(self):
+        '''Paths object allows for convenient storage and access to various
+        study and task-level paths.
+        '''
+        self.studies = list()
+        self.tasks = dict()
+        self.paths = None
+        self.data = None
+
+    def register_study(self, study, tasks=None):
+        '''Register study.
+
+        Parameters
+        ----------
+        study : str
+            Name of the study to register.
+        tasks : None | list of str
+            If list of string: allows to additionaly register tasks along
+            study registration. If ``None`` (default) - no tasks are
+            registered.
+        '''
+        if study not in self.studies:
+            self.studies.append(study)
+            self.tasks[study] = list()
+        else:
+            warn('Study "{}" has been already registered.'.format(study),
+                 RuntimeWarning)
+
+        if isinstance(tasks, list):
+            for task in tasks:
+                self.register_task(task, study=study)
+
+    def register_task(self, task, study=None):
+        '''Register task for given study.
+
+        Parameters
+        ----------
+        task : str
+            Name of the study to register.
+        '''
+        study = self._check_set_study(study, msg='register tasks')
+
+        if task not in self.tasks[study]:
+            self.tasks[study].append(task)
+        else:
+            msg = 'Task "{}" has been already registered for study "{}".'
+            warn(msg.format(task, study), RuntimeWarning)
+
+    def register_data(self, name, data, study=None, task=None, cache=False):
+        '''FIXME.'''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        idx = self._add(study, task, name, data, to='data')
+        self.data.loc[idx, 'cache'] = cache
+
+    def add_path(self, name, path, study=None, task=None, relative_to='main'):
+        '''Add path to given study and task.
+
+        Parameters
+        ----------
+        name : str
+            Name of the path. This name is used to later get the path from
+            Paths object.
+        path : str
+            Path to add.
+        study : str | None
+            Study name for which the path should be registered. If None, the
+            first added study is chosen.
+        task : str | None
+            Task name for which the path should be registered. If ``None``, no
+            specific task is used - that is task is ``""``. Because of this
+            ``None`` nad ``""`` work the same way (no specific task).
+        relative_to : str | bool
+            Specifies the name of the path, which the current ``path`` is
+            relative to. By default main path of given study and task is used.
+            If there is no main path for given study-task combination, the main
+            study path is used. If the path added should not be relative use
+            ``relative_to=False``.
+        '''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+        if isinstance(path, str):
+            path = Path(path)
+
+        # check if main pressent
+        no_main = self.paths is None
+        if not no_main:
+            main, has_main = self._get('main', study, task, raise_error=False)
+            no_main = not has_main
+
+            if no_main and task:
+                main, has_main = self._get('main', study, '',
+                                           raise_error=False)
+                no_main = not has_main
+
+        if relative_to == 'main' and no_main and not (name == 'main'):
+            # if not - throw an error
+            msg = ("You need to define study main path before adding paths "
+                   "to this study (all paths added to given study are by "
+                   "default added relative to study main path). If you want "
+                   "to add a path to the study that is not relavie but "
+                   "absolute, use relative_to=False.")
+            raise ValueError(msg)
+
+        # resolve relative_to
+        if relative_to and not relative_to == name:
+            if relative_to == 'main':
+                relative_path = main
+            else:
+                relative_path = self._get(relative_to, study, task)
+            path = relative_path / path
+
+        self._add(study, task, name, path)
+
+    # CONSIDER: allow for fetching unique paths without specifying
+    #           study and task
+    # CONSIDER: allow to set as_str in some Paths settings
+    def get_path(self, name, study=None, task=None, as_str=True):
+        '''Get path corresponding to specified name for given study and task.
+
+        Parameters
+        ----------
+        study : str | None
+            Study name. First registered study if ``None``.
+        task : str | None
+            Task name. First registered task for given study if ``None``.
+        as_str : bool
+            Whether to return the path as string (when ``True``) or as
+            ``pathlib.Path`` object (when ``False``). ``True`` by default.
+
+        Returns
+        -------
+        path : str | pathlib.Path
+            Path corresponding to given name, study and task.
+        '''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        path = self._get(name, study, task)
+        if as_str:
+            path = str(path)
+        return path
+
+    def get_data(self, name, study=None, task=None):
+        '''FIXME.'''
+        study = self._check_set_study(study, msg='add paths')
+        task = self._check_set_task(study, task)
+
+        idx = self._get(name, study, task, find_in='data')
+        data = self.data.loc[idx, 'data']
+        if isinstance(data, types.FunctionType):
+            data = data(self, study=study, task=task)
+
+        if self.data.loc[idx, 'cache']:
+            self.data.at[idx, 'data'] = data
+
+        return data
+
+    def _add(self, study, task, name, obj, to='paths'):
+        '''Add path to given study and task under specific name.'''
+        df = self.paths if to == 'paths' else self.data
+
+        if self.paths is None:
+            colnames = ['study', 'task', 'name', 'path']
+            df = pd.DataFrame(columns=colnames)
+            setattr(self, to, df)
+
+        selected = self._find(name, study, task, find_in=to)
+        if selected.shape[0] == 0:
+            idx = df.shape[0]
+        else:
+            idx = selected.index[0]
+            what = 'path' if to == 'paths' else 'data'
+            msg = 'There is already {} "{}" for study "{}", task "{}". '
+            msg = msg.format(what, name, study, task) + "Overwriting."
+            warn(msg, RuntimeWarning)
+
+        df.loc[idx, 'study'] = study
+        df.loc[idx, 'task'] = task
+        df.loc[idx, 'name'] = name
+        if to == 'paths':
+            df.loc[idx, 'path'] = obj
+        else:
+            df.loc[idx, 'data'] = obj
+        return idx
+
+    def _find(self, name, study, task, find_in='paths'):
+        '''Find path with specific name for given study and task.'''
+        query_str = 'study == "{}" & task == "{}" & name == "{}"'
+        df = self.paths if find_in == 'paths' else self.data
+        selected = df.query(query_str.format(study, task, name))
+        return selected
+
+    def _get(self, name, study, task, raise_error=True, find_in='paths'):
+        '''Check if given path is present for specified study and task.
+        Return the path if ``raise_error=True`` or return the path and
+        information about it's presence if ``raise_error=False``.'''
+        df = self.paths if find_in == 'paths' else self.data
+        if df is None:
+            ispresent = False
+        else:
+            selected = self._find(name, study, task, find_in=find_in)
+            ispresent = selected.shape[0] > 0
+
+        if not ispresent:
+            if raise_error:
+                # CONSIDER: maybe add more detalis about what
+                #           can and can't be found
+                what = 'path' if find_in == 'paths' else 'data'
+                msg = 'Could not find {} "{}" for study "{}"'
+                msg = msg.format(what, name, study)
+                if task:
+                    msg += ', task "{}".'
+                    msg = msg.format(task)
+
+                raise ValueError(msg)
+            else:
+                path = None
+        else:
+            # FIXME: both path and data should return idx
+            path = (selected.path.iloc[0] if find_in == 'paths'
+                    else selected.data.index[0])
+
+        if raise_error:
+            return path
+        else:
+            return path, ispresent
+
+    def _check_set_study(self, study, msg=None):
+        '''Check if study is present.'''
+        if study is None:
+            if len(self.studies) == 0:
+                full_msg = 'You have to register a study first.'
+                if msg is not None:
+                    full_msg = ("You can't {} when no study is registered. "
+                                + full_msg)
+                    full_msg.format(msg)
+                raise ValueError(full_msg)
+            else:
+                study = self.studies[0]
+        else:
+            # check if such study is present
+            if study not in self.studies:
+                full_msg = 'No study "{}" found.'
+                raise ValueError(full_msg.format(study))
+        return study
+
+    def _check_set_task(self, study, task):
+        '''Check if task is present.'''
+        if task is None:
+            task = ""
+
+        # check if given task is present for this study
+        if not task == "":
+            has_task = task in self.tasks[study]
+            if not has_task:
+                # no task, throw error
+                full_msg = ('No task "{}" found for study "{}". You have to '
+                            'register this task first.')
+                raise ValueError(full_msg.format(task, study))
+
+        return task
