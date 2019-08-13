@@ -18,7 +18,7 @@ def test_paths():
 
     pth.register_study('study1')
 
-    with pytest.raises(ValueError, match='You need to define study main path'):
+    with pytest.raises(ValueError, match='You should define study main path'):
         pth.add_path('test0', 'abcd')
 
     with pytest.warns(RuntimeWarning, match='has been already registered'):
@@ -28,11 +28,11 @@ def test_paths():
     _, ispresent = pth._get('main', 'study1', '', raise_error=False)
     assert not ispresent
 
-    pth.add_path('main', r'temp/std1', study='study1')
-    pth.add_path('test1', 'abc')
-    pth.add_path('test2', 'abc', relative_to='main')
-    pth.add_path('test3', 'abc', study='study1')
-    pth.add_path('test4', r'temp/std1/abc', relative_to=False)
+    pth.add_path('main', r'temp/std1', study='study1', validate=False)
+    pth.add_path('test1', 'abc', validate=False)
+    pth.add_path('test2', 'abc', relative_to='main', validate=False)
+    pth.add_path('test3', 'abc', study='study1', validate=False)
+    pth.add_path('test4', r'temp/std1/abc', relative_to=False, validate=False)
 
     # test1, test2, test3 and test4 should be the same path
     test1_path = str(pth._get('test1', 'study1', ''))
@@ -45,17 +45,18 @@ def test_paths():
     pth.register_task('task1', study='study1')
 
     # add test1 path for task
-    pth.add_path('test1', 'tsk1', task='task1')
+    pth.add_path('test1', 'tsk1', task='task1', validate=False)
 
     # add test1 path for study, task
-    pth.add_path('test2', 'tsk1', study='study1', task='task1')
+    pth.add_path('test2', 'tsk1', study='study1', task='task1', validate=False)
 
     # use relative_to=some_name
-    pth.add_path('rodżer', 'another', relative_to='test2')
+    pth.add_path('rodżer', 'another', relative_to='test2', validate=False)
     expected_path = Path('temp/std1/abc/another')
     assert pth._get('rodżer', 'study1', '') == expected_path
 
-    pth.add_path('rodżer2', 'another', task='task1', relative_to='test2')
+    pth.add_path('rodżer2', 'another', task='task1', relative_to='test2',
+                 validate=False)
     expected_path = Path('temp/std1/tsk1/another')
     assert pth._get('rodżer2', 'study1', 'task1') == expected_path
 
@@ -84,7 +85,8 @@ def test_paths():
 
     # check overwriting
     with pytest.warns(RuntimeWarning, match='Overwriting'):
-        pth.add_path('test2', 'tsk1b', study='study1', task='task1')
+        pth.add_path('test2', 'tsk1b', study='study1', task='task1',
+                     validate=False)
 
     new_test2_path = test2_path.replace('tsk1', 'tsk1b')
     assert str(pth._get('test2', 'study1', 'task1')) == new_test2_path
@@ -135,3 +137,23 @@ def test_paths_data():
     data = pth.get_data('data1')
     assert data == [1, 2, 3]
     assert pth.data.loc[0, 'data'] == [1, 2, 3]
+
+
+def test_validate(tmp_path):
+    study_dir = tmp_path / 'temp_study'
+    study_dir.mkdir()
+
+    task_data_dir = study_dir / 'data' / 'eeg' / 'task1'
+    task_data_dir.mkdir(parents=True)
+
+    pth = Paths()
+    pth.register_study('study1', tasks=['task1'])
+    pth.add_path('main', study_dir)
+    pth.add_path('eeg', [study_dir / 'data' / 'eeg', 'justjoking'])
+    pth.add_path('eeg', 'task1', task='task1', relative_to='eeg')
+
+    assert pth.get_path('eeg', task='task1', as_str=False) == task_data_dir
+    assert pth.get_path('eeg', as_str=False) == task_data_dir.parent
+
+    with pytest.raises(ValueError, match='Could not find'):
+        pth.add_path('test', ['ab', 'cd'], task='task1')

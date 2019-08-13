@@ -1,3 +1,4 @@
+import os
 import types
 from warnings import warn
 from pathlib import Path
@@ -62,7 +63,8 @@ class Paths(object):
         idx = self._add(study, task, name, data, to='data')
         self.data.loc[idx, 'cache'] = cache
 
-    def add_path(self, name, path, study=None, task=None, relative_to='main'):
+    def add_path(self, name, path, study=None, task=None, relative_to=None,
+                 validate=True):
         '''Add path to given study and task.
 
         Parameters
@@ -85,45 +87,68 @@ class Paths(object):
             If there is no main path for given study-task combination, the main
             study path is used. If the path added should not be relative use
             ``relative_to=False``.
+        validate : bool
+            Whether to validate path correctness. If ``True`` (default) adding
+            non-existent path will result in an error. When adding a list of
+            paths with ``validate=True`` (default) only one path that exists in
+            the file system will be chosen. This is useful when creating Paths
+            object that would work well on various computers with different
+            project paths structure.
         '''
         study = self._check_set_study(study, msg='add paths')
         task = self._check_set_task(study, task)
+
+        if isinstance(path, list) and not validate:
+            raise ValueError('Passing multiple paths is not implemented for'
+                             ' `validate=False`.')
         if isinstance(path, str):
             path = Path(path)
+        elif isinstance(path, list):
+            path = [Path(pth) for pth in path]
+
+        if relative_to is None:
+            relative_to = False if name == 'main' else 'main'
 
         # check if main pressent
-        no_main = self.paths is None
-        if not no_main:
-            main, has_main = self._get('main', study, task, raise_error=False)
-            no_main = not has_main
+        if relative_to:
+            has_paths = self.paths is not None
+            has_relpath = has_paths
+            if has_paths:
+                relpath, has_relpath = self._get(relative_to, study, task,
+                                                 raise_error=False)
 
-            if no_main and task:
-                main, has_main = self._get('main', study, '',
-                                           raise_error=False)
-                no_main = not has_main
+            if not has_relpath and has_paths and task:
+                relpath, has_relpath = self._get(relative_to, study, '',
+                                                 raise_error=False)
 
-        if relative_to == 'main' and no_main and not (name == 'main'):
-            # if not - throw an error
-            msg = ("You need to define study main path before adding paths "
-                   "to this study (all paths added to given study are by "
-                   "default added relative to study main path). If you want "
-                   "to add a path to the study that is not relavie but "
-                   "absolute, use relative_to=False.")
-            raise ValueError(msg)
+            if not has_relpath:
+                if relative_to == 'main':
+                    msg = ("You should define study main path before adding "
+                           "paths to this study (all paths added to given "
+                           "study are by default added relative to study "
+                           "'main' path). If you want to add a path to the "
+                           "study that is not relavie but absolute, use "
+                           "`relative_to=False`.")
+                else:
+                    msg = ('Could not find the relative path "{}" for study'
+                           '"{}" for neither task "{}" or no task.')
+                    msg.format(relative_to, study, task)
+                raise ValueError(msg)
 
-        # resolve relative_to
-        if relative_to and not relative_to == name:
-            if relative_to == 'main':
-                relative_path = main
+            if isinstance(path, list):
+                path = [relpath / pth for pth in path]
             else:
-                relative_path = self._get(relative_to, study, task)
-            path = relative_path / path
+                path = relpath / path
+
+        if validate:
+            path = get_valid_path(path)
 
         self._add(study, task, name, path)
 
     # CONSIDER: allow for fetching unique paths without specifying
     #           study and task
     # CONSIDER: allow to set as_str in some Paths settings
+    #           allow to get multiple paths at once
     def get_path(self, name, study=None, task=None, as_str=True):
         '''Get path corresponding to specified name for given study and task.
 
@@ -269,3 +294,27 @@ class Paths(object):
                 raise ValueError(full_msg.format(task, study))
 
         return task
+
+
+
+def get_valid_path(paths):
+    '''
+    Select the first path that exists on current machine.
+
+    Parameters
+    ----------
+    paths : str | pathlib.Path | list of str | list of pathlib.Path
+        List of paths to check.
+
+    Returns
+    -------
+    pth : str
+        The first path that exists on current machine.
+    '''
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for pth in paths:
+        if os.path.exists(pth):
+            return pth
+    raise ValueError('Could not find valid path')
