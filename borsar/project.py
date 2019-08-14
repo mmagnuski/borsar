@@ -56,7 +56,30 @@ class Paths(object):
             warn(msg.format(task, study), RuntimeWarning)
 
     def register_data(self, name, data, study=None, task=None, cache=False):
-        '''FIXME.'''
+        '''Add data reading function to specific study and task.
+
+        Parameters
+        ----------
+        name : str
+            Name of the data. This name is used to later get the data from
+            Paths object.
+        data : function
+            Function that reads and returns the data. The function has to
+            take the Paths object as the first argument and take study and
+            task as keyword arguments. Additional keyword arguments are
+            allowed and passed to the reading function from
+            ``Paths.get_data()``.
+        study : str | None
+            Study name for which the data should be registered. If ``None``,
+            the first added study is chosen.
+        task : str | None
+            Task name for which the path should be registered. If ``None``, no
+            specific task is used - that is task is ``""``. Because of this
+            ``None`` and ``""`` work the same way (no specific task).
+        cache : bool
+            Whether to cache the read data. If ``True`` the data are stored in
+            ``Paths`` object and do not have to be read again.
+        '''
         study = self._check_set_study(study, msg='add paths')
         task = self._check_set_task(study, task)
 
@@ -75,18 +98,19 @@ class Paths(object):
         path : str
             Path to add.
         study : str | None
-            Study name for which the path should be registered. If None, the
-            first added study is chosen.
+            Study name for which the path should be registered. If ``None``,
+            the first added study is chosen.
         task : str | None
             Task name for which the path should be registered. If ``None``, no
             specific task is used - that is task is ``""``. Because of this
-            ``None`` nad ``""`` work the same way (no specific task).
+            ``None`` and ``""`` work the same way (no specific task).
         relative_to : str | bool
             Specifies the name of the path, which the current ``path`` is
             relative to. By default main path of given study and task is used.
-            If there is no main path for given study-task combination, the main
-            study path is used. If the path added should not be relative use
-            ``relative_to=False``.
+            If there is no path that matches the name given in ``relative_to``
+            for given study-task combination, the study-notask combination is
+            used. If the path you are trying to add should not be treated as
+            relative use ``relative_to=False``.
         validate : bool
             Whether to validate path correctness. If ``True`` (default) adding
             non-existent path will result in an error. When adding a list of
@@ -154,10 +178,13 @@ class Paths(object):
 
         Parameters
         ----------
+        name : str
+            Path name.
         study : str | None
-            Study name. First registered study if ``None``.
+            Study name. Uses the first registered study if ``None`` (default).
         task : str | None
-            Task name. First registered task for given study if ``None``.
+            Task name. Uses the first registered task for given study
+            if ``task`` is ``None`` (default).
         as_str : bool
             Whether to return the path as string (when ``True``) or as
             ``pathlib.Path`` object (when ``False``). ``True`` by default.
@@ -176,7 +203,23 @@ class Paths(object):
         return path
 
     def get_data(self, name, study=None, task=None):
-        '''FIXME.'''
+        '''Get data registered for specific study and task.
+
+        Parameters
+        ----------
+        name : str
+            Data name.
+        study : str | None
+            Study name. Uses the first registered study if ``None`` (default).
+        task : str | None
+            Task name. Uses the first registered task for given study
+            if ``task`` is ``None`` (default).
+
+        Returns
+        -------
+        data : unknown
+            The data that has been registered for given study and task.
+        '''
         study = self._check_set_study(study, msg='add paths')
         task = self._check_set_task(study, task)
 
@@ -294,7 +337,6 @@ class Paths(object):
                 raise ValueError(full_msg.format(task, study))
 
         return task
-
 
 
 def get_valid_path(paths):
