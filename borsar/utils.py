@@ -255,13 +255,21 @@ def get_dropped_epochs(epochs):
 
 
 @contextmanager
-def silent_mne():
+def silent_mne(full_silence=False):
     '''
     Context manager without warnings from mne-python.
     '''
     import mne
     log_level = mne.set_log_level('error', return_old_level=True)
-    yield
+
+    if full_silence:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            yield
+    else:
+        yield
+
     mne.set_log_level(log_level)
 
 

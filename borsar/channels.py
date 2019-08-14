@@ -74,8 +74,14 @@ def select_channels(inst, select='all'):
             return frontal_idx
 
     if select == 'asy_pairs':
-        pary = dict(left=['F3', 'F7'], right=['F4', 'F8'])
-        return {k: find_channels(inst, pary[k]) for k in pary.keys()}
+        pairs = dict(left=['F3', 'F7'], right=['F4', 'F8'])
+        selection = {k: find_channels(inst, pairs[k]) for k in pairs.keys()}
+        if any(el is None for el in selection['left'] + selection['right']):
+            # try EGI channels
+            pairs = {'left': ['E12', 'E18'], 'right': ['E60', 'E58']}
+            selection = {k: find_channels(inst, pairs[k])
+                         for k in pairs.keys()}
+        return selection
 
 
 def homologous_pairs(inst):
@@ -113,9 +119,11 @@ def homologous_pairs(inst):
             chan_value = int(''.join([char for char in ch if char.isdigit()]))
 
             if (chan_value % 2) == 1:
-                selection['left'].append(ch_names.index(ch))
+                # sometimes homologous channels are missing in the cap
                 homologous_ch = chan_base + str(chan_value + 1)
-                selection['right'].append(ch_names.index(homologous_ch))
+                if homologous_ch in ch_names:
+                    selection['left'].append(ch_names.index(ch))
+                    selection['right'].append(ch_names.index(homologous_ch))
     else:
         # channel names do not come from 10-20 system
         # constructing homologues from channel position

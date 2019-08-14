@@ -131,6 +131,7 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
     ch_names : list of str
         Channel names.
     '''
+    has_subjects = psds.ndim == 3
     if freq_range is not None:
         rng = find_range(freq, freq_range)
         psds = psds[..., rng]
@@ -138,11 +139,13 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
     if average_freq:
         psds = psds.mean(axis=-1)
         freq = freq.mean()
+    if not isinstance(transform, list):
+        transform = transform
 
     ch_names = get_ch_names(info)
     sel = select_channels(info, selection)
 
-    if transform == 'log':
+    if 'log' in transform:
         psds = np.log(psds)
 
     if 'asy' in selection:
@@ -160,5 +163,11 @@ def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
     else:
         psds = psds[:, sel]
         ch_names = list(np.array(ch_names)[sel])
+
+    if 'zscore' in transform:
+        dims = list(range(psds.ndim))
+        dims = tuple(dims[1:]) if has_subjects else tuple(dims)
+        psds = ((psds - psds.mean(axis=dims, keepdims=True))
+                / psds.std(axis=dims, keepdims=True))
 
     return psds, freq, ch_names
