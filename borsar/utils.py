@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import warnings
 
 import numpy as np
 from contextlib import contextmanager
@@ -13,7 +14,8 @@ def find_range(vec, ranges):
     ----------
     vec : numpy array
         Vector of sorted values.
-    ranges: list of tuples/lists or two-element list/tuple
+    ranges: list of tuples/lists | two-element list/tuple
+        Ranges or range to be found.
 
     Returns
     -------
@@ -41,8 +43,8 @@ def find_range(vec, ranges):
 # - [ ] if vals is np.ndarray try to format output in the right shape
 def find_index(vec, vals):
     '''
-    Find indices of values in a vector `vec` that are closest to requested
-    values `vals`.
+    Find indices of values in `vec` that are closest to requested values
+    `vals`.
 
     Parameters
     ----------
@@ -71,10 +73,8 @@ def find_index(vec, vals):
 
 
 def get_info(inst):
-    '''
-    Simple helper function that returns Info whatever mne object it gets
-    (including mne.Info itself).
-    '''
+    '''Simple helper function that returns Info whatever mne object it gets.'''
+
     from mne import Info
     if isinstance(inst, Info):
         return inst
@@ -82,9 +82,87 @@ def get_info(inst):
         return inst.info
 
 
+def write_info(fname, info, overwrite=False):
+    """Save Info object to ``.hdf5`` file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file.
+    info : mne.Info
+        Info object to save.
+    """
+    from .channels import get_ch_pos
+    from mne.utils import _validate_type
+    from mne.externals import h5io
+    from mne.io.pick import channel_indices_by_type
+
+    # make sure the types are correct
+    _validate_type(fname, 'str', item_name='fname')
+    _validate_type(info, 'info', item_name='info')
+
+    # extract type info
+    tps = channel_indices_by_type(info)
+
+    # remove empty dict keys
+    for k in list(tps.keys()):
+        if len(tps[k]) == 0:
+            tps.pop(k)
+
+    has_types = list(tps.keys())
+    ch_type = has_types[0] if len(has_types) == 1 else tps
+
+    # save to .hdf5
+    data_dict = {'ch_names': info['ch_names'], 'sfreq': info['sfreq'],
+                 'ch_type': ch_type, 'pos': get_ch_pos(info)}
+    h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
+
+
+def read_info(fname):
+    """Read Info object from ``.hdf5`` file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file.
+
+    Returns
+    -------
+    info : mne.Info
+        Info object read from file.
+    """
+    import mne
+    mne.utils._validate_type(fname, 'str', item_name='fname')
+
+    # read file
+    data_dict = mne.externals.h5io.read_hdf5(fname)
+    ch_names = data_dict['ch_names']
+
+    # parse ch_type
+    if isinstance(data_dict['ch_type'], dict):
+        ch_type = [None] * len(ch_names)
+        for type, idxs in data_dict['ch_type'].items():
+            for idx in idxs:
+                ch_type[idx] = type
+    else:
+        ch_type = data_dict['ch_type']
+
+    # check channel positions
+    mntg = None
+    pos = data_dict['pos']
+    if pos is not None and not np.isnan(pos).all():
+        mntg = mne.channels.Montage(pos, ch_names, 'unknown',
+                                    np.arange(pos.shape[0]))
+
+    # create info
+    info = mne.create_info(ch_names, data_dict['sfreq'],
+                           ch_types=ch_type, montage=mntg, verbose=False)
+    return info
+
+
 def detect_overlap(segment, annot, sfreq=None):
     '''
-    Detect what percentage of given segment is overlapping with bad annotations.
+    Detect what percentage of given segment is overlapping with annotations.
 
     Parameters
     ----------
@@ -185,7 +263,28 @@ def _check_tmin_tmax(raw, tmin, tmax):
 
 def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
     '''
-    Return information on which moving windows overlap with annotations.
+    Test which moving windows overlap with annotations.
+
+    Parameters
+    ----------
+    raw : mne.Raw
+        Data to use.
+    tmin : flot | None
+        Start time for the moving windows. Defaults to None which means start
+        of the raw data.
+    tmax : flot | None
+        End time for the moving windows. Defaults to None which means end of
+        the raw data.
+    winlen : float
+        Window length in seconds. Defaults to 2.
+    step : float
+        Window step in seconds. Defaults to 1.
+
+    Returns
+    -------
+    valid : boolean numpy array
+        Whether the moving widnows overlap with annotations. Consecutive values
+        inform whether consecutive windows overlap with any annotation.
     '''
     annot = raw.annotations
     tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
@@ -215,8 +314,8 @@ def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
     sfreq : float, optional
         Sampling frequency of the fake raw signal. Defaults to 125.
 
-    Rerutrns
-    --------
+    Returns
+    -------
     raw : mne.io.RawArray
         Created raw array.
     '''
@@ -229,37 +328,38 @@ def create_fake_raw(n_channels=4, n_samples=100, sfreq=125.):
 
 
 def get_dropped_epochs(epochs):
-	'''
-	Get indices of dropped epochs from `epochs.drop_log`.
+    '''
+    Get indices of dropped epochs from `epochs.drop_log`.
 
-	Parameters
-	----------
-	epochs : mne Epochs instance
-		Epochs to get dropped indices from.
+    Parameters
+    ----------
+    epochs : mne Epochs instance
+        Epochs to get dropped indices from.
 
-	Returns
-	-------
-	dropped_epochs : 1d numpy array
-		Array containing indices of dropped epochs.
-	'''
-	current_epoch = 0
-	dropped_epochs = list()
+    Returns
+    -------
+    dropped_epochs : 1d numpy array
+        Array containing indices of dropped epochs.
+    '''
+    current_epoch = 0
+    dropped_epochs = list()
 
-	for info in epochs.drop_log:
-	    if 'IGNORED' not in info:
-	        if len(info) > 0:
-	            dropped_epochs.append(current_epoch)
-	        current_epoch += 1
+    for info in epochs.drop_log:
+        if 'IGNORED' not in info:
+            if len(info) > 0:
+                dropped_epochs.append(current_epoch)
+            current_epoch += 1
 
-	return np.array(dropped_epochs)
+    return np.array(dropped_epochs)
 
 
 @contextmanager
 def silent_mne(full_silence=False):
     '''
-    Context manager without warnings from mne-python.
+    Context manager that silences warnings from mne-python.
     '''
     import mne
+
     log_level = mne.set_log_level('error', return_old_level=True)
 
     if full_silence:
@@ -271,6 +371,15 @@ def silent_mne(full_silence=False):
         yield
 
     mne.set_log_level(log_level)
+
+
+def has_numba():
+    """Check if numba is available."""
+    try:
+        from numba import jit
+        return True
+    except ImportError:
+        return False
 
 
 def _get_test_data_dir():
@@ -288,7 +397,7 @@ def download_test_data():
     data_dir = _get_test_data_dir()
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
                    op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
-                   'chan_alpha_range.hdf5']
+                   'chan_alpha_range.hdf5', 'test_clustering.npy']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 

@@ -12,7 +12,7 @@ def test_compute_regression_t():
     n_channels, n_times = data.shape[1:]
 
     # calculate regression t-values with statsmodels loop
-    t0 = time.clock()
+    t0 = time.perf_counter()
     preds_sm = sm.add_constant(preds)
     t_vals_sm = np.zeros((n_preds, n_channels, n_times))
     for ch in range(n_channels):
@@ -20,21 +20,21 @@ def test_compute_regression_t():
             mdl = sm.OLS(data[:, ch, tm], preds_sm).fit()
             for pred in range(n_preds):
                 t_vals_sm[pred, ch, tm] = mdl.tvalues[pred]
-    elapsed_sm = time.clock() - t0
+    elapsed_sm = time.perf_counter() - t0
 
     # calculate regression t-values with borsar
-    t0 = time.clock()
+    t0 = time.perf_counter()
     t_vals_borsar = compute_regression_t(data, preds)
-    elapsed_borsar = time.clock() - t0
+    elapsed_borsar = time.perf_counter() - t0
 
     # make sure t-values are almost the same (same up to ~8 decimal places)
     # (most of the time it is the same up to 9 decimal places but not always)
     assert t_vals_sm.shape == t_vals_borsar.shape
     np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-8)
 
-    # make sure we are at least 30 times faster than statsmodels loop
-    # (although on most computers and in many cases this will be about 100)
-    assert elapsed_borsar * 30 < elapsed_sm
+    # make sure we are at least 20 times faster than statsmodels loop
+    # (although in many cases this will be about 100 times faster)
+    assert elapsed_borsar * 20 < elapsed_sm
 
     # make sure preds are turned from 1d to 2d
     data = np.random.random((35, 2))

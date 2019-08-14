@@ -1,18 +1,35 @@
 import numpy as np
 from scipy import sparse
 
-from borsar.utils import find_range
+from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t, format_pvalue
 from borsar._viz3d import plot_cluster_src
-from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description,
-                                 _aggregate_cluster, _get_units)
+from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
 from borsar.channels import find_channels
 
 
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     Construct adjacency matrix out of neighbours structure (fieldtrip format).
+
+    Parameters
+    ----------
+    neighbours : structured array | dict
+        FieldTrip neighbours structure represented either as numpy structured
+        array or dictionary. Needs to contain ``'label'`` and ``'neighblabel'``
+        fields / keys.
+    ch_names : list of str, optional
+        List of channel names to use. Defaults to ``None`` which uses all
+        channel names in ``neighbours`` in the same order as they appear in
+        ``neighbours['label']``.
+    as_sparse : bool
+        Whether to return the adjacency matrix in sparse format. Defaults to
+        ``False`` which returns adjacency matrix in dense format.
+
+    Returns
+    -------
+    adj : numpy array
+        Constructed adjacency matrix.
     '''
     # checks for ch_names
     if ch_names is not None:
@@ -59,18 +76,274 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
                            if ch in ch_names]
             chan_ind = ch_names.index(chan)
             conn[chan_ind, connections] = True
+
     if as_sparse:
-        return sparse.coo_matrix(conn)
-    return conn
+        return sparse.coo_matrix(adj)
+    return adj
 
 
+def cluster_3d(data, adjacency):
+    '''
+    Cluster three-dimensional data given adjacency matrix.
+
+    Parameters
+    ----------
+    data : numpy array
+        Matrix of shape ``(channels, dim2, dim3)``
+    adjacency : numpy array
+        2d boolean matrix with information about channel adjacency.
+        If ``chann_conn[i, j]`` is True that means channel i and j are
+        adjacent.
+
+    Returns
+    -------
+    clusters : array of int
+        3d integer matrix with cluster labels.
+    '''
+    # data has to be bool
+    assert data.dtype == np.bool
+
+    # nested import
+    from skimage.measure import label
+
+    # label each channel separately
+    clusters = np.zeros(data.shape, dtype='int')
+    max_cluster_id = 0
+    n_chan = data.shape[0]
+    for ch in range(n_chan):
+        clusters[ch, :, :] = label(
+            data[ch, :, :], connectivity=1, background=False)
+
+        # relabel so that layers do not have same cluster ids
+        num_clusters = clusters[ch, :, :].max()
+        if ch > 0:
+            clusters[ch, clusters[ch, :] > 0] += max_cluster_id
+        max_cluster_id += num_clusters
+
+    # unrolled views into clusters for ease of channel comparison:
+    unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
+    # check channel neighbours and merge clusters across channels
+    for ch in range(n_chan - 1):  # last chan will be already checked
+        ch1 = unrolled[ch]
+        ch1_ind = np.where(ch1)[0]
+        if len(ch1_ind) == 0:
+            continue  # no clusters, no fun...
+
+        # get unchecked neighbours
+        neighbours = np.where(adjacency[ch + 1:, ch])[0]
+        if len(neighbours) > 0:
+            neighbours += ch + 1
+
+            for ngb in neighbours:
+                ch2 = unrolled[ngb]
+                for ind in ch1_ind:
+                    # relabel clusters if adjacent and not the same id
+                    if ch2[ind] and not (ch1[ind] == ch2[ind]):
+                        c1 = min(ch1[ind], ch2[ind])
+                        c2 = max(ch1[ind], ch2[ind])
+                        clusters[clusters == c2] = c1
+    return clusters
+
+
+def _get_cluster_fun(data, adjacency=None, backend='numpy'):
+    '''Return the correct clustering function depending on the data shape and
+    presence of an adjacency matrix.'''
+    has_adjacency = adjacency is not None
+    if data.ndim == 3 and has_adjacency:
+        if backend in ['numba', 'auto']:
+            if has_numba():
+                from .cluster_numba import cluster_3d_numba
+                return cluster_3d_numba
+            elif backend == 'numba':
+                raise ValueError('You need numba package to use the "numba" '
+                                 'backend.')
+            else:
+                return cluster_3d
+        else:
+            return cluster_3d
+
+
+# TODO : add tail=0 to control for tail selection
+def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
+                  backend='auto', mne_reshape_clusters=True):
+    """Find clusters in data array given cluster membership threshold and
+    optionally adjacency matrix.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data array to cluster.
+    threshold : float
+        Threshold value for cluster membership.
+    adjacency : numpy bool array | list, optional
+        Boolean adjacency matrix. Can be dense or sparse. None by default,
+        which assumes standard lattuce adjacency.
+    cluster_fun : function, optional
+        Clustering function to use. ``None`` by default which selects relevant
+        clustering function based on adjacency and number of data dimensions.
+    backend : str, optional
+        Clustering backend: ``'auto'``, ``'mne'``, ``'borsar'``, ``'numpy'``
+        or ``'numba'``. ``'mne'`` backend can be used only for < 3d data.
+        ``'borsar'`` leads to selection of numba backend if numba is available,
+        otherwise numpy is used. Default is ``'auto'`` which selects the
+        relevant backend automatically.
+    mne_reshape_clusters : bool, optional
+        When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
+        the original data shape after obtaining them from mne. Not used for
+        other backends.
+
+    Returns
+    -------
+    clusters : list
+        List of boolean arrays informing about membership in consecutive
+        clusters. For example `clusters[0]` informs about data points that
+        belong to the first cluster.
+    cluster_stats : numpy array
+        Array with cluster statistics - usually sum of cluster members' values.
+    """
+    if cluster_fun is None and backend == 'auto':
+        backend = 'mne' if data.ndim < 3 else 'auto'
+
+    if backend == 'mne':
+        # mne clustering
+        # --------------
+        from mne.stats.cluster_level import (
+            _find_clusters, _cluster_indices_to_mask, _setup_connectivity)
+
+        # FIXME more checks for adjacency and data when using mne!
+        if adjacency is not None and isinstance(adjacency, np.ndarray):
+            if not sparse.issparse(adjacency):
+                adjacency = sparse.coo_matrix(adjacency)
+            if adjacency.ndim == 2:
+                adjacency = _setup_connectivity(adjacency, np.prod(data.shape),
+                                                data.shape[0])
+
+        orig_data_shape = data.shape
+        data = (data.ravel() if adjacency is not None else data)
+        clusters, cluster_stats = _find_clusters(
+            data, threshold=threshold, tail=0, connectivity=adjacency)
+
+        if mne_reshape_clusters:
+            if adjacency is not None:
+                clusters = _cluster_indices_to_mask(clusters,
+                                                    np.prod(data.shape))
+            clusters = [clst.reshape(orig_data_shape) for clst in clusters]
+    else:
+        # borsar clustering
+        # -----------------
+        if cluster_fun is None:
+            cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
+                                           backend=backend)
+        # positive clusters
+        # -----------------
+        pos_clusters = cluster_fun(data > threshold, adjacency=adjacency)
+
+        # TODO - consider numba optimization of this part too:
+        cluster_id = np.unique(pos_clusters)[1:]
+        pos_clusters = [pos_clusters == id for id in cluster_id]
+        cluster_stats = [data[clst].sum() for clst in pos_clusters]
+
+        # negative clusters
+        # -----------------
+        neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency)
+
+        # TODO - consider numba optimization of this part too:
+        cluster_id = np.unique(neg_clusters)[1:]
+        neg_clusters = [neg_clusters == id for id in cluster_id]
+        cluster_stats = np.array(cluster_stats + [data[clst].sum()
+                                                  for clst in neg_clusters])
+        clusters = pos_clusters + neg_clusters
+
+    return clusters, cluster_stats
+
+
+# - [ ] FIXME: consider cluster_pred always adressing preds (you never want
+#              cluster the intercept, and if you do you'd need a one sample
+#              t test and thus a different permutation scheme)
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
-                             progressbar=True, return_distribution=False):
-    '''TODO: add DOCs!'''
+                             cluster_pred=None, backend='auto',
+                             progressbar=True, return_distribution=False,
+                             within=None):
+    '''Compute cluster-based permutation test with regression as the
+    statistical function.
+
+    Parameters
+    ----------
+    data : numpy array
+        N-dimensional numpy array with data to predict with regression. The
+        first dimension has to correspond to observations. If ``adjacency`` was
+        given the last dimension has to correspond to adjacency space (for
+        example channels or vertices).
+    preds : numpy array
+        Predictors array of shape ``(n_observations, n_predictors)`` to use in
+        regression.
+    adjacency : numpy array, optional
+        Adjacency matrix for the last ``data`` dimension. If ``None`` (default)
+        lattice/grid adjacency is used.
+    n_permutations : int
+        Number of permutations to perferom to get a monte-carlo estimate of the
+        null hypothesis distribution. More permutations result in more
+        accurrate p values. Default is 1000.
+    stat_threshold : float | None
+        Cluster inclusion threshold in t value. Only data points exceeding this
+        value of the t statistic (either ``t value > stat_threshold`` or
+        ``t value < -stat_threshold``) form clusters. Default is ``None``,
+        which means that cluster inclusion threshold is set according to
+        ``alpha_threshold``. If both ``stat_threshold`` and ``alpha_threshold``
+        are set, ``stat_threshold`` takes priority.
+    alpha_threshold : float | None
+        Cluster inclusion threshold in critical p value. Only data points where
+        p value of the predictor effect lower than the critical value form
+        clusters. Default is 0.05.
+    cluster_pred : int
+        Specify which predictor to use in clustering. Must be an integer: a
+        zero-based index for the t values matrix returned by
+        ``compute_regression_t``.
+    backend : str
+        Clustering backend. The default is 'numpy' but 'numba' can be also
+        chosen. 'numba' should be faster for 3d clustering but requires the
+        numba package.
+    progressbar : bool
+        Whether to report the progress of permutations using a progress bar.
+        The default is ``True`` which uses tqdm progress bar.
+    return_distribution : bool
+        Whether to retrun the permutation distribution as an additional, fourth
+        output argument.
+    within : None | list | ndarray
+        For within-subject regression you need to pass additional array or list
+        with subject identifiers. For example if rows 1 - 4 of ``data`` belong
+        to subject 1 and rows 5 - 8 to subject 2 you would use
+        ``within=[1, 1, 1, 1, 2, 2, 2, 2]``. This information is used to add
+        subject-specific intercepts and permute the predictor of interest
+        (``cluster_pred``) within subjects.
+        Please note that this option is experimental, and using permutation
+        tests with within-subject regression is not guaranteed to give relevant
+        correction. Permuting the predictors within subjects changes the null
+        hypothesis to "there is no relationship between predictor and data in
+        ANY of the subjects" so it may be possible that having the
+        relationship only in some subjects would be enough to reject the null
+        hypothesis. Instead of within-subject regression you could use a two
+        step analysis, where you calculate maps of t values for the predictor
+        of interest and use a cluster based test against zero on the calculated
+        t value maps (the null hypothesis is then that the data are
+        symmetrically scattered around zero across participants).
+
+    Returns
+    -------
+    t_values : numpy array
+        Statistical map of t values for the effect of predictor of interest.
+    clusters : list of numpy arrays
+        List of boolean numpy arrays. Consecutive arrays correspond to boolean
+        cluster masks.
+    cluster_p : numpy array
+        Numpy array of cluster-level p values.
+    distributions : dict
+        Dictionary of positive null distribution (``distributions['pos']``) and
+        negative null distribution (``distributions['neg']``). Returned only if
+        ``return_distribution`` was set to ``True``.
+    '''
     # data has to have observations as 1st dim and channels/vert as last dim
-    from mne.stats.cluster_level import (_setup_connectivity, _find_clusters,
-                                         _cluster_indices_to_mask)
 
     assert preds.ndim == 1 or (preds.ndim == 2) & (preds.shape[1] == 1), (
         '`preds` must be 1d array or 2d array where the second dimension is'
@@ -81,15 +354,18 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         df = data.shape[0] - 2 # in future: preds.shape[1]
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
 
-    # TODO - move progressbar code from DiamSar
+    # TODO - move progressbar code from DiamSar!
     #      - then support tqdm pbar as input
     #      - use autonotebook
     if progressbar:
         from tqdm import tqdm
         pbar = tqdm(total=n_permutations)
 
+    use_3d_clustering = data.ndim > 3 and adjacency is not None
+
     n_obs = data.shape[0]
-    if adjacency is not None:
+    if adjacency is not None and not use_3d_clustering:
+        from mne.stats.cluster_level import _setup_connectivity
         adjacency = _setup_connectivity(adjacency, np.prod(data.shape[1:]),
                                         data.shape[1])
 
@@ -97,17 +373,36 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     neg_dist = np.zeros(n_permutations)
     perm_preds = preds.copy()
 
+    if within is not None:
+        # ...cluster_pred
+        pass
+    elif cluster_pred is None:
+        cluster_pred = 1
+
     # regression on non-permuted data
-    t_values = compute_regression_t(data, preds)[1]
+    t_values = compute_regression_t(data, preds)[cluster_pred]
 
-    cluster_data = (t_values.ravel() if adjacency is not None
-                    else t_values)
-    clusters, cluster_stats = _find_clusters(
-        cluster_data, threshold=stat_threshold, tail=0, connectivity=adjacency)
+    if use_3d_clustering:
+        # use 3d clustering
+        cluster_fun = _get_cluster_fun(t_values, adjacency=adjacency,
+                                       backend=backend)
+        # we need to transpose dimensions for 3d clustering
+        # FIXME/TODO - this could be eliminated by creating a single unified
+        #              clustering function / API
+        data_dims = np.array(list(range(data.ndim)))
+        data_dims[1], data_dims[-1] = data_dims[-1], 1
+        data = data.transpose(data_dims)
+        t_values = t_values.transpose(data_dims[1:] - 1)
+    else:
+        backend = 'mne'
+        cluster_fun = None
 
-    if adjacency is not None:
-        clusters = _cluster_indices_to_mask(clusters, np.prod(data.shape[1:]))
-    clusters = [clst.reshape(data.shape[1:]) for clst in clusters]
+    clusters, cluster_stats = find_clusters(
+        t_values, stat_threshold, adjacency=adjacency, cluster_fun=cluster_fun,
+        backend=backend)
+
+    if use_3d_clustering:
+        t_values = t_values.transpose(data_dims[1:] - 1)
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -121,17 +416,16 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         # permute predictors
         perm_inds = np.random.permutation(n_obs)
         this_perm = perm_preds[perm_inds]
-        perm_tvals = compute_regression_t(data, this_perm)
+        perm_tvals = compute_regression_t(data, this_perm)[cluster_pred]
 
         # cluster
-        cluster_data = (perm_tvals[1].ravel() if adjacency is not None
-                        else perm_tvals[1])
-        _, perm_cluster_stats = _find_clusters(
-            cluster_data, threshold=stat_threshold, tail=0,
-            connectivity=adjacency)
+        _, perm_cluster_stats = find_clusters(
+            perm_tvals, stat_threshold, adjacency=adjacency,
+            cluster_fun=cluster_fun, backend=backend,
+            mne_reshape_clusters=False)
 
         # if any clusters were found - add max statistic
-        if perm_cluster_stats.shape[0] > 0:
+        if len(perm_cluster_stats) > 0:
             max_val = perm_cluster_stats.max()
             min_val = perm_cluster_stats.min()
 
@@ -145,13 +439,16 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2 # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
+    cluster_p *= 2  # because we use two-tail
+    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
     cluster_p = cluster_p[cluster_order]
     clusters = [clusters[i] for i in cluster_order]
+
+    if use_3d_clustering:
+        clusters = [clst.transpose(data_dims[1:] - 1) for clst in clusters]
 
     if return_distribution:
         distribution = dict(pos=pos_dist, neg=neg_dist)
@@ -195,6 +492,8 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
+#      - [ ] add repr so that Cluster has nice text representation
+#      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -217,12 +516,14 @@ class Clusters(object):
         time where space corresponds to channels or vertices (in the source
         space).
     dimnames : list of str, optional
-        List of dimension names. For example `['chan', 'freq']` or `['vert',
-        'time']`. The length of `dimnames` has to mach `stat.ndim`.
-        If 'chan' dimname is given, you also need to provide `mne.Info`
-        corresponding to the channels via info keyword argument.
-        If 'vert' dimname is given, you also need to provide forward, subject
-        and subjects_dir via respective keyword arguments.
+        List of dimension names. For example ``['chan', 'freq']`` or ``['vert',
+        'time']``. The length of `dimnames` has to mach ``stat.ndim``.
+        If 'chan' dimname is given, you also need to provide ``mne.Info``
+        corresponding to the channels via ``info`` keyword argument.
+        If ``'vert'`` dimname is given, you also need to provide
+        ``mne.SourceSpaces`` via ``src`` keyword argument. You also have to
+        specify ``subject`` and ``subjects_dir`` via respective keyword
+        arguments.
     dimcoords : list of arrays, optional
         List of arrays, where each array contains coordinates (labels) for
         consecutive elements in corresponding dimension. For example if your
@@ -231,13 +532,26 @@ class Clusters(object):
         represent channel names while b) `dimcoords[1]` should have length of
         `stat.shape[1]` and its consecutive elements should represent centers
         of frequency bins (in Hz).
+        When first dimension corresponds to channels and all channels provided
+        in ``info`` object appear in the same order in the data - there is no
+        need to specify channel names in ``dimcoords``. In such situation the
+        respective ``dimcoords`` for channels can be ``None``.
+        When the first dimension corresponds to the vertices in the source
+        space then the ``dimcoords`` should specify vertex indices with respect
+        to the provided ``src`` (``mne.SourceSpaces``). These indices have to
+        be with respect to vertices used in the source space, not all possible
+        vertices present in the original brain model. Becasue of that filling
+        ``dimcoords`` with vertex indices should only be used when the analysis
+        was not conducted on the whole ``src`` space, but on subselection of
+        vertices (for example: only frontal regions). Ohterwise ``dimcoords``
+        corresponding to ``'vert'`` dimension can be left as ``None``.
     info : mne.Info, optional
         When using channel space ('chan' is one of the dimnames) you need to
-        provide information about channel position in mne.Info file (for
-        example `epochs.info`).
+        provide information about channel position in ``mne.Info`` object (for
+        example ``epochs.info``).
     src : mne.SourceSpaces, optional
         When using source space ('vert' is one of the dimnames) you need to
-        pass mne.SourceSpaces
+        pass ``mne.SourceSpaces`` corresponding to the data.
     subject : str, optional
         When using source space ('vert' is one of the dimnames) you need to
         pass a subject name (name of the freesurfer directory with file for
@@ -262,8 +576,8 @@ class Clusters(object):
                 clusters, pvals, stat, dimnames, dimcoords, description)
 
             # check channel or source space
-            _clusters_chan_vert_checks(dimnames, info, src, subject,
-                                       subjects_dir)
+            dimcoords = _clusters_chan_vert_checks(dimnames, dimcoords, info,
+                                                   src, subject, subjects_dir)
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
@@ -271,14 +585,17 @@ class Clusters(object):
                                       for cl in clusters] if pvals is not None
                                       else None)
 
-        # sort by p values if necessary
         if pvals is not None:
             pvals = np.asarray(pvals)
+
+            # sort by p values if necessary
             if sort_pvals:
                 psort = np.argsort(pvals)
                 if not (psort == np.arange(pvals.shape[0])).all():
                     clusters = clusters[psort]
                     pvals = pvals[psort]
+                    self.cluster_polarity = [self.cluster_polarity[idx]
+                                             for idx in psort]
 
         # create attributes
         self.subjects_dir = subjects_dir
@@ -298,27 +615,90 @@ class Clusters(object):
             _ensure_correct_info(self)
 
 
-    # - [ ] add warning if all clusters removed
-    # - [ ] consider select to _not_ work inplace
+# - [ ] more tests for select (n_points was not working)
+# - [ ] add warning if all clusters removed
+# - [ ] consider select to _not_ work inplace or make sure all methods
+#       work this way
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
-               n_points=None, **kwargs):
+               n_points=None, selection=None, **kwargs):
         '''
         Select clusters by p value threshold or its location in the data space.
 
-        TODO: fix docs
+        .. note:: ``select`` method works in-place.
+
+        Parameters
+        ----------
+        p_threshold : None | float
+            Threshold for cluster-level p value. Only clusters associated with
+            a p value lower than this threshold are selected. Defaults to None
+            which does not select clusters by p value.
+        percentage_in : None | float
+            Select clusters by percentage participation in range of the data
+            space specified in **kwargs. For example
+            ``clst.select(percentage_in=0.15, freq=(3, 7))`` selects only those
+            clusters that have at least 15% of their mass in 3 - 7 Hz frequency
+            range. Defaults to None which does not select clusters by their
+            participation in data space.
+        n_points_in : None | int
+            Select clusters by number of their minimum number of data points
+            that lie in the range of the data specified in **kwargs. For
+            example `clst.select(n_points_in=25, time=[0.2, 0.35])` selects
+            only those clusters that contain at least 25 points within
+            0.2 - 0.35 s time range. Defaults to None which does not select
+            clusters by number of points participating in data space.
+        n_points : None | int
+            Select clusters by their minimum number of data points. For example
+            `clst.select(n_points=5)` selects only those clusters that have at
+            least 5 data points. Default to None which does not perform the
+            selection.
+        selection : list-like of int | list-like of boolean | None
+            Which clusters to select. Used when the user knows which clusters
+            should be selected instead of using criteria like p value or
+            cluster surface.
+        **kwargs : additional arguments
+            Additional arguments when selection is meant to be performed only
+            based on some subspace of the effects. Defines the points to use in
+            the selection (if argument value is a list of float) or the range
+            to use for the dimension specified by the argument name. Tuple of
+            two values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` performs selection on the 6 - 8 Hz range. Float
+            argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the specified dimension - in this case time).
+            If no kwarg is passed for given dimension then the whole extent of
+            that dimension is used in the selection.
+            Using ``**kwargs`` makes sense only when performing selection via
+            ``percentage_in`` or ``n_points_in``. Otherwise ``*kwargs`` are
+            ignored.
+
+        Return
+        ------
+        clst : borsar.cluster.Clusters
+            Selected clusters.
         '''
         if self.clusters is None:
             return self
+
+        if selection is not None:
+            # FIXME additional checks for ``selection``
+            self = _cluster_selection(self, selection)
 
         # select clusters by p value threshold
         if p_threshold is not None:
             sel = self.pvals < p_threshold
             self = _cluster_selection(self, sel)
 
+        if n_points is not None:
+            dims = np.arange(self.stat.ndim) + 1
+            cluster_size = self.clusters.sum(axis=tuple(dims))
+            sel = cluster_size > n_points
+            self = _cluster_selection(self, sel)
+
         if (len(kwargs) > 0 or n_points_in is not None) and len(self) > 0:
-            # kwargs check should be in separate function
+            # kwargs check should be in a separate function
             if len(kwargs) > 0:
-                _check_dimnames_kwargs(self, **kwargs)
+                _check_dimnames_kwargs(self, allow_lists=False, **kwargs)
             dim_idx = _index_from_dim(self.dimnames, self.dimcoords, **kwargs)
 
             dims = np.arange(self.stat.ndim) + 1
@@ -335,12 +715,13 @@ class Clusters(object):
             self = _cluster_selection(self, sel)
         return self
 
-    # TODO: add deepcopy arg?
+    # TODO: add deepcopy arg (`deep=False` by default)?
     def copy(self):
         '''
-        Copy the Clusters object. The lists/arrays are not copied however.
-        The SourceSpaces are always copied because they often change when
-        plotting.
+        Copy the Clusters object.
+
+        The lists/arrays are not copied however. The SourceSpaces are always
+        copied because they often change when plotting.
 
         Returns
         -------
@@ -384,7 +765,7 @@ class Clusters(object):
         self._current += 1
         return clst
 
-    def save(self, fname, description=None):
+    def save(self, fname, description=None, overwrite=False):
         '''
         Save Clusters to hdf5 file.
 
@@ -407,11 +788,12 @@ class Clusters(object):
                      'stat': self.stat, 'dimnames': self.dimnames,
                      'dimcoords': self.dimcoords, 'subject': self.subject,
                      'description': description}
-        h5io.write_hdf5(fname, data_dict)
+        h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
-    def get_contribution(self, cluster_idx=None, along=None, norm=True):
+    def get_contribution(self, cluster_idx=None, along=None, norm=True,
+                         idx=None):
         '''
         Get mass percentage contribution to given clusters along specified
         dimension.
@@ -426,6 +808,9 @@ class Clusters(object):
             calculated. Default is to calculate along the first dimension.
         norm : bool, optional
             Whether to normalize contributions. Defaults to `True`.
+        idx : tuple
+            Tuple for numpy array indexing that selects some subspace of
+            interest.
 
         Returns
         -------
@@ -434,30 +819,42 @@ class Clusters(object):
             contributions) if `norm=True` or integer values (number of
             elements) if `norm=False`.
         '''
+        return_many = True
         if cluster_idx is None:
             cluster_idx = np.arange(len(self))
+        if (not isinstance(cluster_idx, (list, np.ndarray))
+            and (isinstance(cluster_idx, int)
+                 or np.issubdtype(cluster_idx, np.integer))):
+            cluster_idx = [cluster_idx]
+            return_many = False
 
         along = 0 if along is None else along
-        idx = _check_dimname_arg(self, along)
+        dim_idx = _check_dimname_arg(self, along)
 
-        if isinstance(cluster_idx, (list, np.ndarray)):
-            alldims = list(range(self.stat.ndim + 1))
-            alldims.remove(0)
-            alldims.remove(idx + 1)
-            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
-            if norm:
-                contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+        # one line for each cluster
+        alldims = list(range(self.stat.ndim + 1))
+        alldims.remove(0)
+        alldims.remove(dim_idx + 1)
+
+        clst = self.clusters[cluster_idx]
+        if idx is not None:
+            clst = clst[(slice(None),) + idx]
+
+        contrib = clst.sum(axis=tuple(alldims))
+        if norm:
+            contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+
+        if return_many:
+            return contrib
         else:
-            alldims = list(range(self.stat.ndim))
-            alldims.remove(idx)
-            contrib = self.clusters[cluster_idx].sum(axis=tuple(alldims))
-            if norm:
-                contrib = contrib / contrib.sum()
-        return contrib
+            return contrib[0]
 
     # TODO: consider continuous vs discontinuous limits
+    # TODO: consider merging more with get_index?
+    # TODO: rename to `get_limits()`
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           ignore_space=True, check_dims=None, **kwargs):
+                           ignore_space=True, check_dims=None, idx=None,
+                           **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -476,41 +873,50 @@ class Clusters(object):
         check_dims : list-like of int | None, optional
             Which dimensions to check. Defaults to None which checks all
             dimensions (with the exception of spatial if `ignore_space=True`).
-        kwargs : additional keyword arguments
-            Additional arguments the cluster mass to retain along specified
-            dimensions. Float argument between 0. and 1. - defines range that
-            is dependent on cluster mass. For example `time=0.75` defines time
-            range limits that retain at least 75% of the cluster (calculated
-            along given dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value of 0.65 is used - so that
-            cluster limits are defined to retain at least 65% of the relevant
-            cluster mass.
+        **kwargs : additional keyword arguments
+            Additional arguments defining the cluster extent to retain along
+            specified dimensions. Float argument between 0. and 1. - defines
+            range that is dependent on cluster mass. For example ``time=0.75``
+            defines time range limits that retain at least 75% of the cluster
+            (calculated along given dimension - in this case time). If no kwarg
+            is passed for given dimension then the default value of 0.65 is
+            used - so that cluster limits are defined to retain at least 65%
+            of the relevant cluster mass.
 
         Returns
         -------
         limits : tuple of slices
             Found cluster limits expressed as a slice for each dimension,
-            grouped together in a tuple.
+            grouped together in a tuple. If `ignore_space=False` the spatial
+            dimension is returned as a numpy array of indices. Can be used in
+            indexing stat (`clst.stat[limits]`) or original data for example.
         '''
         # TODO: add safety checks
+        has_space = (self.dimnames is not None and
+                     self.dimnames[0] in ['vert', 'chan'])
         if check_dims is None:
             check_dims = list(range(self.stat.ndim))
-        if ignore_space and 0 in check_dims:
+        if has_space and ignore_space and 0 in check_dims:
             check_dims.remove(0)
 
         limits = list()
-        for idx in range(self.stat.ndim):
-            if idx in check_dims:
-                dimname = self.dimnames[idx]
+        for dim_idx in range(self.stat.ndim):
+            if dim_idx in check_dims:
+                dimname = self.dimnames[dim_idx]
                 mass = kwargs[dimname] if dimname in kwargs else retain_mass
-                contrib = self.get_contribution(cluster_idx, along=dimname)
+                contrib = self.get_contribution(cluster_idx, along=dimname,
+                                                idx=idx)
 
                 # curent method - start at max and extend
-                limits.append(_get_mass_range(contrib, mass))
+                adj = not (dim_idx == 0 and has_space)
+                lims = _get_mass_range(contrib, mass, adjacent=adj)
+                limits.append(lims)
             else:
                 limits.append(slice(None))
         return tuple(limits)
 
+    # TODO - make sure the when one dim is specified with coords and other with
+    #        mass to retain, the mass is taken only from the part specified?
     def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
                   **kwargs):
         '''
@@ -528,19 +934,24 @@ class Clusters(object):
             If cluster_idx is passed then dimensions not adressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
             The default value is 0.65. See `kwargs`.
-        kwargs : additional arguments
-            Additional arguments used in aggregation, defining the range to
-            aggregate for given dimension. List of two values defines explicit
-            range: for example keyword argument `freq=[6, 8]` aggregates the
-            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-            dependent on cluster mass. For example `time=0.75` defines time range
-            that retains at least 75% of the cluster (calculated along the
-            aggregated dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value is 0.65 so that range is
-            defined to retain at least 65% of the cluster mass.
+        **kwargs : additional arguments
+            Additional arguments used in aggregation, defining the points to
+            select (if argument value is a list of float) or the range to
+            aggregate for the dimension specified by the argument name. Tuple
+            of two values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+            defines specific points to pick: for example ``time=[0.1, 0.2]``
+            selects time points corresponding to 0.1 and 0.2 seconds.
+            Float argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the aggregated dimension - in this case time). If no kwarg is
+            passed for given dimension then the default value is ``0.65``.
+            This means that the range for such dimension is defined to retain
+            at least 65% of the cluster extent.
 
-        Return
-        ------
+        Returns
+        -------
         idx : tuple of slices
             Tuple of slices selecting the requested range of the data. Can be
             used in indexing stat (`clst.stat[idx]`) or clusters (
@@ -556,15 +967,17 @@ class Clusters(object):
         idx = _index_from_dim(self.dimnames, self.dimcoords,
                               **normal_indexing)
 
-        # TODO - when retain mass is specified
+        # when retain mass is specified use it to get ranges for
+        # dimensions not adressed with kwargs
+        # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
-                          if val == slice(None)]
+                          if isinstance(val, slice) and val == slice(None)]
             # check cluster limits only if some dim limits were not specified
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
                     cluster_idx, ignore_space=ignore_space,
-                    retain_mass=retain_mass, **mass_indexing)
+                    retain_mass=retain_mass, idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx
@@ -592,14 +1005,12 @@ class Clusters(object):
         return plot_cluster_contribution(self, dimname, axis=axis)
 
     def plot(self, cluster_idx=None, aggregate='mean', set_light=True,
-             vmin=None, vmax=None, **kwargs):
+             vmin=None, vmax=None, mark_kwargs=None, **kwargs):
         '''
         Plot cluster.
 
         Parameters
         ----------
-        clst : Clusters
-            Clusters object to use in plotting.
         cluster_idx : int
             Cluster index to plot.
         aggregate : str
@@ -610,29 +1021,38 @@ class Clusters(object):
             Value mapped to maximum in the colormap. Inferred from data by default.
         title : str, optional
             Optional title for the figure.
-        **kwargs : additional keyword arguments
-            Additional arguments used in aggregation, defining the range to
-            aggregate for given dimension. List of two values defines explicit
-            range: for example keyword argument `freq=[6, 8]` aggregates the
-            6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-            dependent on cluster mass. For example `time=0.75` defines time range
-            that retains at least 75% of the cluster (calculated along the
-            aggregated dimension - in this case time). If no kwarg is passed for
-            given dimension then the default value is 0.65 so that range is
-            defined to retain at least 65% of the cluster mass.
+        mark_kwargs : dict | None, optional
+            Keyword arguments for ``Topo.mark_channels``. For example:
+            ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
+            ``None`` defaults to ``{'markersize=5'}``.
+        **kwargs : additional arguments
+            Additional arguments used in aggregation, defining the points to
+            select (if argument value is a list of float) or the range to
+            aggregate for the dimension specified by the argument name. Tuple
+            of two values defines explicit range: for example keyword argument
+            ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+            defines specific points to pick: for example ``time=[0.1, 0.2]``
+            selects time points corresponding to 0.1 and 0.2 seconds.
+            Float argument between 0. and 1. defines range that is dependent on
+            cluster mass or extent. For example ``time=0.75`` defines time
+            range that retains at least 75% of the cluster extent (calculated
+            along the aggregated dimension - in this case time). If no kwarg is
+            passed for given dimension then the default value is ``0.65``.
+            This means that the range for such dimension is defined to retain
+            at least 65% of the cluster extent.
 
         Returns
         -------
-        topo : borsar.viz.Topo class | pysurfer.Brain
+        topo : borsar.viz.Topo | pysurfer.Brain
             Figure object used in plotting - borsar.viz.Topo for channel-level
             plotting and pysurfer.Brain for plots on brain surface.
 
         Examples
         --------
         > # to plot the first cluster within 8 - 10 Hz
-        > clst.plot(cluster_idx=0, freq=[8, 10])
-        > # to plot the second cluster selecting frequencies that make up at least
-        > # 70% of the cluster mass:
+        > clst.plot(cluster_idx=0, freq=(8, 10))
+        > # to plot the second cluster selecting frequencies that make up at
+        > # least 70% of the cluster mass:
         > clst.plot(cluster_idx=1, freq=0.7)
         '''
         if self.dimnames is None:
@@ -644,7 +1064,8 @@ class Clusters(object):
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
             return plot_cluster_chan(self, cluster_idx, vmin=vmin, vmax=vmax,
-                                     aggregate=aggregate, **kwargs)
+                                     aggregate=aggregate,
+                                     mark_kwargs=mark_kwargs, **kwargs)
 
 
 # TODO - add special case for dimension='vert' and 'chan'
@@ -684,12 +1105,14 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
         dimlabel = '{} bins'.format(_get_full_dimname(dimension))
     else:
         dimcoords = clst.dimcoords[idx]
+        if dimcoords is None:
+            dimcoords = np.arange(clst.stat.shape[idx])
         dimlabel = '{} ({})'.format(_get_full_dimname(dimension),
                                     _get_units(dimension))
 
     # make sure we have an axes to plot to
     if axis is None:
-        axis = plt.axes()
+        axis = plt.gca()
 
     # plot cluster contribution
     for idx in picks:
@@ -709,9 +1132,8 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 
 def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
-                      vmax=None, **kwargs):
-    '''
-    Plot cluster in source space.
+                      vmax=None, mark_kwargs=None, **kwargs):
+    '''Plot cluster in sensor space.
 
     Parameters
     ----------
@@ -725,18 +1147,25 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Value mapped to minimum in the colormap. Inferred from data by default.
     vmax : float, optional
         Value mapped to maximum in the colormap. Inferred from data by default.
-    title : str, optional
-        Optional title for the figure.
-    **kwargs : additional keyword arguments
-        Additional arguments used in aggregation, defining the range to
-        aggregate for given dimension. List of two values defines explicit
-        range: for example keyword argument `freq=[6, 8]` aggregates the
-        6 - 8 Hz range. Float argument between 0. and 1. defines range that is
-        dependent on cluster mass. For example `time=0.75` defines time range
-        that retains at least 75% of the cluster (calculated along the
-        aggregated dimension - in this case time). If no kwarg is passed for
-        given dimension then the default value is 0.65 so that range is
-        defined to retain at least 65% of the cluster mass.
+    mark_kwargs : dict | None, optional
+        Keyword arguments for ``Topo.mark_channels``. For example:
+        ``mark_kwargs={'markersize': 3}`` to change the size of the markers.
+        ``None`` defaults to ``{'markersize: 5'}``.
+    **kwargs : additional arguments
+        Additional arguments used in aggregation, defining the points to
+        select (if argument value is a list of float) or the range to
+        aggregate for the dimension specified by the argument name. Tuple
+        of two values defines explicit range: for example keyword argument
+        ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+        defines specific points to pick: for example ``time=[0.1, 0.2]``
+        selects time points corresponding to 0.1 and 0.2 seconds.
+        Float argument between 0. and 1. defines range that is dependent on
+        cluster mass or extent. For example ``time=0.75`` defines time
+        range that retains at least 75% of the cluster extent (calculated
+        along the aggregated dimension - in this case time). If no kwarg is
+        passed for given dimension then the default value is ``0.65``.
+        This means that the range for such dimension is defined to retain
+        at least 65% of the cluster extent.
 
     Returns
     -------
@@ -746,7 +1175,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     Examples
     --------
     > # to plot the first cluster within 8 - 10 Hz
-    > clst.plot(cluster_idx=0, freq=[8, 10])
+    > clst.plot(cluster_idx=0, freq=(8, 10))
     > # to plot the second cluster selecting frequencies that make up at least
     > # 70% of the cluster mass:
     > clst.plot(cluster_idx=1, freq=0.7)
@@ -769,7 +1198,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
         ignore_space=True, **dim_kwargs)
 
-    # create pysurfer brain
+    # create Topo object
     from borsar.viz import Topo
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
     topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
@@ -777,11 +1206,16 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.solid_lines()
 
     # FIXME: temporary hack to make all channels more visible
-    topo.mark_channels(np.arange(len(clst_stat)), markersize=3,
-                       markerfacecolor='k', linewidth=0.)
+    # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
+    #                    markerfacecolor='k', linewidth=0.)
 
-    if len(clst) >= cluster_idx + 1:
-        topo.mark_channels(clst_mask)
+    if clst_mask is not None and clst_mask.any():
+        if mark_kwargs is not None:
+            if 'markersize' not in mark_kwargs:
+                mark_kwargs.update({'markersize': 5})
+        else:
+            mark_kwargs = dict(markersize=5)
+        topo.mark_channels(clst_mask, **mark_kwargs)
 
     return topo
 
@@ -789,20 +1223,25 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
 # - [ ] add special functions for handling dims like vert or chan
 def _index_from_dim(dimnames, dimcoords, **kwargs):
     '''
-    Find axis slices given dimnames, dimaxes and dimname keyword arguments
-    with list of `[start, end]` each.
+    Find axis indices or slices given dimnames, dimcoords and dimname keyword
+    arguments of ``dimname=value`` form.
 
     Parameters
     ----------
     dimnames : list of str
-        List of dimension names. For example `['chan', 'freq']` or `['vert',
-        'time']`. The length of `dimnames` has to mach `stat.ndim`.
+        List of dimension names. For example ``['chan', 'freq']``` or
+        ``['vert', 'time']``. The length of `dimnames` has to mach
+        ``stat.ndim``.
     dimcoords : list of arrays
         List of arrays, where each array contains coordinates (labels) for
         consecutive elements in corresponding dimension.
     **kwargs : additional keywords
-        Keywords referring to dimension names and values each being a list of two
-        values representing lower and upper limits of dimension selection.
+        Keywords referring to dimension names. Value of these keyword has to be
+        either:
+        * a tuple of two numbers representing lower and upper limits for
+          dimension selection.
+        * a list of one or more numbers, where each number represents specific
+          point in coordinates of the given dimension.
 
     Returns
     -------
@@ -813,8 +1252,10 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     --------
     >>> dimnames = ['freq', 'time']
     >>> dimcoords = [np.arange(8, 12), np.arange(-0.2, 0.6, step=0.05)]
-    >>> _index_from_dim(dimnames, dimcoords, freq=[9, 11], time=[0.25, 0.5])
+    >>> _index_from_dim(dimnames, dimcoords, freq=(9, 11), time=(0.25, 0.5))
     (slice(1, 4, None), slice(9, 15, None))
+    >>> _index_from_dim(dimnames, dimcoords, freq=[9, 11], time=(0.25, 0.5))
+    ([1, 3], slice(9, 15, None))
     '''
 
     idx = list()
@@ -823,7 +1264,13 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
             idx.append(slice(None))
             continue
         sel_ax = kwargs.pop(dname)
-        idx.append(find_range(dcoord, sel_ax))
+        if isinstance(sel_ax, tuple) and len(sel_ax) == 2:
+            idx.append(find_range(dcoord, sel_ax))
+        elif isinstance(sel_ax, list):
+            idx.append(find_index(dcoord, sel_ax))
+        else:
+            raise TypeError('Keyword arguments has to have tuple of length 2 '
+                            'or a list, got {}.'.format(type(sel_ax)))
     return tuple(idx)
 
 
@@ -858,8 +1305,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         n_clusters = clusters.shape[0]
         if n_clusters > 0:
             if not stat.shape == clusters.shape[1:]:
-                raise ValueError('Every cluster has to have the same shape as '
-                                 'stat.')
+                msg = ('Every cluster has to have the same shape as stat. '
+                       '`stat` has shape {} while `clusters` have shape {}.')
+                raise ValueError(msg.format(stat.shape, clusters.shape[1:]))
         else:
             clusters = None
     elif clusters is not None:
@@ -898,7 +1346,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         if not isinstance(dimcoords, list):
             raise TypeError('`dimcoords` must be a list of dimension '
                              'coordinates. Got {}.'.format(type(dimcoords)))
-
+        if not len(dimcoords) == stat.ndim:
+            raise ValueError('Length of `dimcoords` must be the same as number'
+                             ' of dimensions in the `stat`.')
         dims = list(range(len(dimcoords)))
         if dimnames[0] in ['chan', 'vert']:
             dims.pop(0)
@@ -922,7 +1372,9 @@ def _check_description(description):
                             'ionary, got {}.'.format(type(description)))
 
 
-def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
+# TODO - [ ] move to clusterutils?
+def _clusters_chan_vert_checks(dimnames, dimcoords, info, src, subject,
+                               subjects_dir):
     '''Safety checks for Clusters spatial dimension.'''
     import mne
     if dimnames is not None and 'chan' in dimnames:
@@ -944,6 +1396,29 @@ def _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir):
             raise TypeError('You must pass a `subjects_dir` freesurfer folder'
                             ' name in order to use "vert" dimension. Use '
                             '`subjects_dir` keyword argument.')
+
+        vertices = dimcoords[0]
+        if vertices is not None:
+            # FIXME - move to separate function
+            # FIXME - allow for dict of indices
+            # check against left and right hemi
+            vert_num_lh = src[0]['vertno'].shape[0]
+            vert_num_rh = src[1]['vertno'].shape[0]
+            vert_num_all = vert_num_lh + vert_num_rh
+            vert_idx_in_src = (vertices < vert_num_all).all()
+            if not vert_idx_in_src:
+                msg = ('Some vertex indices exceed the available source '
+                       'space size. Number of vertices in the src (lh + rh) = '
+                       '{:d}, while maximum index in the ``vertices`` = {:d}.')
+                raise ValueError(msg.format(vert_num_all, vertices.max()))
+
+            # turn to lh, rh dictionary
+            lh_mask = vertices < vert_num_lh
+            vertices = {'lh': vertices[lh_mask],
+                        'rh': vertices[~lh_mask] - vert_num_lh}
+            dimcoords[0] = vertices
+
+    return dimcoords
 
 
 def _check_dimname_arg(clst, dimname):
@@ -971,7 +1446,7 @@ def _check_dimname_arg(clst, dimname):
 
 
 def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
-                           **kwargs):
+                           allow_lists=True, **kwargs):
     '''Ensure that **kwargs are correct dimnames and dimcoords.'''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
@@ -990,19 +1465,26 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
                    'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
 
+        if not allow_lists and isinstance(kwargs[dim], (list, np.ndarray)):
+            msg = ('Use of lists/numpy arrays of datapoints are not supported'
+                   ' in this context. Use range ((min, max) tuple) or mass/'
+                   'extent (float).')
+            raise TypeError(msg)
+
         if split_range_mass:
             dval = kwargs[dim]
             # TODO - more elaborate checks
-            dim_type = ('range' if isinstance(dval, list) else 'mass' if
-                        isinstance(dval, float) else None)
+            dim_type = ('range' if isinstance(dval, (list, tuple, np.ndarray))
+                        else 'mass' if isinstance(dval, float) else None)
             if dim_type == 'mass':
                 mass_indexing[dim] = dval
                 normal_indexing.pop(dim)
             elif dim_type is None:
                 raise TypeError('The values used in dimension name indexing '
-                                'have to be either ranges (list of two '
-                                'values) or cluster mass to retain (float),'
-                                ' got {} for dimension {}.'.format(dval, dim))
+                                'have to be either specific points (list or '
+                                'array of values), ranges (tuple of two values'
+                                ') or cluster extent to retain (float), got '
+                                '{} for dimension {}.'.format(dval, dim))
     if split_range_mass:
         return normal_indexing, mass_indexing
 
@@ -1016,42 +1498,85 @@ def _get_full_dimname(dimname):
     return dct[dimname] if dimname in dct else dimname
 
 
-def _get_mass_range(contrib, mass):
-    '''Find range that retains given mass (sum) of the contributions vector.'''
+def _get_mass_range(contrib, mass, adjacent=True):
+    '''Find range that retains given mass (sum) of the contributions vector.
+
+    Parameters
+    ----------
+    contrib : np.ndarray
+        Vector of contributions.
+    mass : float
+        Requested mass to retain.
+    adjacent : boolean
+        Whether to extend from the maximum point by adjacency or not.
+
+    Returns
+    -------
+    extent : slice or np.ndarray of int
+        Slice (when `adjacency=True`) or indices (when `adjacency=False`)
+        retaining the required mass.
+    '''
     contrib_len = contrib.shape[0]
     max_idx = np.argmax(contrib)
     current_mass = contrib[max_idx]
-    side_idx = np.array([max_idx, max_idx])
-    while current_mass < mass:
-        side_idx += [-1, +1]
-        vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
-                0. if side_idx[1] + 1 >= contrib.shape[0]
-                else contrib[side_idx[1]]]
 
-        if sum(vals) == 0.:
-            side_idx += [+1, -1]
-            break
-        ord = np.argmax(vals)
-        current_mass += contrib[side_idx[ord]]
-        one_back = [+1, -1]
-        one_back[ord] = 0
-        side_idx += one_back
-    return slice(side_idx[0], side_idx[1] + 1)
+    if adjacent:
+        side_idx = np.array([max_idx, max_idx])
+        while current_mass < mass:
+            side_idx += [-1, +1]
+            vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
+                    0. if side_idx[1] + 1 >= contrib.shape[0]
+                    else contrib[side_idx[1]]]
+
+            if sum(vals) == 0.:
+                side_idx += [+1, -1]
+                break
+            ord = np.argmax(vals)
+            current_mass += contrib[side_idx[ord]]
+            one_back = [+1, -1]
+            one_back[ord] = 0
+            side_idx += one_back
+
+        return slice(side_idx[0], side_idx[1] + 1)
+    else:
+        indices = np.argsort(contrib)[::-1]
+        cum_mass = np.cumsum(contrib[indices])
+        retains_mass = np.where(cum_mass >= mass)[0]
+        if len(retains_mass) > 0:
+            indices = indices[:retains_mass[0] + 1]
+        return np.sort(indices)
+
 
 
 def _cluster_selection(clst, sel):
-    '''Select Clusters according to selection vector `sel`'''
-    if sel.all():
-        return clst
-    if sel.dtype == 'bool':
-        sel = np.where(sel)[0]
+    '''Select Clusters according to selection vector `sel`. Works in-place.
+
+    Parameters
+    ----------
+    clst : borsar.Clusters
+        Clusters to select from.
+    sel : list-like of int | array of bool
+        Clusters to select.
+
+    Returns
+    -------
+    clst : borsar.Clusters
+        Selected clusters.
+    '''
+    if isinstance(sel, np.ndarray):
+        if sel.dtype == 'bool' and sel.all():
+            return clst
+        if sel.dtype == 'bool':
+            sel = np.where(sel)[0]
 
     if len(sel) > 0:
+        # select relevant fields
         clst.cluster_polarity = [clst.cluster_polarity[idx]
                                  for idx in sel]
         clst.clusters = clst.clusters[sel]
         clst.pvals = clst.pvals[sel]
     else:
+        # no cluster selected - returning empty Clusters
         clst.cluster_polarity = []
         clst.clusters = None
         clst.pvals = None

@@ -1,0 +1,14 @@
+.navbar{
+  background-color: #39ac39 !important;
+  border-color: transparent !important;
+}
+
+.navbar .navbar-nav li a:hover{
+  background-color: #2d862d !important;
+}
+
+.navbar-default .navbar-nav>.open>a,
+.navbar-default .navbar-nav>.open>a:hover,
+.navbar-default .navbar-nav>.open>a:focus {
+    background-color: #267326 !important;
+}

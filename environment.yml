@@ -1,0 +1,29 @@
+name: base
+channels:
+- defaults
+dependencies:
+- python>=3.5
+- pip
+- mkl
+- numpy
+- scipy
+- matplotlib
+- pandas>=0.18
+- xlrd
+- scikit-learn
+- h5py
+- pillow
+- statsmodels
+- jupyter
+- pytest
+- pytest-cov
+- joblib
+- psutil
+- numpydoc
+- flake8
+- spyder
+- pip:
+  - mne
+  - neo
+  - pydocstyle
+  - codespell

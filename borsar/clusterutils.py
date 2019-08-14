@@ -5,23 +5,31 @@ from borsar.stats import format_pvalue
 def _get_units(dimname, fullname=False):
     '''Return unit for specified dimension name.'''
     if not fullname:
-        return {'freq': 'Hz', 'time': 's'}[dimname]
+        return {'freq': 'Hz', 'time': 's', 'vert': 'vert'}[dimname]
     else:
-        return {'freq': 'hertz', 'time': 'seconds'}[dimname]
+        return {'freq': 'hertz', 'time': 'seconds',
+                'vert': 'vertices'}[dimname]
 
 
 def _check_stc(clst):
     '''Make sure Clusters has a list of mne.SourceEstimate in stc attribute.'''
     import mne
     if clst.stc is None:
-        vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
+        vertices = clst.dimcoords[0]
+        if vertices is None:
+            vert = [clst.src[0]['vertno'], clst.src[1]['vertno']]
+        else:
+            # this should use _to_data_vert when it is moved from DiamSar
+            lh, rh = [vertices[hemi] for hemi in ['lh', 'rh']]
+            vert = [clst.src[0]['vertno'][lh], clst.src[1]['vertno'][rh]]
+
         assert clst.dimnames.index('vert') == 0
 
         tmin, tstep = 1., 1.
         if len(clst.dimnames) > 1:
             data_single = clst.stat[:, [0]]
         else:
-            data_single = clst.stat[:, np.newaxis]
+            data_single = clst.stat[:, np.newaxis].copy()
 
         clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
                                          tstep=tstep, subject=clst.subject)
@@ -29,7 +37,7 @@ def _check_stc(clst):
 
 # prepare figure colorbar limits
 def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
-    'Get color limits from data - rounding to steps of 0.5.'
+    """Get color limits from data - rounding to steps of 0.5."""
     if vmin is None and vmax is None:
         vmax = np.abs([data.min(), data.max()]).max()
         vmax_round = np.round(vmax)
@@ -47,25 +55,117 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
         return vmin, vmax
 
 
+# TODO:
+# - [ ] _aggregate_cluster aggregates by default everything except the spatial
+#       dimension. This would be problematic for spaces like [freq, time]
+#       consider adding ``along`` or ``dim`` argument. Then ``ignore_space``
+#       could be removed.
+# - [ ] beware of changing dimension order for some complex "facny index"
+#       operations
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                        retain_mass=0.65, ignore_space=True, **kwargs):
-    '''Aggregate cluster mask and cluster stat map.'''
+    '''Aggregate cluster mask and cluster stat map.
+
+    Parameters
+    ----------
+    clst : borsar.Clusters
+        Clusters object to use in aggregation.
+    cluster_idx : int | list of int
+        Cluster index ord indices to aggregate.
+    mask_proportion : float
+        When aggregating cluster mask: retain only mask elements that
+        participate at least in ``mask_proportion`` part of the aggregated
+        space. The default is 0.5.
+    retain_mass : float
+        If a dimension has to be aggregated but is not specified in
+        ``**kwargs`` - define range to aggregate over by retaining at least
+        ``retain_mass`` proportion of cluster mass along that dimension.
+        FIXME - add note about "see also".
+    ignore_space : bool
+        Ignore spatial dimension in aggregation.
+    **kwargs : additional arguments
+        Additional arguments used in aggregation, defining the points to
+        select (if argument value is a list of float) or the range to
+        aggregate for the dimension specified by the argument name. Tuple
+        of two values defines explicit range: for example keyword argument
+        ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
+        defines specific points to pick: for example ``time=[0.1, 0.2]``
+        selects time points corresponding to 0.1 and 0.2 seconds.
+        Float argument between 0. and 1. defines range that is dependent on
+        cluster mass or extent. For example ``time=0.75`` defines time
+        range that retains at least 75% of the cluster extent (calculated
+        along the aggregated dimension - in this case time). If no kwarg is
+        passed for given dimension then the default value is ``0.65``.
+        This means that the range for such dimension is defined to retain
+        at least 65% of the cluster extent.
+
+    Returns
+    -------
+    clst_mask : bool ndarray
+        Aggregated cluster mask.
+    clst_stat : ndarray
+        Aggregated cluster stats array.
+    idx : tuple of indexers
+        Indexers for the aggregated dimensions.
+        See ``borsar.Cluster.get_index``
+    '''
     do_aggregation = clst.stat.ndim > 1
-    cluster_idx = None if len(clst) < cluster_idx + 1 else cluster_idx
+    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
+                   else cluster_idx)
+    n_clusters = len(cluster_idx)
+
+    # FIXME - throw an error instead if at least one cluster idx exceeds
+    #         number of clusters in the `clst` object
+    cluster_idx = [None] if len(clst) < max(cluster_idx) + 1 else cluster_idx
+
+    # aggregating multiple clusters is eligible only when the dimname kwargs
+    # exhaust the aggregated space and no dimension is set by retained mass
+    if n_clusters > 1 and do_aggregation:
+        dimnames = clst.dimnames.copy()
+        if ignore_space and dimnames[0] in ['chan', 'vert']:
+            dimnames.pop(0)
+
+        non_exhausted = list()
+        for dimname in dimnames:
+            if dimname not in kwargs:
+                non_exhausted.append(dimname)
+            elif isinstance(kwargs[dimname], float):
+                non_exhausted.append(dimname)
+        if len(non_exhausted) > 0:
+            raise ValueError('If aggregating multiple clusters all the '
+                             'aggregated dimensions must be fully specified ('
+                             'without referring to retained cluster mass). '
+                             'Some dimensions were not fully specified: '
+                             '{}'.format(', '.join(non_exhausted)))
+
     if do_aggregation:
         # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx, retain_mass=retain_mass,
+        idx = clst.get_index(cluster_idx=cluster_idx[0],
+                             retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
-        reduce_axes = tuple(range(1, clst.stat.ndim))
-        clst_mask = (clst.clusters[cluster_idx][idx].mean(axis=reduce_axes)
-                     >= mask_proportion if cluster_idx is not None else None)
+        # FIXME - `reduce_axes` assumes `ignore_space=True`:
+        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim)
+                            if not isinstance(idx[ix], (np.ndarray, list)))
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
+
+        clst_idx = (slice(None),) + idx
+        reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
+        clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
+                     axis=reduce_mask_axes) >= mask_proportion
+                     if cluster_idx[0] is not None else None)
     else:
         # no aggregation
         idx = (slice(None),)
-        clst_stat = clst.stat
-        clst_mask = (clst.clusters[cluster_idx] if cluster_idx is not None
+        clst_stat = clst.stat.copy()
+        clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
+
+    # aggregate masks if more clusters
+    # CONSIDER - this could be made optional later,
+    # especially with cluster colors
+    if clst_mask is not None:
+        clst_mask = clst_mask.any(axis=0)
+
     return clst_mask, clst_stat, idx
 
 
@@ -85,6 +185,7 @@ def _label_from_cluster(clst, clst_mask):
 
 
 def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
+    """Prepare text description about cluster range and p value."""
     if clst.stat.ndim > 1:
         if reduce_axes is None:
             # TODO - start at one only when showing spatial map

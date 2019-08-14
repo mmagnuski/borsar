@@ -6,17 +6,18 @@ import pytest
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
-import pytest
-
+from skimage.filters import gaussian
 import mne
+
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir
-from borsar.cluster import (construct_adjacency_matrix, read_cluster,
-                            _get_mass_range, cluster_based_regression,
+from borsar.utils import download_test_data, _get_test_data_dir, has_numba
+from borsar.cluster import (Clusters, cluster_3d, find_clusters,
+                            construct_adjacency_matrix, read_cluster,
+                            cluster_based_regression, _get_mass_range,
                             _index_from_dim, _clusters_safety_checks,
                             _check_description, _clusters_chan_vert_checks,
-                            Clusters)
+                            _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description,
                                  _aggregate_cluster, _get_units)
@@ -75,6 +76,67 @@ def test_contstruct_adjacency():
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
 
 
+def test_numba_clustering():
+    if has_numba():
+        from borsar.cluster_numba import cluster_3d_numba
+        data = np.load(op.join(data_dir, 'test_clustering.npy'))
+
+        # smooth each 'channel' independently
+        for idx in range(data.shape[0]):
+            data[idx] = gaussian(data[idx])
+
+        mask_test = data > (data.mean() + data.std())
+
+        # adjacency
+        T, F = True, False
+        adj = np.array([[F, T, T, F, F],
+                        [T, F, T, F, T],
+                        [T, T, F, F, F],
+                        [F, F, F, F, T],
+                        [F, T, F, T, F]])
+
+        clst1 = cluster_3d(mask_test, adj)
+        clst2 = cluster_3d_numba(mask_test, adj)
+
+        assert (clst1 == clst2).all()
+
+
+def test_find_clusters():
+    threshold = 2.
+    T, F = True, False
+    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
+    data = np.array([[[2.1, 2., 2.3], [1.2, -2.1, -2.3], [2.5, -2.05, 1.3]],
+                     [[2.5, 2.4, 2.2], [0.3, -2.4, 0.7], [2.3, -2.1, 0.7]],
+                     [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
+    correct_clst = [data > threshold, data < - threshold]
+    backends = ['auto', 'numpy']
+    if has_numba():
+        backends.append('numba')
+
+    for backend in backends:
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend=backend)
+        assert (clst[0] == correct_clst[0]).all()
+        assert (clst[1] == correct_clst[1]).all()
+        assert data[correct_clst[0]].sum() == stat[0]
+        assert data[correct_clst[1]].sum() == stat[1]
+
+    # check using mne backend
+    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
+    data = np.array([[1., 1.5, 2.1, 2.3, 1.8], [1., 1.4, 1.9, 2.3, 2.2],
+                     [0.1, 0.8, 1.5, 1.9, 2.1]])
+    correct_clst = data.T > threshold
+
+    with pytest.raises(ValueError, match='of the correct size'):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='mne')
+
+    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
+                               backend='mne')
+    assert (clst[0] == correct_clst).all()
+
+
+
 def test_cluster_based_regression():
     data_dir = _get_test_data_dir()
 
@@ -100,8 +162,8 @@ def test_cluster_based_regression():
                                   ).astype('float')
 
     # for small p-values the differences should be smaller,
-    # for large they could reach up to 0.09
-    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.09, 0.09]).all()
+    # for large they could reach up to 0.095
+    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.095, 0.11]).all()
 
     # distributions should be very similar
     # ------------------------------------
@@ -132,6 +194,7 @@ def test_cluster_based_regression():
 
     # TEST 2
     # ======
+    # smoke test for running cluster_based_regression with adjacency
     data = np.random.random((15, 4, 4))
     preds = np.random.random(15)
 
@@ -143,6 +206,55 @@ def test_cluster_based_regression():
                                                    adjacency=adjacency)
 
 
+def test_cluster_based_regression_3d_simulated():
+    # ground truth - cluster locations
+    T, F = True, False
+    data = np.random.normal(size=(10, 3, 5, 5))
+    adjacency = np.array([[F, T, T], [T, F, T], [T, T, F]])
+    pos_clst = [[0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+                [1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 2, 3],
+                [1, 2, 2, 0, 1, 1, 2, 3, 0, 0, 3, 3]]
+    neg_clst = [[0, 0, 0, 0, 2, 2, 2],
+                [3, 4, 4, 4, 3, 4, 4],
+                [4, 2, 3, 4, 1, 1, 2]]
+    pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
+
+    # create pos cluster
+    wght = 1.9
+    pos_idx = tuple([slice(None)] + pos_clst)
+    wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
+    data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # create neg cluster
+    wght = -1.5
+    neg_idx = tuple([slice(None)] + neg_clst)
+    wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
+    data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+
+    # prepare data and run cluster_based_regression
+    reg_data = data.copy().swapaxes(1, -1)
+    stat, clst, pvals = cluster_based_regression(
+        reg_data, pred, adjacency=adjacency, stat_threshold=2.,
+        progressbar=False)
+
+    # swapaxes back to orig size
+    stat = stat.swapaxes(0, -1)
+    clst = [c.swapaxes(0, -1) for c in clst]
+
+    # find pos and neg clusters
+    clst_stat = np.array([stat[c].sum() for c in clst])
+    pos_clst_idx = (pvals[clst_stat > 0].argmin() +
+                    np.where(clst_stat > 0)[0][0])
+    neg_clst_idx = (pvals[clst_stat < 0].argmin() +
+                    np.where(clst_stat < 0)[0][0])
+
+    # assert that clusters are similar to locations of original effects
+    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
+    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.1
+    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.5
+    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.1
+
+
 def test_get_mass_range():
     contrib = np.array([0.15, 0.04, 0.09, 0.16, 0.21, 0.1, 0.05,
                         0.01, 0.08, 0.11])
@@ -152,6 +264,13 @@ def test_get_mass_range():
     assert _get_mass_range(contrib, 0.38) == slice(3, 6)
     assert _get_mass_range(contrib, 0.48) == slice(2, 6)
     assert _get_mass_range(contrib, 0.57) == slice(2, 7)
+
+    assert (_get_mass_range(contrib, 0.3, adjacent=False) ==
+            np.array([3, 4])).all()
+    assert (_get_mass_range(contrib, 0.38, adjacent=False) ==
+            np.array([0, 3, 4])).all()
+    assert (_get_mass_range(contrib, 0.53, adjacent=False) ==
+            np.array([0, 3, 4, 9])).all()
 
     # with break
     contrib = np.array([0.15, 0.15, 0., 0.15, 0.2, 0.1, 0.])
@@ -166,10 +285,44 @@ def test_index_from_dim():
                  np.arange(-0.2, 0.51, step=0.1)]
     assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
     assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
-    assert (_index_from_dim(dimnames, dimcoords, freq=[10, 11.5]) ==
+    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5)) ==
             (slice(None), slice(4, 8), slice(None)))
-    assert (_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=[0, 0.3])
+    assert (_index_from_dim(dimnames, dimcoords, freq=(9.5, 10), time=(0, 0.3))
             == (slice(None), slice(3, 5), slice(2, 6)))
+    print(_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3)))
+    idx = _index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3))
+    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all() and
+            idx[2] == slice(2, 6))
+    with pytest.raises(TypeError):
+        _index_from_dim(dimnames, dimcoords, freq=[9.5], time=(0, 0.2, 0.3))
+
+
+def test_cluster_limits():
+    T, F = True, False
+    use_contrib = np.array([0.25, 0.1, 0.38, 0.07, 0.15, 0.05, 0.1])
+    use_clusters = [np.array([T, F, T, T, T, F, T])]
+
+    clusters = np.zeros((7, 100), dtype='bool')
+    for idx, (cntrb, cl) in enumerate(zip(use_contrib, use_clusters[0])):
+        if cl:
+            clusters[idx, :int(cntrb * 100)] = True
+
+    pvals = [0.02]
+    stat = np.ones((7, 100))
+    info = mne.create_info(list('ABCDEFG'), sfreq=250.)
+    # FIX: dimcoords should not be necessary, but we get error without
+    dimcoords = [list('ABCDEFG'), np.linspace(3., 25., num=100)]
+    clst = Clusters([clusters], pvals, stat, dimnames=['chan', 'freq'],
+                    dimcoords=dimcoords, info=info)
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.66, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2])).all()
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.68, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2, 4])).all()
+
+    lmts = clst.get_cluster_limits(0, retain_mass=0.83, ignore_space=False)
+    assert (lmts[0] == np.array([0, 2, 4, 6])).all()
 
 
 def test_clusters():
@@ -196,16 +349,26 @@ def test_clusters():
     assert len(clst2) == 3
 
     # selection with percentage_in
-    clst3 = clst2.copy().select(percentage_in=0.7, freq=[7, 9])
+    clst3 = clst2.copy().select(percentage_in=0.7, freq=(7, 9))
     assert len(clst3) == 1
 
-    # using n_points_in without dimension
+    # using n_points_in without dimension ...
     clst3 = clst2.copy().select(n_points_in=2900)
     assert len(clst3) == 2
 
+    # ... works the same as using n_points
+    clst3 = clst2.copy().select(n_points=2900)
+    assert len(clst3) == 2
+
     # n_points_in with dimension range
-    clst3 = clst2.copy().select(n_points_in=340, freq=[10.5, 12.5])
+    clst3 = clst2.copy().select(n_points_in=340, freq=(10.5, 12.5))
     assert len(clst3) == 1
+
+    # using `selection` arg
+    clst3 = clst2.copy().select(selection=[0, 1])
+    assert len(clst3) == 2
+    clst3 = clst2.copy().select(selection=np.array([0, 1]))
+    assert len(clst3) == 2
 
     # selection that results in no clusters
     clst_no = clst.copy().select(p_threshold=0.05)
@@ -241,14 +404,19 @@ def test_clusters():
     clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
 
+    # along as int
+    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+
     # get_contribution when no cluster_idx is passed
     all_contrib = clst2.get_contribution(along='freq')
     assert all_contrib.shape[0] == len(clst2)
     assert all_contrib.shape[1] == clst2.stat.shape[1]
 
-    # along as int
-    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
-    assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
+    # get_contribution with idx argument
+    all_contrib = clst2.get_contribution(along='freq', idx=(None, [0, 1, 2]))
+    assert all_contrib.shape[0] == len(clst2)
+    assert all_contrib.shape[1] == 3
 
     # non string
     match = r'has to be string \(dimension name\) or int \(dimension index\)'
@@ -299,8 +467,11 @@ def test_clusters():
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
     clst_0_freq_contrib[idx[1]].sum() > 0.75
 
-    idx = clst2.get_index(freq=[8, 10])
+    idx = clst2.get_index(freq=(8, 10))
     assert idx[1] == slice(2, 7)
+
+    idx = clst2.get_index(freq=[8, 10])
+    assert (idx[1] == [2, 6]).all()
 
     idx = clst2.get_index(cluster_idx=1, freq=0.6)
     contrib = clst2.get_contribution(1, 'freq')
@@ -312,16 +483,16 @@ def test_clusters():
     with pytest.raises(TypeError, match='Clusters has to have dimnames'):
         dnames = clst2.dimnames
         clst2.dimnames = None
-        clst2.get_index(freq=[10, 11])
+        clst2.get_index(freq=(10, 11))
     clst2.dimnames = dnames
 
     with pytest.raises(TypeError, match='Clusters has to have dimcoords'):
         dcoords = clst2.dimcoords
         clst2.dimcoords = None
-        clst2.get_index(freq=[8.5, 10])
+        clst2.get_index(freq=(8.5, 10))
     clst2.dimcoords = dcoords
-
-    match = r'either ranges \(list of two values\) or cluster mass'
+    match = (r'either specific points \(list or array of values\), ranges '
+             r'\(tuple of two values\) or cluster extent to retain \(float\)')
     with pytest.raises(TypeError, match=match):
         clst2.get_index(freq='abc')
 
@@ -341,77 +512,8 @@ def test_clusters():
         clst2.plot()
     clst2.dimnames = dnames
 
-
-    # error checks
-    # ------------
-
-    # error check for _clusters_safety_checks
-    tmp = list()
-    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
-    with pytest.raises(ValueError, match='have to be of the same shape.'):
-        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
-
-    clusters[1] = clusters[1][:, :2]
-    with pytest.raises(TypeError, match='have to be boolean arrays.'):
-        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
-
-    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
-    with pytest.raises(TypeError, match='must be a numpy array.'):
-        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
-
-    stat = np.zeros((2, 3))
-    with pytest.raises(ValueError, match='same shape as stat.'):
-        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
-
-    with pytest.raises(TypeError, match='list of arrays or one array'):
-        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
-
-    stat = np.zeros((2, 2))
-    with pytest.raises(TypeError, match='list of floats or numpy array'):
-        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
-
-    with pytest.raises(TypeError, match='`dimnames` must be a list'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
-
-    match_str = "are not strings, for example: <class 'int'>"
-    with pytest.raises(TypeError, match=match_str):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
-
-    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
-                                tmp, tmp)
-
-    with pytest.raises(ValueError, match='must be the first dimension'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
-                                tmp, tmp)
-
-    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
-                                'abc', tmp)
-
-    match = 'The length of each dimension coordinate'
-    with pytest.raises(ValueError, match=match):
-        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
-                                [np.arange(2), np.arange(3)], tmp)
-
-    # _check_description
-    with pytest.raises(TypeError, match='has to be either a string or a dict'):
-        _check_description(['abc'])
-
-    # _clusters_chan_vert_checks
-    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
-        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None)
-
-    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None)
-
-    with pytest.raises(TypeError, match='must pass a subject string'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   None, None)
-
-    with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
-        _clusters_chan_vert_checks(['vert', 'freq'], None, fwd['src'],
-                                   'fsaverage', None)
+    with pytest.raises(TypeError, match='context'):
+        _check_dimnames_kwargs(clst2, allow_lists=False, freq=[8, 9, 10])
 
     # _clusters_chan_vert_checks(dimnames, info, src, subject, subjects_dir)
 
@@ -445,7 +547,7 @@ def test_clusters():
 
     # _prepare_cluster_description
     clst_idx = 1
-    idx = clst2.get_index(freq=[8, 10])
+    idx = clst2.get_index(freq=(8, 10))
     got_desc = _prepare_cluster_description(clst, clst_idx, idx)
     pval_desc = format_pvalue(clst.pvals[clst_idx])
     correct_desc = '8.0 - 10.0 Hz\n{}'.format(pval_desc)
@@ -458,6 +560,18 @@ def test_clusters():
     assert idx == correct_idx
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
+
+    with pytest.raises(ValueError, match='dimensions must be fully specified'):
+        mask, stat, idx = _aggregate_cluster(clst2, [0, 1])
+
+    # aggregate two clusters in 2d
+    mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
+    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10))
+    correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
+                    axis=-1) >= 0.5).any(axis=0)
+    assert idx == correct_idx
+    assert (stat == clst2.stat[idx].mean(axis=-1)).all()
+    assert (mask == correct_mask).all()
 
     # _aggregate_cluster - 1d
     slice_idx = 2
@@ -493,6 +607,164 @@ def test_clusters():
     clst_empty = Clusters(
         list(), np.zeros(0), clst2.stat[slice_idx],
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
+    assert len(clst_empty) == 0
+
+
+def test_clusters_safety_checks():
+
+    # _clusters_safety_checks
+    # -----------------------
+
+    # clusters have to be of the same shape
+    tmp = list()
+    clusters = [np.zeros((2, 2)), np.zeros((2, 3))]
+    with pytest.raises(ValueError, match='have to be of the same shape.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    # clusters have to be boolean arrays
+    clusters[1] = clusters[1][:, :2]
+    with pytest.raises(TypeError, match='have to be boolean arrays.'):
+        _clusters_safety_checks(clusters, tmp, tmp, tmp, tmp, tmp)
+
+    # stat has to be a numpy array
+    clusters = [np.zeros((2, 2), dtype='bool') for _ in range(2)]
+    with pytest.raises(TypeError, match='must be a numpy array.'):
+        _clusters_safety_checks(clusters, tmp, 'abc', tmp, tmp, tmp)
+
+    # stat has to be of the same shape as each cluster
+    stat = np.zeros((2, 3))
+    with pytest.raises(ValueError, match='same shape as stat.'):
+        _clusters_safety_checks(clusters, tmp, stat, tmp, tmp, tmp)
+
+    # clusters have to be a list of arrays or one array
+    with pytest.raises(TypeError, match='list of arrays or one array'):
+        _clusters_safety_checks('abc', tmp, stat, tmp, tmp, tmp)
+
+    # pvals have to be a list of floats or numpy array
+    stat = np.zeros((2, 2))
+    with pytest.raises(TypeError, match='list of floats or numpy array'):
+        _clusters_safety_checks(clusters, 'abc', stat, tmp, tmp, tmp)
+
+    # dimnames have to be a list
+    with pytest.raises(TypeError, match='`dimnames` must be a list'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, 'abc', tmp, tmp)
+
+    # each dimnames element has to be a string
+    match_str = "are not strings, for example: <class 'int'>"
+    with pytest.raises(TypeError, match=match_str):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, [1], tmp, tmp)
+
+    # there has to be the same number of dimnames as there are stat dimensions
+    with pytest.raises(ValueError, match='Length of `dimnames` must be'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['a', 'b', 'c'],
+                                tmp, tmp)
+
+    # spatial dimension has to be the first one
+    with pytest.raises(ValueError, match='must be the first dimension'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['freq', 'chan'],
+                                tmp, tmp)
+
+    # dimcoords has to be a list
+    with pytest.raises(TypeError, match='`dimcoords` must be a list of'):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                'abc', tmp)
+
+    # each dimcoords element has to match the leangth of corresponding stat dim
+    match = 'The length of each dimension coordinate'
+    with pytest.raises(ValueError, match=match):
+        _clusters_safety_checks(clusters, [0.1, 0.2], stat, ['chan', 'freq'],
+                                [np.arange(2), np.arange(3)], tmp)
+
+    # number of dimcoords has to match the number of dimensions
+    stat = np.random.rand(5, 10)
+    clusters = [np.random.rand(5, 10) > 0.8 for _ in range(3)]
+    info = mne.create_info([l for l in list('abcde')], 250.)
+
+    with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
+        Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
+                 dimcoords=[None], info=info)
+
+    # _check_description
+    with pytest.raises(TypeError, match='has to be either a string or a dict'):
+        _check_description(['abc'])
+
+    # _clusters_chan_vert_checks
+    # --------------------------
+
+    # sensor space (chan dimname) require passing an mne.Info
+    with pytest.raises(TypeError, match='must pass an `mne.Info`'):
+        _clusters_chan_vert_checks(['chan', 'freq'], None, None, None, None,
+                                   None)
+
+    # source space (vert dimname) requires mne.SourceSpaces
+    with pytest.raises(TypeError, match='must pass an `mne.SourceSpaces`'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, None, None,
+                                   None)
+
+    # source space also requires subject ...
+    with pytest.raises(TypeError, match='must pass a subject string'):
+        _clusters_chan_vert_checks(['vert', 'freq'], None, None, fwd['src'],
+                                   None, None)
+
+    # ... and subjects_dir
+    subjects_dir = mne.utils.get_subjects_dir()
+    if subjects_dir is None:
+        with pytest.raises(TypeError, match='must pass a `subjects_dir`'):
+            _clusters_chan_vert_checks(['vert', 'freq'], None, None,
+                                       fwd['src'], 'fsaverage', None)
+
+    # if vertices are used - they can't exceeds source space size
+    n_vert_lh = len(fwd['src'][0]['vertno'])
+    n_vert = n_vert_lh + len(fwd['src'][1]['vertno'])
+    vertices = np.arange(n_vert + 1)
+    with pytest.raises(ValueError, match='vertex indices exceed'):
+        _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                   None, fwd['src'], 'fsaverage', data_dir)
+
+    # if correct vertices are passed they are turned to a dictionary
+    vertices = np.array([2, 5, n_vert_lh + 2, n_vert_lh + 5])
+    dimcoords = _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                           None, fwd['src'], 'fsaverage',
+                                           data_dir)
+    assert (dimcoords[0]['lh'] == np.array([2, 5])).all()
+    assert (dimcoords[0]['rh'] == np.array([2, 5])).all()
+
+
+def test_cluster_pvals_and_polarity_sorting():
+    pvals = np.array([0.5, 0.1, 0.32, 0.002, 0.73])
+    stat = np.array([-1, -1, 1, -1, 1])
+    correct_sorting = np.argsort(pvals)
+
+    clusters_tmp = np.zeros(len(pvals), dtype='bool')
+    clusters = list()
+    for idx in range(len(pvals)):
+        this_cluster = clusters_tmp.copy()
+        this_cluster[idx] = True
+        clusters.append(this_cluster)
+
+    dimnames = ['freq']
+    dimcoords = [np.arange(3, 8)]
+
+    clst_nosrt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+                          dimcoords=dimcoords, sort_pvals=False)
+    clst_srt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+                        dimcoords=dimcoords, sort_pvals=True)
+
+    # make sure polarities are correct:
+    correct_polarity = {1: 'pos', -1: 'neg'}
+    assert all(correct_polarity[val] == pol
+               for val, pol in zip(stat, clst_nosrt.cluster_polarity))
+
+    # make sure pvals are correctly sorted
+    assert (clst_srt.pvals == pvals[correct_sorting]).all()
+
+    # make sure polarities are correctly sorted:
+    assert (np.array(clst_srt.cluster_polarity) ==
+            np.array(clst_nosrt.cluster_polarity)[correct_sorting]).all()
+
+    # make sure clusters are correctly sorted
+    assert (correct_sorting == [np.where(c)[0][0] for c in clst_srt.clusters]
+            ).all()
 
 
 def test_chan_freq_clusters():
@@ -509,10 +781,21 @@ def test_chan_freq_clusters():
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
         info=info, description=data_dict['description'])
 
-    topo = clst.plot(cluster_idx=1, freq=[8, 8.5])
+    topo = clst.plot(cluster_idx=1, freq=(8, 8.5))
     plt.close(topo.fig)
     clst.clusters = None
-    topo = clst.plot(freq=[10, 11.5])
+    topo = clst.plot(freq=(10, 11.5))
+    plt.close(topo.fig)
+    topo = clst.plot(freq=(10, 11.5), contours=4)
+    plt.close(topo.fig)
+
+    # multi axes:
+    topo = clst.plot(cluster_idx=1, freq=[8, 10])
+    assert len(topo.axes) == 2
+    plt.close(topo.fig)
+
+    marker_kwargs = dict(marker='+')
+    topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
 
 

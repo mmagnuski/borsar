@@ -3,9 +3,9 @@ from .utils import get_info
 
 
 def get_ch_names(inst):
-    '''
-    Get channel names - works both for mne objects like Raw or Epochs
-    but also for Info.
+    '''Get channel names from mne object instance.
+
+    Works both for Raw or Epochs but also for Info.
     '''
     import mne
     if isinstance(inst, mne.Info):
@@ -15,18 +15,14 @@ def get_ch_names(inst):
 
 
 def get_ch_pos(inst):
-    '''
-    Extract xyz position of channels from mne object.
-    '''
+    '''Extract xyz position of channels from mne object instance.'''
     info = get_info(inst)
     chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
     return np.array(chan_pos)
 
 
 def find_channels(inst, names):
-    '''
-    Find channel indices by their names.
-    '''
+    '''Find channel indices by their names in mne object instance.'''
     one_name = False
     ch_names = get_ch_names(inst)
     if isinstance(names, str):
@@ -38,7 +34,7 @@ def find_channels(inst, names):
 
 def select_channels(inst, select='all'):
     '''
-    Gives indices of channels selected by passed keyword.
+    Gives indices of channels selected by a text keyword.
 
     Parameters
     ----------
@@ -46,7 +42,7 @@ def select_channels(inst, select='all'):
         Mne object with `ch_names` and `info` attributes or just the mne Info
         object.
     select : str
-        Can be 'all', 'frontal' or 'pairs'. If 'asy_' is prepended to the
+        Can be 'all' or 'frontal'. If 'asy_' is prepended to the
         select string then selected channels are grouped by mirror positions
         on the x axis (left vs right).
 
@@ -73,16 +69,6 @@ def select_channels(inst, select='all'):
         else:
             return frontal_idx
 
-    if select == 'asy_pairs':
-        pairs = dict(left=['F3', 'F7'], right=['F4', 'F8'])
-        selection = {k: find_channels(inst, pairs[k]) for k in pairs.keys()}
-        if any(el is None for el in selection['left'] + selection['right']):
-            # try EGI channels
-            pairs = {'left': ['E12', 'E18'], 'right': ['E60', 'E58']}
-            selection = {k: find_channels(inst, pairs[k])
-                         for k in pairs.keys()}
-        return selection
-
 
 def homologous_pairs(inst):
     '''
@@ -90,8 +76,8 @@ def homologous_pairs(inst):
 
     Parameters
     ----------
-    inst : mne object instance (optional)
-        Mne object like mne.Raw or mne.Epochs
+    inst : mne object instance
+        Mne object like mne.Raw or mne.Epochs.
 
     Returns
     -------

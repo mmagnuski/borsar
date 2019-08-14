@@ -1,6 +1,5 @@
 import numpy as np
-from .utils import find_range, valid_windows
-from .channels import select_channels, get_ch_names
+from .utils import valid_windows
 
 
 def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
@@ -16,13 +15,15 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     welch windows that had artifact free data (and thus were not rejected in
     `mne.time_frequency.psd_welch`).
 
+    Parameters
+    ----------
     raw: mne.Raw
         Raw file to use.
-    events: numpy array N x 3 or None
-        Mne events array. If None (default) `tmin` and `tmax` are not
-        calculated with respect to events but the whole time range of the
-        `raw`.
-    event_id: list or numpy array
+    events: numpy array | None
+        Mne events array of shape (n_events, 3). If None (default) `tmin` and
+        `tmax` are not calculated with respect to events but the whole time
+        range of the `raw` file.
+    event_id: list | numpy array
         Event types to use in defining segments for which psd is computed.
         If None (default) and events were passed all event types are used.
     tmin: float
@@ -39,6 +40,13 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         Length of the welch window in seconds.
     step: float
         Step of the welch window in seconds.
+
+    Returns
+    -------
+    psd : numpy array
+        Power spectral density in <FIX: check shape> matrix.
+    freq : numpy array
+        Frequencies for which psd was calculated.
     '''
     from mne.time_frequency import psd_welch
 
@@ -89,85 +97,3 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         # use only tmin, tmax, a lot easier
         return psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
                          tmin=tmin, tmax=tmax)
-
-
-def format_psds(psds, freq, info, freq_range=(8, 13), average_freq=False,
-                selection='asy_frontal', transform='log', div_by_sum=False):
-    '''
-    Format power spectral densities. This includes channel selection, log
-    transform, frequency range selection, averaging frequencies and calculating
-    asymmetry (difference between left-right homologous sites).
-
-    Parameters
-    ----------
-    psds : numpy array
-        psds should be in (subjects, channels, frequencies) or
-        (channels, frequencies) shape.
-    freq : numpy array of shape (n_freqs,)
-        Frequency bins.
-    info : mne.Info
-        Info about the recordings. Used for channel selection.
-    freq_range : tuple or listlike with two elements
-        Lower and higher frequency limits.
-    average_freq : bool
-        Whether to average frequencies.
-    selection : str
-        Type of channel selection. See `borsar.channels.select_channels`.
-    transform : str or None
-        Type of transformation applied to the data. 'log': log-transform;
-        None: no transformation.
-    div_by_sum : bool
-        Used only when selection implies asymmetry ('asy' is in `selection`).
-        If True the asymmetry difference is divided by the sum of
-        the homologous channels: (ch_right - ch_left) / (ch_right + ch_left).
-        Defaults to False.
-
-    Returns
-    -------
-    psds : numpy array
-        Transformed psds.
-    freq : numpy array
-        Frequency bins.
-    ch_names : list of str
-        Channel names.
-    '''
-    has_subjects = psds.ndim == 3
-    if freq_range is not None:
-        rng = find_range(freq, freq_range)
-        psds = psds[..., rng]
-        freq = freq[rng]
-    if average_freq:
-        psds = psds.mean(axis=-1)
-        freq = freq.mean()
-    if not isinstance(transform, list):
-        transform = transform
-
-    ch_names = get_ch_names(info)
-    sel = select_channels(info, selection)
-
-    if 'log' in transform:
-        psds = np.log(psds)
-
-    if 'asy' in selection:
-        # compute asymmetry
-        rgt = psds[:, sel['right']]
-        lft = psds[:, sel['left']]
-        psds = rgt - lft
-        if div_by_sum:
-            psds /= rgt + lft
-
-        # create right-left channel names
-        ch_names = ['{}-{}'.format(ch1, ch2) for ch1, ch2 in
-                    zip(np.array(ch_names)[sel['left']],
-                        np.array(ch_names)[sel['right']])]
-    else:
-        psds = psds[:, sel]
-        ch_names = list(np.array(ch_names)[sel])
-
-    if 'zscore' in transform:
-        dims = list(range(psds.ndim))
-        dims = tuple(dims[1:]) if has_subjects else tuple(dims)
-        psds = ((psds - psds.mean(axis=dims, keepdims=True))
-                / psds.std(axis=dims, keepdims=True))
-
-    return psds, freq, ch_names
