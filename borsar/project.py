@@ -123,8 +123,8 @@ class Paths(object):
         task = self._check_set_task(study, task)
 
         if isinstance(path, list) and not validate:
-            raise ValueError('Passing multiple paths is not implemented for'
-                             ' `validate=False`.')
+            raise NotImplementedError('Passing multiple paths is not '
+                                      'implemented for `validate=False`.')
         if isinstance(path, str):
             path = Path(path)
         elif isinstance(path, list):
@@ -359,4 +359,9 @@ def get_valid_path(paths):
     for pth in paths:
         if os.path.exists(pth):
             return pth
-    raise ValueError('Could not find valid path')
+
+    msg = ('Could not find valid path. None of the following paths '
+           'exists:\n{}')
+    paths = '\n'.join([str(pth) for pth in paths])
+    msg = msg.format(paths)
+    raise ValueError(msg)

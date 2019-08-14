@@ -24,6 +24,9 @@ def test_paths():
     with pytest.warns(RuntimeWarning, match='has been already registered'):
         pth.register_study('study1')
 
+    with pytest.raises(ValueError, match='Could not find the relative path'):
+        pth.add_path('a', 'b', relative_to='c')
+
     # _get_path when pth.paths is None
     _, ispresent = pth._get('main', 'study1', '', raise_error=False)
     assert not ispresent
@@ -157,3 +160,7 @@ def test_validate(tmp_path):
 
     with pytest.raises(ValueError, match='Could not find'):
         pth.add_path('test', ['ab', 'cd'], task='task1')
+
+    error_msg = 'Passing multiple paths is not implemented'
+    with pytest.raises(NotImplementedError, match=error_msg):
+        pth.add_path('test', ['abc', 'def'], validate=False)
