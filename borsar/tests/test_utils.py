@@ -1,5 +1,7 @@
 import os
 import os.path as op
+from warnings import warn
+
 import numpy as np
 import mne
 from mne.io.pick import channel_indices_by_type as get_ch_types
@@ -189,5 +191,13 @@ def test_silent_mne():
     with pytest.warns(None) as record:
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
+
+    assert len(record) == 0
+
+    # with `full_silence` no warnings are raised
+    with pytest.warns(None) as record:
+        with silent_mne():
+            mne.add_reference_channels(raw.copy(), ['nose'])
+            warn(DeprecationWarning, 'annoying warning!')
 
     assert len(record) == 0
