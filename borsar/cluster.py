@@ -49,11 +49,10 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         if isinstance(ch_names, np.ndarray):
             ch_names = ch_names.tolist()
 
-    if (isinstance(neighbours, dict) and 'adjacency' in neighbours and
+    if (isinstance(neighbours, dict) and 'adjacency' in neighbours
+            and isinstance(neighbours['adjacency'], np.ndarray)
+            and neighbours['adjacency'].dtype == 'bool'):
         # python dictionary from .hdf5 file
-        isinstance(neighbours['adjacency'], np.ndarray) and
-        neighbours['adjacency'].dtype == 'bool'):
-        # python adjacency dict
         if ch_names_from_neighb:
             adj = neighbours['adjacency']
         else:
