@@ -8,6 +8,12 @@ from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
 from borsar.channels import find_channels
 
 
+# FIXME - currently the reading of neighbours seems to be a bit
+#         messy. They should be read into the same format, either
+#         FieldTrip struct (for a starter) or a new class Adjacency
+#         with sparse matrix and channel/vert names
+#         (this adjacency could hold additional adjacency options in
+#          future that govern how clustering is done (?))
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     Construct adjacency matrix out of neighbours structure (fieldtrip format).
@@ -44,18 +50,19 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
             ch_names = ch_names.tolist()
 
     if (isinstance(neighbours, dict) and 'adjacency' in neighbours and
+        # python dictionary from .hdf5 file
         isinstance(neighbours['adjacency'], np.ndarray) and
         neighbours['adjacency'].dtype == 'bool'):
         # python adjacency dict
         if ch_names_from_neighb:
-            conn = neighbours['adjacency']
+            adj = neighbours['adjacency']
         else:
             ch_idx = [neighbours['label'].index(ch) for ch in ch_names]
-            conn = neighbours['adjacency'][ch_idx][:, ch_idx]
+            adj = neighbours['adjacency'][ch_idx][:, ch_idx]
     else:
-        # fieldtrip adjacency struct
+        # fieldtrip adjacency structure
         n_channels = len(ch_names)
-        conn = np.zeros((n_channels, n_channels), dtype='bool')
+        adj = np.zeros((n_channels, n_channels), dtype='bool')
 
         for ii, chan in enumerate(ch_names):
             ngb_ind = np.where(neighbours['label'] == chan)[0]
@@ -75,7 +82,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
                            for ch in neighbours['neighblabel'][ngb_ind]
                            if ch in ch_names]
             chan_ind = ch_names.index(chan)
-            conn[chan_ind, connections] = True
+            adj[chan_ind, connections] = True
 
     if as_sparse:
         return sparse.coo_matrix(adj)
