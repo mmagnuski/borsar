@@ -363,7 +363,6 @@ def silent_mne(full_silence=False):
     log_level = mne.set_log_level('error', return_old_level=True)
 
     if full_silence:
-        import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             yield
