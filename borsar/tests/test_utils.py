@@ -198,6 +198,6 @@ def test_silent_mne():
     with pytest.warns(None) as record:
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
-            warn(DeprecationWarning, 'annoying warning!')
+            warn('annoying warning!', DeprecationWarning)
 
     assert len(record) == 0
