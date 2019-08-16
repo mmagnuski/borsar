@@ -8,6 +8,12 @@ from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
 from borsar.channels import find_channels
 
 
+# FIXME - currently the reading of neighbours seems to be a bit
+#         messy. They should be read into the same format, either
+#         FieldTrip struct (for a starter) or a new class Adjacency
+#         with sparse matrix and channel/vert names
+#         (this adjacency could hold additional adjacency options in
+#          future that govern how clustering is done (?))
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     Construct adjacency matrix out of neighbours structure (fieldtrip format).
@@ -33,33 +39,50 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     '''
     # checks for ch_names
     if ch_names is not None:
+        ch_names_from_neighb = False
         assert isinstance(ch_names, list), 'ch_names must be a list.'
         assert all(map(lambda x: isinstance(x, str), ch_names)), \
             'ch_names must be a list of strings'
     else:
-        ch_names = neighbours['label'].tolist()
+        ch_names_from_neighb = True
+        ch_names = neighbours['label']
+        if isinstance(ch_names, np.ndarray):
+            ch_names = ch_names.tolist()
 
-    n_channels = len(ch_names)
-    adj = np.zeros((n_channels, n_channels), dtype='bool')
-
-    for ii, chan in enumerate(ch_names):
-        ngb_ind = np.where(neighbours['label'] == chan)[0]
-
-        # safty checks:
-        if len(ngb_ind) == 0:
-            raise ValueError(('channel {} was not found in neighbours.'
-                              .format(chan)))
-        elif len(ngb_ind) == 1:
-            ngb_ind = ngb_ind[0]
+    if (isinstance(neighbours, dict) and 'adjacency' in neighbours
+            and isinstance(neighbours['adjacency'], np.ndarray)
+            and neighbours['adjacency'].dtype == 'bool'):
+        # python dictionary from .hdf5 file
+        if ch_names_from_neighb:
+            adj = neighbours['adjacency']
         else:
-            raise ValueError('found more than one neighbours entry for '
-                             'channel name {}.'.format(chan))
+            ch_idx = [neighbours['label'].index(ch) for ch in ch_names]
+            adj = neighbours['adjacency'][ch_idx][:, ch_idx]
+    else:
+        # fieldtrip adjacency structure
+        n_channels = len(ch_names)
+        adj = np.zeros((n_channels, n_channels), dtype='bool')
 
-        # find connections and fill up adjacency matrix
-        connections = [ch_names.index(ch) for ch in neighbours['neighblabel']
-                       [ngb_ind] if ch in ch_names]
-        chan_ind = ch_names.index(chan)
-        adj[chan_ind, connections] = True
+        for ii, chan in enumerate(ch_names):
+            ngb_ind = np.where(neighbours['label'] == chan)[0]
+
+            # safty checks:
+            if len(ngb_ind) == 0:
+                raise ValueError(('channel {} was not found in neighbours.'
+                                  .format(chan)))
+            elif len(ngb_ind) == 1:
+                ngb_ind = ngb_ind[0]
+            else:
+                raise ValueError('found more than one neighbours entry for '
+                                 'channel name {}.'.format(chan))
+
+            # find connections and fill up adjacency matrix
+            connections = [ch_names.index(ch)
+                           for ch in neighbours['neighblabel'][ngb_ind]
+                           if ch in ch_names]
+            chan_ind = ch_names.index(chan)
+            adj[chan_ind, connections] = True
+
     if as_sparse:
         return sparse.coo_matrix(adj)
     return adj

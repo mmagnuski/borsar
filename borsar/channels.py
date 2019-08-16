@@ -105,9 +105,11 @@ def homologous_pairs(inst):
             chan_value = int(''.join([char for char in ch if char.isdigit()]))
 
             if (chan_value % 2) == 1:
-                selection['left'].append(ch_names.index(ch))
+                # sometimes homologous channels are missing in the cap
                 homologous_ch = chan_base + str(chan_value + 1)
-                selection['right'].append(ch_names.index(homologous_ch))
+                if homologous_ch in ch_names:
+                    selection['left'].append(ch_names.index(ch))
+                    selection['right'].append(ch_names.index(homologous_ch))
     else:
         # channel names do not come from 10-20 system
         # constructing homologues from channel position

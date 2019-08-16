@@ -287,6 +287,10 @@ def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
+    # calculate channel layout
+    picks = range(len(info['ch_names']))
+    pos = _find_topomap_coords(info, picks=picks)
+
     # create head circle
     use_skirt = kwargs.get('outlines', None) == 'skirt'
     radius = 0.5 if not use_skirt else 0.65 # this does not seem to change much
@@ -318,10 +322,7 @@ def _construct_topo_part(info, part, kwargs):
         mask_outlines[below_zero, :] = filling
 
     head_pos = dict(center=(0., 0.))
-    picks = range(len(info['ch_names']))
-    pos = _find_topomap_coords(info, picks=picks)
 
-    # TODO currently uses outlines='head', but should change later
     outlines = kwargs.get('outlines', 'head')
     pos, outlines = _check_outlines(pos, outlines=outlines,
                                     head_pos=head_pos)

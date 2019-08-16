@@ -353,17 +353,24 @@ def get_dropped_epochs(epochs):
     return np.array(dropped_epochs)
 
 
+# - CONSIDER silent(mne=True) or silent(full=True)
 @contextmanager
-def silent_mne():
+def silent_mne(full_silence=False):
     '''
     Context manager that silences warnings from mne-python.
     '''
     import mne
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        log_level = mne.set_log_level('CRITICAL', return_old_level=True)
+
+    log_level = mne.set_log_level('error', return_old_level=True)
+
+    if full_silence:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            yield
+    else:
         yield
-        mne.set_log_level(log_level)
+
+    mne.set_log_level(log_level)
 
 
 def has_numba():
