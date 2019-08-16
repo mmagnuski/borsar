@@ -353,6 +353,7 @@ def get_dropped_epochs(epochs):
     return np.array(dropped_epochs)
 
 
+# - CONSIDER silent(mne=True) or silent(full=True)
 @contextmanager
 def silent_mne(full_silence=False):
     '''

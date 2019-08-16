@@ -196,7 +196,7 @@ def test_silent_mne():
 
     # with `full_silence` no warnings are raised
     with pytest.warns(None) as record:
-        with silent_mne():
+        with silent_mne(full_silence=True):
             mne.add_reference_channels(raw.copy(), ['nose'])
             warn('annoying warning!', DeprecationWarning)
 
