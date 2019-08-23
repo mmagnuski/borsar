@@ -176,4 +176,4 @@ def test_validate(tmp_path):
     # make sure validate=False omits validation
     pth.add_path('void', 'abc', task='task1', relative_to='eeg',
                  validate=False)
-    assert not pth.get_path('void', as_str=False).exists()
+    assert not pth.get_path('void', task='task1', as_str=False).exists()
