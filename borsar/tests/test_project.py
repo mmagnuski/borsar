@@ -126,7 +126,10 @@ def test_paths_data():
         assert isinstance(p, Paths)
         assert 'task' in args.keys()
         assert 'study' in args.keys()
-        return [1, 2, 3]
+        if 'additional' in args.keys() and args['additional']:
+            return 'abcd'
+        else:
+            return [1, 2, 3]
 
     pth.register_data('data1', read_fun)
     data = pth.get_data('data1')
@@ -140,6 +143,11 @@ def test_paths_data():
     data = pth.get_data('data1')
     assert data == [1, 2, 3]
     assert pth.data.loc[0, 'data'] == [1, 2, 3]
+
+    # mare sure additional args are passed
+    pth.register_data('data2', read_fun, cache=False)
+    data = pth.get_data('data2', additional=True)
+    assert data == 'abcd'
 
 
 def test_validate(tmp_path):
@@ -164,3 +172,8 @@ def test_validate(tmp_path):
     error_msg = 'Passing multiple paths is not implemented'
     with pytest.raises(NotImplementedError, match=error_msg):
         pth.add_path('test', ['abc', 'def'], validate=False)
+
+    # make sure validate=False omits validation
+    pth.add_path('void', 'abc', task='task1', relative_to='eeg',
+                 validate=False)
+    assert not pth.get_path('void', as_str=False).exists()
