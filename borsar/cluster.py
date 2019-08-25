@@ -1212,8 +1212,8 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     topo.solid_lines()
 
     # FIXME: temporary hack to make all channels more visible
-    # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
-    #                    markerfacecolor='k', linewidth=0.)
+    topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
+                       markerfacecolor='k', linewidth=0.)
 
     if clst_mask is not None and clst_mask.any():
         if mark_kwargs is not None:

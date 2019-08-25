@@ -287,19 +287,42 @@ def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
-    # calculate channel layout
-    picks = range(len(info['ch_names']))
-    pos = _find_topomap_coords(info, picks=picks)
-
-    # create head circle
+    # create head circle and other shapes
+    # -----------------------------------
     use_skirt = kwargs.get('outlines', None) == 'skirt'
-    radius = 0.5 if not use_skirt else 0.65 # this does not seem to change much
+    radius = np.pi / 2 if use_skirt else 0.5
     ll = np.linspace(0, 2 * np.pi, 101)
     head_x = np.cos(ll) * radius
     head_y = np.sin(ll) * radius
+
+    if use_skirt:
+        # we define all shapes ourselves when 'skirt' mode is used
+        nose_x = np.array([0.18, 0, -0.18]) * radius
+        nose_y = np.array([radius - .004, radius * 1.15, radius - .004])
+        ear_x = np.array([.497, .510, .518, .5299, .5419, .54, .547,
+                          .532, .510, .489]) * (radius / 0.5)
+        ear_y = np.array([.0555, .0775, .0783, .0746, .0555, -.0055, -.0932,
+                          -.1313, -.1384, -.1199]) * (radius / 0.5)
+
+        outlines_dict = dict(head=(head_x, head_y), nose=(nose_x, nose_y),
+                             ear_left=(ear_x, ear_y),
+                             ear_right=(-ear_x, ear_y))
+        outlines_dict['autoshrink'] = False
+
     mask_outlines = np.c_[head_x, head_y]
+    picks = range(len(info['ch_names']))
+    pos = _find_topomap_coords(info, picks=picks)
+    head_pos = dict(center=(0., 0.))
+
+    if use_skirt:
+        mask_scale = 1.25 * (pos.max(axis=0) - pos.min(axis=0))
+        mask_outlines *= mask_scale[np.newaxis, :]
+        r = (mask_scale / 2.)
+        outlines_dict['clip_radius'] = r * 2 # ?
+        head_pos['scale'] = r
 
     # create mask
+    # -----------
     if 'right' in part:
         below_zero = mask_outlines[:, 0] < 0
         removed_len = below_zero.sum()
@@ -312,6 +335,7 @@ def _construct_topo_part(info, part, kwargs):
         filling = np.zeros((removed_len, 2))
         filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
         mask_outlines[above_zero, :] = filling
+
     if 'frontal' in part:
         below_zero = mask_outlines[:, 1] < 0
         removed_len = below_zero.sum()
@@ -321,21 +345,19 @@ def _construct_topo_part(info, part, kwargs):
         filling[:, 0] = np.linspace(lo, hi, num=removed_len)
         mask_outlines[below_zero, :] = filling
 
-    head_pos = dict(center=(0., 0.))
+    if not use_skirt:
+        # TODO currently uses outlines='head', but should change later
+        outlines = kwargs.get('outlines', 'head')
+        pos, outlines_dict = _check_outlines(pos, outlines=outlines,
+                                             head_pos=head_pos)
 
-    outlines = kwargs.get('outlines', 'head')
-    pos, outlines = _check_outlines(pos, outlines=outlines,
-                                    head_pos=head_pos)
+        # scale pos to min - max of the circle (the 0.425 value was hand-picked)
+        scale_factor = 0.425
+        scale_x = scale_factor / np.abs(pos[:, 0]).max()
+        scale_y = scale_factor / np.abs(pos[:, 1]).max()
+        pos[:, 0] *= scale_x
+        pos[:, 1] *= scale_y
 
-    # scale pos to min - max of the circle (the 0.425 value was hand-picked)
-    scale_factor = 0.425 if not use_skirt else 0.565
-    scale_x = scale_factor / pos[:, 0].max()
-    scale_y = scale_factor / np.abs(pos[:, 1]).max()
-    pos[:, 0] *= scale_x
-    pos[:, 1] *= scale_y
-
-    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
-
-    info = pos
-    return info, kwargs
+    outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
+    kwargs.update(dict(outlines=outlines_dict, head_pos=head_pos))
+    return pos, kwargs
