@@ -202,7 +202,7 @@ class Paths(object):
             path = str(path)
         return path
 
-    def get_data(self, name, study=None, task=None):
+    def get_data(self, name, study=None, task=None, **kwargs):
         '''Get data registered for specific study and task.
 
         Parameters
@@ -226,7 +226,7 @@ class Paths(object):
         idx = self._get(name, study, task, find_in='data')
         data = self.data.loc[idx, 'data']
         if isinstance(data, types.FunctionType):
-            data = data(self, study=study, task=task)
+            data = data(self, study=study, task=task, **kwargs)
 
         if self.data.loc[idx, 'cache']:
             self.data.at[idx, 'data'] = data
@@ -237,8 +237,8 @@ class Paths(object):
         '''Add path to given study and task under specific name.'''
         df = self.paths if to == 'paths' else self.data
 
-        if self.paths is None:
-            colnames = ['study', 'task', 'name', 'path']
+        if df is None:
+            colnames = ['study', 'task', 'name']
             df = pd.DataFrame(columns=colnames)
             setattr(self, to, df)
 
