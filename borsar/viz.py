@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from .channels import get_ch_pos
 
 
+# CONSIDER:
+# - [ ] save vmin and vmax and let modify?
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
 
@@ -38,75 +40,50 @@ class Topo(object):
     '''
 
     def __init__(self, values, info, side=None, **kwargs):
-        from mne.viz.topomap import plot_topomap
+        from._mne_modified import plot_topomap
 
         self.info = info
         self.values = values
 
-        squeezed = False
-        if self.values.ndim > 1 and self.values.shape[1] == 1:
-            self.values = self.values[:, 0]
-            squeezed = True
+        # FIXME: should squeezing really be considered?
+        self._squeezed = False
+        if self.values.ndim > 1:
+            if self.values.shape[1] == 1:
+                self._squeezed = True
+        else:
+            self.values = self.values[:, np.newaxis]
 
-        # handle multiple axes
-        multi_axes = self.values.ndim > 1
-        if multi_axes:
-            n_topos = self.values.shape[1]
-
-        # FIXME: split axis checking and plotting into separate methods
-        has_axis = 'axes' in kwargs.keys()
-        if has_axis:
-            axes = kwargs['axes']
-            if multi_axes:
-                from mne.viz.utils import _validate_if_list_of_axes
-                _validate_if_list_of_axes(axes, obligatory_len=n_topos)
-                plt.sca(axes[0])  # FIXME - this may not be needed in future
-            else:
-                if squeezed and isinstance(axes, list):
-                    axes = axes[0]
-                    kwargs['axes'] = axes
-                plt.sca(axes)  # FIXME - this may not be needed in future
-            self.axes = axes
-        elif multi_axes:
-            fig, axes = plt.subplots(ncols=n_topos)
-            self.axes = axes.tolist()
-
+        self._check_axes(kwargs)
         part = _infer_topo_part(info)
-        if part is not None:
-            info, kwargs = _construct_topo_part(info, part, kwargs)
+        info, kwargs = _construct_topo_part(info, part, kwargs)
 
         # plot using mne's `plot_topomap`
-        if multi_axes:
-            im, lines, chans = list(), list(), list()
-            self.marks = [list() for idx in range(n_topos)]
+        im, lines, chans = list(), list(), list()
+        self.marks = [list() for idx in range(self.n_topos)]
 
-            kwargs.update({'show': False})
-            if 'axes' in kwargs:
-                kwargs.pop('axes')
+        kwargs.update({'show': False})
+        if 'axes' in kwargs:
+            kwargs.pop('axes')
 
-            for topo_idx in range(n_topos):
-                this_im, this_lines = plot_topomap(
-                    self.values[:, topo_idx], info, axes=self.axes[topo_idx],
-                    **kwargs)
-                # get channel objects and channel positions from topo
-                this_chans, chan_pos = _extract_topo_channels(this_im.axes)
-
-                im.append(this_im)
-                lines.append(this_lines)
-                chans.append(this_chans)
-            self.chan_pos = chan_pos
-        else:
-            im, lines = plot_topomap(self.values, info, **kwargs)
-
-            self.marks = list()
-            self.axes = axes if has_axis else im.axes
-
+        for topo_idx in range(self.n_topos):
+            this_im, this_lines, interp, patch = plot_topomap(
+                self.values[:, topo_idx], info, axes=self.axes[topo_idx],
+                **kwargs)
             # get channel objects and channel positions from topo
-            self.chans, self.chan_pos = _extract_topo_channels(im.axes)
+            this_chans, chan_pos = _extract_topo_channels(this_im.axes)
 
-        self.img = im
-        self.lines = lines
+            im.append(this_im)
+            lines.append(this_lines)
+            chans.append(this_chans)
+
+        self.chan_pos = chan_pos
+        self.img = im if self.multi_axes else im[0]
+        self.lines = lines if self.multi_axes else lines[0]
+        self.interpolator = interp
         self.fig = im[0].figure if isinstance(im, list) else im.figure
+        self.mask_patch = patch
+        if not self.multi_axes:
+            self.axes = self.axes[0]
 
 
     def remove_levels(self, lvl):
@@ -216,6 +193,64 @@ class Topo(object):
                 self.chan_pos[msk, 0], self.chan_pos[msk, 1], **default_marker)
             marks.append(this_marks)
 
+    def update(self, values):
+        '''FIXME.'''
+
+        # FIXME - topo.update() is not particularily fast, will need to profile
+        # FIXME - fix for situation with multiple topos...
+        interp = self.interpolator
+        new_image = interp.set_values(values)()
+        self.img.set_data(new_image)
+
+        # update contour lines by removing old ...
+        for l in self.lines.collections:
+            l.remove()
+
+        # ... and drawing new ones
+        # FIXME - make line properties (lw) remembered
+        linewidth = 1
+        n_contours = 6
+        self.lines = self.axes.contour(interp.Xi, interp.Yi, new_image,
+                                       n_contours, colors='k',
+                                       linewidths=linewidth / 2.)
+
+        # apply clipping to the countours
+        patch = self.mask_patch
+        for l in self.lines.collections:
+            l.set_clip_path(patch)
+
+    def _check_axes(self, kwargs):
+        # handle multiple axes
+        self.multi_axes = self.values.ndim > 1 and self.values.shape[1] > 1
+        if self.multi_axes:
+            self.n_topos = self.values.shape[1]
+        else:
+            self.n_topos = 1
+
+        has_axis = 'axes' in kwargs.keys()
+        if has_axis:
+            axes = kwargs['axes']
+            if self.multi_axes:
+                # multiple topos and axes were passed, check if axes correct
+                from mne.viz.utils import _validate_if_list_of_axes
+                _validate_if_list_of_axes(axes, obligatory_len=self.n_topos)
+                plt.sca(axes[0])  # FIXME - this may not be needed in future
+            else:
+                # one topo and axes were passed, should check axes
+                if self._squeezed and isinstance(axes, list):
+                    axes = axes[0]
+                    kwargs['axes'] = axes
+                plt.sca(axes)  # FIXME - this may not be needed in future
+            self.axes = [axes]
+        else:
+            if self.multi_axes:
+                # create a row of topographies
+                fig, axes = plt.subplots(ncols=self.n_topos)
+                self.axes = axes.tolist()
+            else:
+                fig, axes = plt.subplots()
+                self.axes = [axes]
+
 
 def _extract_topo_channels(ax):
     '''
@@ -287,55 +322,67 @@ def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
     from mne.viz.topomap import _check_outlines, _find_topomap_coords
 
-    # calculate channel layout
+    # project channels to 2d
     picks = range(len(info['ch_names']))
     pos = _find_topomap_coords(info, picks=picks)
 
-    # create head circle
+    # create head circle and other shapes
+    # -----------------------------------
     use_skirt = kwargs.get('outlines', None) == 'skirt'
-    radius = 0.5 if not use_skirt else 0.65 # this does not seem to change much
+    radius = np.pi / 2 if use_skirt else max(np.linalg.norm(pos, axis=1).max(),
+                                             np.pi / 2)
     ll = np.linspace(0, 2 * np.pi, 101)
     head_x = np.cos(ll) * radius
     head_y = np.sin(ll) * radius
+
+    nose_x = np.array([0.18, 0, -0.18]) * radius
+    nose_y = np.array([radius - .004, radius * 1.15, radius - .004])
+    ear_x = np.array([.497, .510, .518, .5299, .5419, .54, .547,
+                      .532, .510, .489]) * (radius / 0.5)
+    ear_y = np.array([.0555, .0775, .0783, .0746, .0555, -.0055, -.0932,
+                      -.1313, -.1384, -.1199]) * (radius / 0.5)
+
+    outlines_dict = dict(head=(head_x, head_y), nose=(nose_x, nose_y),
+                         ear_left=(ear_x, ear_y),
+                         ear_right=(-ear_x, ear_y))
+    outlines_dict['autoshrink'] = False
+
+    # create mask properties
     mask_outlines = np.c_[head_x, head_y]
-
-    # create mask
-    if 'right' in part:
-        below_zero = mask_outlines[:, 0] < 0
-        removed_len = below_zero.sum()
-        filling = np.zeros((removed_len, 2))
-        filling[:, 1] = np.linspace(radius, -radius, num=removed_len)
-        mask_outlines[below_zero, :] = filling
-    elif 'left' in part:
-        above_zero = mask_outlines[:, 0] > 0
-        removed_len = above_zero.sum()
-        filling = np.zeros((removed_len, 2))
-        filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
-        mask_outlines[above_zero, :] = filling
-    if 'frontal' in part:
-        below_zero = mask_outlines[:, 1] < 0
-        removed_len = below_zero.sum()
-        filling = np.zeros((removed_len, 2))
-        lo = 0. if 'right' in part else -radius
-        hi = 0. if 'left' in part else radius
-        filling[:, 0] = np.linspace(lo, hi, num=removed_len)
-        mask_outlines[below_zero, :] = filling
-
     head_pos = dict(center=(0., 0.))
+    # what does head_pos['scale'] do?
 
-    outlines = kwargs.get('outlines', 'head')
-    pos, outlines = _check_outlines(pos, outlines=outlines,
-                                    head_pos=head_pos)
+    mask_scale = (max(1.25, np.linalg.norm(pos, axis=1).max() / radius)
+                  if use_skirt else 1)
+    mask_outlines *= mask_scale
+    outlines_dict['clip_radius'] = (mask_scale * radius,) * 2
+    outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
 
-    # scale pos to min - max of the circle (the 0.425 value was hand-picked)
-    scale_factor = 0.425 if not use_skirt else 0.565
-    scale_x = scale_factor / pos[:, 0].max()
-    scale_y = scale_factor / np.abs(pos[:, 1]).max()
-    pos[:, 0] *= scale_x
-    pos[:, 1] *= scale_y
+    # modify mask pizza-style
+    # -----------------------
+    if isinstance(part, str):
+        if 'right' in part:
+            below_zero = mask_outlines[:, 0] < 0
+            removed_len = below_zero.sum()
+            filling = np.zeros((removed_len, 2))
+            filling[:, 1] = np.linspace(radius, -radius, num=removed_len)
+            mask_outlines[below_zero, :] = filling
+        elif 'left' in part:
+            above_zero = mask_outlines[:, 0] > 0
+            removed_len = above_zero.sum()
+            filling = np.zeros((removed_len, 2))
+            filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
+            mask_outlines[above_zero, :] = filling
 
-    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
+        if 'frontal' in part:
+            below_zero = mask_outlines[:, 1] < 0
+            removed_len = below_zero.sum()
+            filling = np.zeros((removed_len, 2))
+            lo = 0. if 'right' in part else -radius
+            hi = 0. if 'left' in part else radius
+            filling[:, 0] = np.linspace(lo, hi, num=removed_len)
+            mask_outlines[below_zero, :] = filling
 
-    info = pos
-    return info, kwargs
+    outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
+    kwargs.update(dict(outlines=outlines_dict, head_pos=head_pos))
+    return pos, kwargs

@@ -55,6 +55,10 @@ def test_topo():
             sel_info = mne.pick_info(raw.info, sel=sel)
             topo = Topo(alpha_topo[sel], sel_info, show=False)
 
+    # test topo update
+    topo = Topo(alpha_topo, raw.info, show=False)
+    topo.update(alpha_topo[::-1])
+
 
 def test_multi_topo():
     n_channels = len(raw.ch_names)
