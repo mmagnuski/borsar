@@ -1,3 +1,4 @@
+from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -57,13 +58,12 @@ class Topo(object):
         part = _infer_topo_part(info)
         info, kwargs = _construct_topo_part(info, part, kwargs)
 
-        # plot using mne's `plot_topomap`
-        im, lines, chans = list(), list(), list()
-        self.marks = [list() for idx in range(self.n_topos)]
-
         kwargs.update({'show': False})
         if 'axes' in kwargs:
             kwargs.pop('axes')
+
+        # plot using mne's `plot_topomap`
+        im, lines, chans = list(), list(), list()
 
         for topo_idx in range(self.n_topos):
             this_im, this_lines, interp, patch = plot_topomap(
@@ -77,12 +77,16 @@ class Topo(object):
             chans.append(this_chans)
 
         self.chan_pos = chan_pos
+        self.interpolator = interp
+        self.mask_patch = patch
+        self.chan = chans if self.multi_axes else chans[0]
         self.img = im if self.multi_axes else im[0]
         self.lines = lines if self.multi_axes else lines[0]
-        self.interpolator = interp
+        self.marks = [list() for idx in range(self.n_topos)]
         self.fig = im[0].figure if isinstance(im, list) else im.figure
-        self.mask_patch = patch
+
         if not self.multi_axes:
+            self.marsk = self.marks[0]
             self.axes = self.axes[0]
 
 
@@ -124,10 +128,8 @@ class Topo(object):
         **kwargs : keyword arguments
             Keyword arguments are passed to `set_linestyle` of each line.
         '''
-        iter_lines = (self.lines if isinstance(self.lines, list)
-                      else [self.lines])
-        for lines in iter_lines:
-            for line in lines.collections:
+        for topo in self:
+            for line in topo.lines.collections:
                 line.set_linestyle(*args, **kwargs)
 
     def set_linewidth(self, lw):
@@ -139,10 +141,8 @@ class Topo(object):
         lw : int | float
             Desired line width of the contour lines.
         '''
-        iter_lines = (self.lines if isinstance(self.lines, list)
-                      else [self.lines])
-        for lines in iter_lines:
-            for line in lines.collections:
+        for topo in self:
+            for line in topo.lines.collections:
                 line.set_linewidths(lw)
 
     def mark_channels(self, chans, **kwargs):
@@ -157,10 +157,9 @@ class Topo(object):
             * a list with channel indices
             * boolean array of shape ``(n_channels,)``.
             When ``Topo`` created multiple topographies and you want a
-            different selection of channels highlighted in each use either:
-            * a list of lists of indices
-            * a list of numpy arrays, where each array is either int or bool
-            * a boolean array of ``(n_channels, n_topos)`` shape.
+            different selection of channels highlighted in each, iterate
+            through topos with a for loop and ``.mark_channels()`` for each
+            individually.
         **kwargs : additional keyword arguments
             Any additional keyword arguments are passed as arguments to
             `plt.plot`. It is useful for defining marker properties like
@@ -171,55 +170,76 @@ class Topo(object):
                               markeredgecolor='k', linewidth=0)
         default_marker.update(kwargs)
 
-        # FIXME: add len(topo) and make topo iterable
         # mark channels and save marks in `self.marks` list
-        n_channels = len(self.chan_pos)
-        iter_types = (list, tuple, np.ndarray)
-        n_topos = len(self.axes) if isinstance(self.axes, iter_types) else 1
-        iter_marks = (self.marks if n_topos > 1 else [self.marks])
-        iter_axes = (self.axes if n_topos > 1 else [self.axes])
-
-        # make sure channel selection is iterable
-        if (isinstance(chans, (list, tuple)) and not
-            isinstance(chans[0], iter_types)):
-            chans = [chans]
-        elif isinstance(chans, np.ndarray):
-            chans = (np.tile(chans, (n_topos, 1)) if chans.ndim == 1
-                     else chans.T if chans.shape[0] == n_channels
-                     else chans)
-
-        for ax, marks, msk in zip(iter_axes, iter_marks, chans):
-            this_marks = ax.plot(
-                self.chan_pos[msk, 0], self.chan_pos[msk, 1], **default_marker)
-            marks.append(this_marks)
+        for topo in self:
+            this_marks = topo.axes.plot(
+                topo.chan_pos[chans, 0], topo.chan_pos[chans, 1],
+                **default_marker)
+            topo.marks.append(this_marks)
 
     def update(self, values):
         '''FIXME.'''
 
-        # FIXME - topo.update() is not particularily fast, will need to profile
+        # FIXME - topo.update() is not particularily fast, profile later
         # FIXME - fix for situation with multiple topos...
         interp = self.interpolator
         new_image = interp.set_values(values)()
         self.img.set_data(new_image)
 
-        # update contour lines by removing old ...
+        # update contour lines by removing the old ...
         for l in self.lines.collections:
             l.remove()
 
         # ... and drawing new ones
         # FIXME - make line properties (lw) remembered
-        linewidth = 1
-        n_contours = 6
+        linewidth, n_contours = 1, 6
         self.lines = self.axes.contour(interp.Xi, interp.Yi, new_image,
                                        n_contours, colors='k',
                                        linewidths=linewidth / 2.)
 
-        # apply clipping to the countours
+        # reapply clipping to the countours
         patch = self.mask_patch
         for l in self.lines.collections:
             l.set_clip_path(patch)
 
+    def __len__(self):
+        '''Return number of topomaps in Topo.'''
+        return self.n_topos
+
+    def __iter__(self):
+        '''Initialize iteration.'''
+        self._current = 0
+        return self
+
+    def __next__(self):
+        '''
+        Get next topomap in iteration. Allows to do things like:
+        >>> for tp in topo:
+        >>>     tp.update(values)
+        '''
+        if self._current >= len(self):
+            raise StopIteration
+
+        if not self.multi_axes:
+            if self._current == 0:
+                topo = copy(self)
+                topo.n_topos = 1
+        else:
+            topo = copy(self)
+            topo.img = topo.img[topo._current]
+            topo.chan = topo.chan[topo._current]
+            topo.lines = topo.lines[topo._current]
+            topo.marks = topo.marks[topo._current]
+            topo.axes = topo.axes[topo._current]
+            topo.n_topos = 1
+            topo._current = 0
+        topo.multi_axes = False
+
+        self._current += 1
+        return topo
+
     def _check_axes(self, kwargs):
+        '''Handle axes checking for Topo.'''
         # handle multiple axes
         self.multi_axes = self.values.ndim > 1 and self.values.shape[1] > 1
         if self.multi_axes:
@@ -235,6 +255,7 @@ class Topo(object):
                 from mne.viz.utils import _validate_if_list_of_axes
                 _validate_if_list_of_axes(axes, obligatory_len=self.n_topos)
                 plt.sca(axes[0])  # FIXME - this may not be needed in future
+                self.axes = axes
             else:
                 # one topo and axes were passed, should check axes
                 if self._squeezed and isinstance(axes, list):

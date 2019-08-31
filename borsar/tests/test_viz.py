@@ -86,7 +86,10 @@ def test_multi_topo():
     fig, axes = plt.subplots(ncols=3)
     tp = Topo(freq_topos, raw.info, axes=axes)
     mark_idxs = [[0, 1], [3, 5], [9, 10, 13]]
-    tp.mark_channels(mark_idxs, markerfacecolor='g')
+
+    for this_topo, mrk in zip(tp, mark_idxs):
+        this_topo.mark_channels(mrk, markerfacecolor='g')
+
     for ax, mrk in zip(tp.axes, mark_idxs):
         last_line = ax.findobj(plt.Line2D)[-1]
         mark_pos = np.stack(last_line.get_data(), axis=1)
@@ -98,7 +101,9 @@ def test_multi_topo():
     for idx, mrk in enumerate(mark_idxs):
         ifmark[mrk, idx] = True
 
-    tp.mark_channels(mark_idxs, markerfacecolor='r')
+    for this_topo, mrk in zip(tp, ifmark.T):
+        this_topo.mark_channels(mrk, markerfacecolor='r')
+
     for ax, mrk in zip(tp.axes, mark_idxs):
         last_line = ax.findobj(plt.Line2D)[-1]
         mark_pos = np.stack(last_line.get_data(), axis=1)
