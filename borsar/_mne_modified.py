@@ -1,7 +1,7 @@
 import warnings
 import numpy as np
 from mne import Info
-from mne.io.pick import _pick_data_channels, pick_info
+from mne.io.pick import _pick_data_channels, pick_info, channel_type
 from mne.defaults import _handle_default
 from mne.viz.utils import plt_show, _setup_vmin_vmax
 from mne.viz.topomap import (_check_outlines, _prepare_topomap, _autoshrink,
@@ -132,8 +132,8 @@ def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         info_help = ("Pick Info with e.g. mne.pick_info and "
                      "mne.io.pick.channel_indices_by_type.")
         if len(ch_type) > 1:
-            raise ValueError("Multiple channel types in Info structure. " +
-                             info_help)
+            raise ValueError("Multiple channel types in Info structure. "
+                             + info_help)
         elif len(pos["chs"]) != data.shape[0]:
             raise ValueError("Number of channels in the Info object and "
                              "the data array does not match. " + info_help)
