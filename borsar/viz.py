@@ -241,7 +241,7 @@ class Topo(object):
                     axes = axes[0]
                     kwargs['axes'] = axes
                 plt.sca(axes)  # FIXME - this may not be needed in future
-            self.axes = [axes]
+                self.axes = [axes]
         else:
             if self.multi_axes:
                 # create a row of topographies

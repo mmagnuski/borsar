@@ -5,7 +5,8 @@ from mne.io.pick import _pick_data_channels, pick_info
 from mne.defaults import _handle_default
 from mne.viz.utils import plt_show, _setup_vmin_vmax
 from mne.viz.topomap import (_check_outlines, _prepare_topomap, _autoshrink,
-                             _plot_sensors, _draw_outlines, _GridData)
+                             _plot_sensors, _draw_outlines, _GridData,
+                             _find_topomap_coords)
 
 
 def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
