@@ -86,7 +86,7 @@ class Topo(object):
         self.fig = im[0].figure if isinstance(im, list) else im.figure
 
         if not self.multi_axes:
-            self.marsk = self.marks[0]
+            self.marks = self.marks[0]
             self.axes = self.axes[0]
 
 
@@ -174,14 +174,45 @@ class Topo(object):
         for topo in self:
             this_marks = topo.axes.plot(
                 topo.chan_pos[chans, 0], topo.chan_pos[chans, 1],
-                **default_marker)
+                **default_marker)[0]
             topo.marks.append(this_marks)
 
     def update(self, values):
-        '''FIXME.'''
+        '''
+        Change data presented in the topography. Useful especially in
+        interactive applications as it should be faster than clearing the
+        axis and drawing the different topography from scratch.
+
+        Parameters
+        ----------
+        values : umpy array
+            Values to plot topographically. Has to be of shape
+            ``(n_channels,)``. If ``Topo`` contains multiple topographies
+            each should be updated independently by looping through the
+            ``Topo`` object and using ``.update()`` on each element.
+
+        Example
+        -------
+        # single topography:
+        topo = Topo(values, info)
+        topo.update(other_values)
+
+        # multiple topographies
+        topos = Topo(values2d, info)
+
+        for idx, this_topo in enumerate(topos):
+            this_topo.update(other_values[:, idx])
+        '''
+
+        # .update() works only for single-axis Topo
+        if self.multi_axes:
+            raise NotImplementedError('.update() is not implemented for multi-'
+                                      'axis Topo. To update the data in such'
+                                      ' case you should use a for loop through'
+                                      ' Topo and use .update() on each element'
+                                      ' independently.')
 
         # FIXME - topo.update() is not particularily fast, profile later
-        # FIXME - fix for situation with multiple topos...
         interp = self.interpolator
         new_image = interp.set_values(values)()
         self.img.set_data(new_image)
@@ -220,20 +251,17 @@ class Topo(object):
         if self._current >= len(self):
             raise StopIteration
 
-        if not self.multi_axes:
-            if self._current == 0:
-                topo = copy(self)
-                topo.n_topos = 1
-        else:
-            topo = copy(self)
-            topo.img = topo.img[topo._current]
-            topo.chan = topo.chan[topo._current]
-            topo.lines = topo.lines[topo._current]
-            topo.marks = topo.marks[topo._current]
-            topo.axes = topo.axes[topo._current]
-            topo.n_topos = 1
-            topo._current = 0
+        topo = copy(self)
+        topo.n_topos = 1
         topo.multi_axes = False
+        topo._current = 0
+
+        if self.multi_axes:
+            topo.img = topo.img[self._current]
+            topo.chan = topo.chan[self._current]
+            topo.lines = topo.lines[self._current]
+            topo.marks = topo.marks[self._current]
+            topo.axes = topo.axes[self._current]
 
         self._current += 1
         return topo

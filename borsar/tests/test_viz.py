@@ -111,3 +111,14 @@ def test_multi_topo():
 
     # one 1d array
     tp.mark_channels(np.array([8, 12, 21, 31]), markersize=5)
+
+    # make sure that iterating works and updates base Topo
+    topo = Topo(freq_topos, raw.info)
+
+    for tp, mrk in zip(topo, mark_idxs):
+        tp.mark_channels(mrk)
+
+    # make sure topo.marks is updated
+    for tp, mrk in zip(topo, mark_idxs):
+        mark_pos = np.stack(tp.marks[0].get_data(), axis=1)
+        assert (mark_pos == tp.chan_pos[mrk, :]).all()
