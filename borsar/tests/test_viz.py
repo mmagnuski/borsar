@@ -55,6 +55,10 @@ def test_topo():
             sel_info = mne.pick_info(raw.info, sel=sel)
             topo = Topo(alpha_topo[sel], sel_info, show=False)
 
+    # test topo update
+    topo = Topo(alpha_topo, raw.info, show=False)
+    topo.update(alpha_topo[::-1])
+
 
 def test_multi_topo():
     n_channels = len(raw.ch_names)
@@ -82,7 +86,10 @@ def test_multi_topo():
     fig, axes = plt.subplots(ncols=3)
     tp = Topo(freq_topos, raw.info, axes=axes)
     mark_idxs = [[0, 1], [3, 5], [9, 10, 13]]
-    tp.mark_channels(mark_idxs, markerfacecolor='g')
+
+    for this_topo, mrk in zip(tp, mark_idxs):
+        this_topo.mark_channels(mrk, markerfacecolor='g')
+
     for ax, mrk in zip(tp.axes, mark_idxs):
         last_line = ax.findobj(plt.Line2D)[-1]
         mark_pos = np.stack(last_line.get_data(), axis=1)
@@ -94,7 +101,9 @@ def test_multi_topo():
     for idx, mrk in enumerate(mark_idxs):
         ifmark[mrk, idx] = True
 
-    tp.mark_channels(mark_idxs, markerfacecolor='r')
+    for this_topo, mrk in zip(tp, ifmark.T):
+        this_topo.mark_channels(mrk, markerfacecolor='r')
+
     for ax, mrk in zip(tp.axes, mark_idxs):
         last_line = ax.findobj(plt.Line2D)[-1]
         mark_pos = np.stack(last_line.get_data(), axis=1)
@@ -102,3 +111,14 @@ def test_multi_topo():
 
     # one 1d array
     tp.mark_channels(np.array([8, 12, 21, 31]), markersize=5)
+
+    # make sure that iterating works and updates base Topo
+    topo = Topo(freq_topos, raw.info)
+
+    for tp, mrk in zip(topo, mark_idxs):
+        tp.mark_channels(mrk)
+
+    # make sure topo.marks is updated
+    for tp, mrk in zip(topo, mark_idxs):
+        mark_pos = np.stack(tp.marks[0].get_data(), axis=1)
+        assert (mark_pos == tp.chan_pos[mrk, :]).all()

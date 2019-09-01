@@ -13,6 +13,7 @@ comment:
   layout: "header, diff, sunburst, uncovered"
   behavior: default
 ignore:
+  - "borsar/_mne_modified.py"
   - "borsar/_viz3d.py"
   - "borsar/cluster_numba.py"
   - "borsar/tests"
