@@ -411,26 +411,21 @@ def _construct_topo_part(info, part, kwargs):
     # -----------------------
     if isinstance(part, str):
         if 'right' in part:
-            below_zero = mask_outlines[:, 0] < 0
-            removed_len = below_zero.sum()
-            filling = np.zeros((removed_len, 2))
-            filling[:, 1] = np.linspace(radius, -radius, num=removed_len)
-            mask_outlines[below_zero, :] = filling
+            lowest = pos[:, 0].min() - radius * 0.2
+            below_lowest = mask_outlines[:, 0] < lowest
+            min_x = mask_outlines[~below_lowest, 0].min()
+            mask_outlines[below_lowest, 0] = min_x
         elif 'left' in part:
-            above_zero = mask_outlines[:, 0] > 0
-            removed_len = above_zero.sum()
-            filling = np.zeros((removed_len, 2))
-            filling[:, 1] = np.linspace(-radius, radius, num=removed_len)
-            mask_outlines[above_zero, :] = filling
+            highest = pos[:, 0].max() + radius * 0.2
+            above_highest = mask_outlines[:, 0] > highest
+            max_x = mask_outlines[~above_highest, 0].max()
+            mask_outlines[above_highest, 0] = max_x
 
         if 'frontal' in part:
-            below_zero = mask_outlines[:, 1] < 0
-            removed_len = below_zero.sum()
-            filling = np.zeros((removed_len, 2))
-            lo = 0. if 'right' in part else -radius
-            hi = 0. if 'left' in part else radius
-            filling[:, 0] = np.linspace(lo, hi, num=removed_len)
-            mask_outlines[below_zero, :] = filling
+            lowest_y = pos[:, 1].min() - radius * 0.2
+            below_lowest = mask_outlines[:, 1] < lowest_y
+            min_y = mask_outlines[~below_lowest, 1].min()
+            mask_outlines[below_lowest, 1] = min_y
 
     outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
     kwargs.update(dict(outlines=outlines_dict, head_pos=head_pos))
