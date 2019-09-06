@@ -2,7 +2,7 @@ import numpy as np
 from scipy import sparse
 
 from borsar.utils import find_index, find_range, has_numba
-from borsar.stats import compute_regression_t, format_pvalue
+from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
 from borsar.channels import find_channels
@@ -739,7 +739,7 @@ class Clusters(object):
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description,
                         safety_checks=False, sort_pvals=False)
-        clst.stc = self.stc if self.stc is None else stc.copy()
+        clst.stc = self.stc if self.stc is None else self.stc.copy()
         clst.cluster_polarity = self.cluster_polarity
         return clst
 
@@ -1360,7 +1360,6 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
             dims.pop(0)
         equal_len = [stat.shape[idx] == len(dimcoords[idx]) for idx in dims]
         if not all(equal_len):
-            nonequal_len = np.where(equal_len)[0]
             msg = ('The length of each dimension coordinate (except for the '
                    'spatial dimension - channels or vertices) has to be the '
                    'same as the length of the corresponding dimension in '
@@ -1531,7 +1530,7 @@ def _get_mass_range(contrib, mass, adjacent=True):
         while current_mass < mass:
             side_idx += [-1, +1]
             vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
-                    0. if side_idx[1] + 1 >= contrib.shape[0]
+                    0. if side_idx[1] + 1 >= contrib_len
                     else contrib[side_idx[1]]]
 
             if sum(vals) == 0.:
@@ -1594,9 +1593,7 @@ def _ensure_correct_info(clst):
     has_ch_names = clst.dimcoords[0] is not None
     if has_ch_names:
         from mne import pick_info
-        from borsar.channels import find_channels
 
-        ch_names = [ch.split('-')[0] if '-' in ch else ch
-                    for ch in clst.dimcoords[0]]
+        ch_names = clst.dimcoords[0]
         ch_idx = find_channels(clst.info, ch_names)
         clst.info = pick_info(clst.info, ch_idx)

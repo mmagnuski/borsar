@@ -31,7 +31,8 @@ def find_channels(inst, names):
               if val in ch_names else None)
     return finder(names) if one_name else list(map(finder, names))
 
-
+# - [ ] this might be moved out of borsar, it is quite specific to
+#       DiamSar...
 def select_channels(inst, select='all'):
     '''
     Gives indices of channels selected by a text keyword.
@@ -60,8 +61,13 @@ def select_channels(inst, select='all'):
         return homologous_pairs(inst)
 
     if 'frontal' in select:
+        # compute radius as median distance to head center: the (0, 0, 0) point
         ch_pos = get_ch_pos(inst)
-        frontal_idx = np.where(ch_pos[:, 1] > 0)[0]
+        dist = np.linalg.norm(ch_pos - np.array([[0, 0, 0]]), axis=1)
+        median_dist= np.median(dist)
+        frontal = ch_pos[:, 1] > 0.1 * median_dist
+        above_ears = ch_pos[:, 2] > -0.33 * median_dist
+        frontal_idx = np.where(frontal & above_ears)[0]
         if 'asy' in select:
             hmlg = homologous_pairs(inst)
             sel = np.in1d(hmlg['left'], frontal_idx)

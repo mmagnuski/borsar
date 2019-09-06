@@ -296,8 +296,6 @@ def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
             ax.text(p[0], p[1], ch_id, horizontalalignment='center',
                     verticalalignment='center', size='x-small')
 
-    plt.subplots_adjust(top=.95)
-
     if onselect is not None:
         ax.RS = RectangleSelector(ax, onselect=onselect)
     plt_show(show)
