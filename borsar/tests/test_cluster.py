@@ -207,8 +207,10 @@ def test_cluster_based_regression():
 
 
 def test_cluster_based_regression_3d_simulated():
-    # ground truth - cluster locations
+    np.random.seed(23)
     T, F = True, False
+
+    # ground truth - cluster locations
     data = np.random.normal(size=(10, 3, 5, 5))
     adjacency = np.array([[F, T, T], [T, F, T], [T, T, F]])
     pos_clst = [[0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
@@ -241,7 +243,7 @@ def test_cluster_based_regression_3d_simulated():
     stat = stat.swapaxes(0, -1)
     clst = [c.swapaxes(0, -1) for c in clst]
 
-    # find pos and neg clusters
+    # find index of positive and negative clusters
     clst_stat = np.array([stat[c].sum() for c in clst])
     pos_clst_idx = (pvals[clst_stat > 0].argmin() +
                     np.where(clst_stat > 0)[0][0])
@@ -250,9 +252,9 @@ def test_cluster_based_regression_3d_simulated():
 
     # assert that clusters are similar to locations of original effects
     assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
-    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.1
-    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.5
-    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.1
+    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.29
+    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.75
+    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.29
 
 
 def test_get_mass_range():
