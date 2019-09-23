@@ -1,7 +1,10 @@
 from copy import deepcopy
 import numpy as np
-from .utils import valid_windows
+import mne
+from mne.viz.epochs import plot_epochs_psd
 
+from .utils import valid_windows, find_range
+from .viz import Topo
 
 
 # [ ] change name to compute_psd_raw

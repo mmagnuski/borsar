@@ -1203,6 +1203,7 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     clst_mask, clst_stat, idx = _aggregate_cluster(
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
         ignore_space=True, **dim_kwargs)
+    n_topos = clst_stat.shape[1] if clst_stat.ndim > 1 else 1
 
     # create Topo object
     from borsar.viz import Topo
@@ -1221,7 +1222,12 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
                 mark_kwargs.update({'markersize': 5})
         else:
             mark_kwargs = dict(markersize=5)
-        topo.mark_channels(clst_mask, **mark_kwargs)
+
+        if n_topos == 1:
+            topo.mark_channels(clst_mask, **mark_kwargs)
+        else:
+            for idx, tp in enumerate(topo):
+                tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
 
     return topo
 
