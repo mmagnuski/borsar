@@ -1,9 +1,14 @@
+from copy import deepcopy
 import numpy as np
 from .utils import valid_windows
 
 
+
+# [ ] change name to compute_psd_raw
+# [ ] use annotations when event_id was passed as str or list of str
+# [ ] event_id should support dict!
 def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
-                     winlen=2., step=0.5):
+                     winlen=2., step=None, padto=None, picks=None):
     '''
     Compute power spectral density (psd) for given time segments for all
     channels of given raw file. The segments (if more than one) are averaged
@@ -51,8 +56,9 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     from mne.time_frequency import psd_welch
 
     sfreq = raw.info['sfreq']
-    n_fft = int(round(winlen * sfreq))
-    n_overlap = n_fft - int(round(step * sfreq))
+    step = winlen / 4 if step is None else step
+    n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
+        raw, winlen, step, padto)
 
     if events is not None:
         # select events
@@ -76,7 +82,9 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 
             # compute psd for given segment, then add to psd_dict
             this_psd, freq = psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
-                                       tmin=this_tmin, tmax=this_tmax)
+                                       n_per_seg=n_per_seg, tmin=this_tmin,
+                                       tmax=this_tmax, picks=picks,
+                                       verbose=False)
             psd_dict[event_type].append(this_psd)
 
             # compute percent of windows that do not overlap with artifacts
@@ -97,3 +105,276 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         # use only tmin, tmax, a lot easier
         return psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
                          tmin=tmin, tmax=tmax)
+
+# - [ ] make the default to be simple fft
+# - [ ] this would have to work both for Epochs and Raw
+# - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True, verbose=None
+def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
+                events=None, event_id=None, picks=None):
+    """Compute power spectral density on Raw or Epochs.
+
+    Parameters
+    ----------
+    inst :
+        FIXME
+    tmin :
+        FIXME
+    tmax :
+        FIXME
+    winlen :
+        FIXME
+    step :
+        FIXME
+    padto :
+        FIXME
+    events :
+        FIXME
+    event_id :
+        FIXME
+    picks :
+        FIXME
+
+    Returns
+    -------
+    psd : borsar.freq.PSD
+        PowerSpectralDensity (PSD) object.
+    """
+    import mne
+    from mne.time_frequency import psd_welch
+
+    step = winlen / 4 if step is None else step
+
+    if isinstance(inst, mne.BaseEpochs):
+        n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
+            inst, winlen, step, padto)
+        psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
+                              picks=picks, n_per_seg=n_per_seg,
+                              n_overlap=n_overlap)
+    elif isinstance(inst, mne.io.BaseRaw):
+        psd, freq = compute_rest_psd(inst, events=events, event_id=event_id, tmin=tmin,
+                         tmax=tmax, winlen=winlen, step=step)
+    else:
+        raise TypeError('`compute_psd` works only with Raw or Epochs data '
+                        'formats, got {}'.format(type(inst)))
+
+    # construct PSD object
+    picks_int = mne.selection.pick_types(inst.info, eeg=True, selection=picks)
+    info = mne.pick_info(inst.info, sel=picks_int)
+    psd = PSD(psd, freq, info)
+
+    return psd
+
+
+def _convert_s_to_smp(s, sfreq):
+    return int(round(s * sfreq))
+
+
+def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
+    sfreq = inst.info['sfreq']
+    padto = winlen if padto is None else padto
+
+    n_per_seg, step_smp, n_fft = [_convert_s_to_smp(x, sfreq) for x in
+                                  [winlen, step, padto]]
+    n_overlap = n_per_seg - step_smp if step_smp > 0 else 0
+    return n_per_seg, n_overlap, n_fft
+
+
+# - [ ] add simple __repr__
+# - [ ] add .get_peak()
+# - [ ] attributes instead of returns in init docstring
+# - [ ] change ch_names attr to @property
+#                               def ch_names(self):
+class PSD(object):
+    def __init__(self, psd, freq, info):
+        '''Construct PowerSpectralDensity (PSD) object.
+
+        Parameters
+        ----------
+        psd : numpy.ndarray
+            Channels by frequencies matrix of spectrum values.
+        freq : numpy.ndarray
+            Vector of frequencies.
+        info : mne.Info
+            Info object with channel names and positions.
+
+        Attributes
+        ----------
+        data : numpy.ndarray
+            The data array of either (channels, frequencies) shape or
+            (epochs, channels, frequencies).
+        freq : numpy.ndarray
+            Frequencies.
+        info : mne.Info
+            Info object with channel names and positions.
+        ch_names : list of str
+            Channel names.
+        '''
+        # add check for psd dimensions
+        if psd.ndim < 2 or psd.ndim > 3:
+            ValueError('`psd` array has to be 3d (epochs, channels, '
+                       'frequencies) or 2d (channels, frequencies), got array'
+                       'with {} dimensions.'.format(psd.ndim))
+        self._has_epochs = False if psd.ndim == 2 else True
+        self._data = psd
+        self.freq = freq
+        self.info = info
+
+    def plot(self, fmin=0, fmax=np.inf, tmin=None, tmax=None, proj=False,
+             bandwidth=None, adaptive=False, low_bias=True,
+             normalization='length', picks=None, ax=None, color='black',
+             xscale='linear', area_mode='std', area_alpha=0.33, dB=True,
+             estimate='auto', show=True, n_jobs=1, average=False,
+             line_alpha=None, spatial_colors=True, verbose=None):
+        from mne.viz.utils import _set_psd_plot_params, _plot_psd, plt_show
+
+        # set up default vars
+        fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
+            make_label = _set_psd_plot_params(self.info, proj, picks, ax,
+                                              area_mode)
+        del ax
+
+        # create list of psd's (one element for each channel type)
+        psd_list = list()
+        for picks in picks_list:
+            this_psd = self.data[picks]
+            if self._has_epochs:
+                this_psd = this_psd.mean(axis=0)
+            psd_list.append(this_psd)
+
+        fig = _plot_psd(self, fig, self.freq, psd_list, picks_list, titles_list,
+                        units_list, scalings_list, ax_list, make_label, color,
+                        area_mode, area_alpha, dB, estimate, average,
+                        spatial_colors, xscale, line_alpha)
+        plt_show(show)
+        return fig
+
+    # - [ ] add support for labeled grid (grid=True?)
+    # - [ ] add support for passing axes
+    def plot_topomap(self, freqs=None, fmin=None, fmax=None,
+                     extrapolate='head', outlines='skirt'):
+        '''Plot topomap of given frequency range (or ranges).
+
+        Properties
+        ----------
+        fmin : value or list of values
+            Lower limit of frequency range. If more than one range ``fmin`` is
+            a list of lower frequency ranges.
+        fmax : value or list of values
+            Upper limit of frequency range. If more than one range ``fmax`` is
+            a list of upper frequency ranges.
+        extrapolate : str
+            Extrapolate option for ``plot_topomap`` / ``Topo``. By default
+            ``'head'``.
+        outlines : str
+            Outlines option for ``plot_topomap`` / ``Topo``. By default
+            ``'skirt'``.
+
+        Returns
+        -------
+        tp : borsar.viz.Topo
+            Instance of ``borsar.viz.Topo``.
+        '''
+
+        psd_array = self.average(fmin=fmin, fmax=fmax)
+        return Topo(psd_array, self.info, extrapolate=extrapolate,
+                    outlines=outlines)
+
+    # - [ ] consider: always 2d array if fmin and fmax are a list?
+    # - [ ] return array when fmin, fmax but psd if only epochs=True
+    def average(self, fmin=None, fmax=None, epochs=True):
+        '''Average epochs and/or frequency ranges. If frequency ranges are
+        averaged over (``fmin`` and ``fmax`` are given) then a new data array
+        is returned. Otherwise, the ``PSD`` object is modified in place.
+
+        Parameters
+        ----------
+        fmin : value | list of values
+            Lower limit of frequency range. If more than one range ``fmin`` is
+            a list of lower frequency ranges.
+        fmax : value | list of values
+            Upper limit of frequency range. If more than one range ``fmax`` is
+            a list of upper frequency ranges.
+        epochs : bool
+            Whether to average epochs.
+
+        Returns
+        -------
+        psd_array : numpy.ndarray | borsar.freq.PSD
+            Numpy array of (n_channels,) shape if one frequency range or
+            (n_channels, n_ranges) if multiples frequency ranges.
+            If averaging by frequency was not done but averaging by epochs was,
+            the PSD object is modified in place, but also returned for
+            chaining.
+        '''
+        not_range = fmin is None and fmax is None
+        if epochs and self._has_epochs:
+            use_data = self.data.mean(axis=0)
+            if not_range:
+                self._data = use_data
+                self._has_epochs = False
+                return self
+        else:
+            use_data = self.data
+            if not_range:
+                return self
+
+        # frequency range averaging
+        # -------------------------
+        if not isinstance(fmin, list):
+            fmin = [fmin]
+        if not isinstance(fmax, list):
+            fmax = [fmax]
+        assert len(fmin) == len(fmax)
+        n_ranges = len(fmin)
+        franges = [[mn, mx] for mn, mx in zip(fmin, fmax)]
+        ranges = find_range(self.freq, franges)
+
+        n_channels = len(self.ch_names)
+        if epochs or not self._has_epochs:
+            psd_array = np.zeros((n_channels, n_ranges))
+        else:
+            n_epochs = self.data.shape[0]
+            psd_array = np.zeros((n_epochs, n_channels, n_ranges))
+
+        for idx, rng in enumerate(ranges):
+            psd_array[:, idx] = self.data[:, rng].mean(axis=1)
+
+        if n_ranges == 1:
+            psd_array = psd_array[:, 0]
+
+        return psd_array
+
+    def crop(self, fmin=None, fmax=None):
+        """Crop frequency range to ``fmin:fmax`` (inclusive).
+
+        Parameters
+        ----------
+        fmin : value
+            Lower edge of frequency range.
+        fmax : value
+            Higher edge of frequency range. This frequency is included in the
+            retained range.
+        """
+        fmin = self.freq[0] if fmin is None else fmin
+        fmax = self.freq[-1] if fmax is None else fmax
+
+        rng = find_range(self.freq, [fmin, fmax])
+        self.freq = self.freq[rng]
+        self.psd = self.psd[..., rng]
+
+    def copy(self):
+        """Copy the instance of PSD."""
+        psd = deepcopy(self)
+        return psd
+
+    @property
+    def data(self):
+        """The data matrix."""
+        return self._data
+
+    @property
+    def ch_names(self):
+        """List of channel names."""
+        return self.info['ch_names']
+
+PSD.plot.__doc__ = plot_epochs_psd.__doc__
