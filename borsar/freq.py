@@ -222,7 +222,7 @@ class PSD(object):
         self.freq = freq
         self.info = info
 
-    def plot(self, fmin=0, fmax=np.inf, tmin=None, tmax=None, proj=False,
+    def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
              bandwidth=None, adaptive=False, low_bias=True,
              normalization='length', picks=None, ax=None, color='black',
              xscale='linear', area_mode='std', area_alpha=0.33, dB=True,
@@ -236,18 +236,21 @@ class PSD(object):
                                               area_mode)
         del ax
 
+        fmax = self.freq[-1] if fmax is None else fmax
+        rng = find_range(self.freq, [fmin, fmax])
+
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-            this_psd = self.data[picks]
+            this_psd = self.data[..., picks, rng]
             if self._has_epochs:
                 this_psd = this_psd.mean(axis=0)
             psd_list.append(this_psd)
 
-        fig = _plot_psd(self, fig, self.freq, psd_list, picks_list, titles_list,
-                        units_list, scalings_list, ax_list, make_label, color,
-                        area_mode, area_alpha, dB, estimate, average,
-                        spatial_colors, xscale, line_alpha)
+        fig = _plot_psd(self, fig, self.freq[rng], psd_list, picks_list,
+                        titles_list, units_list, scalings_list, ax_list,
+                        make_label, color, area_mode, area_alpha, dB, estimate,
+                        average, spatial_colors, xscale, line_alpha)
         plt_show(show)
         return fig
 
@@ -363,7 +366,7 @@ class PSD(object):
 
         rng = find_range(self.freq, [fmin, fmax])
         self.freq = self.freq[rng]
-        self.psd = self.psd[..., rng]
+        self._data = self._data[..., rng]
 
     def copy(self):
         """Copy the instance of PSD."""
