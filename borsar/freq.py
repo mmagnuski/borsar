@@ -184,8 +184,9 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 # - [ ] add simple __repr__
 # - [ ] add .get_peak()
-# - [ ] attributes instead of returns in init docstring
-# - [ ] change ch_names attr to @property
+# - [ ] freqs instead of freq?
+# - [x] attributes instead of returns in init docstring
+# - [x] change ch_names attr to @property
 #                               def ch_names(self):
 class PSD(object):
     def __init__(self, psd, freq, info):
@@ -257,7 +258,7 @@ class PSD(object):
     # - [ ] add support for labeled grid (grid=True?)
     # - [ ] add support for passing axes
     def plot_topomap(self, freqs=None, fmin=None, fmax=None,
-                     extrapolate='head', outlines='skirt'):
+                     extrapolate='head', outlines='skirt', show=True):
         '''Plot topomap of given frequency range (or ranges).
 
         Properties
@@ -274,6 +275,8 @@ class PSD(object):
         outlines : str
             Outlines option for ``plot_topomap`` / ``Topo``. By default
             ``'skirt'``.
+        show : bool
+            FIXME
 
         Returns
         -------
@@ -283,10 +286,10 @@ class PSD(object):
 
         psd_array = self.average(fmin=fmin, fmax=fmax)
         return Topo(psd_array, self.info, extrapolate=extrapolate,
-                    outlines=outlines)
+                    outlines=outlines, show=show)
 
     # - [ ] consider: always 2d array if fmin and fmax are a list?
-    # - [ ] return array when fmin, fmax but psd if only epochs=True
+    # - [x] return array when fmin, fmax but psd if only epochs=True
     def average(self, fmin=None, fmax=None, epochs=True):
         '''Average epochs and/or frequency ranges. If frequency ranges are
         averaged over (``fmin`` and ``fmax`` are given) then a new data array
@@ -343,10 +346,10 @@ class PSD(object):
             psd_array = np.zeros((n_epochs, n_channels, n_ranges))
 
         for idx, rng in enumerate(ranges):
-            psd_array[:, idx] = self.data[:, rng].mean(axis=1)
+            psd_array[..., idx] = use_data[..., rng].mean(axis=-1)
 
         if n_ranges == 1:
-            psd_array = psd_array[:, 0]
+            psd_array = psd_array[..., 0]
 
         return psd_array
 
