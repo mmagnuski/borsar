@@ -49,7 +49,7 @@ def test_psd_class():
 
     # make sure plotting does not error
     psd.plot(dB=False, fmax=40, show=False)
-    psd.plot(fmax=40, average=True, show=False);
+    psd.plot(fmax=40, average=True, show=False)
 
     topo = psd.plot_topomap(fmin=10, fmax=12, show=False)
     assert isinstance(topo.axes, plt.Axes)

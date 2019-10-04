@@ -109,9 +109,10 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         return psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
                          tmin=tmin, tmax=tmax)
 
+
 # - [ ] make the default to be simple fft
-# - [ ] this would have to work both for Epochs and Raw
-# - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True, verbose=None
+# - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
+#                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
                 events=None, event_id=None, picks=None):
     """Compute power spectral density on Raw or Epochs.
@@ -142,7 +143,6 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     psd : borsar.freq.PSD
         PowerSpectralDensity (PSD) object.
     """
-    import mne
     from mne.time_frequency import psd_welch
 
     step = winlen / 4 if step is None else step
@@ -154,8 +154,9 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
                               picks=picks, n_per_seg=n_per_seg,
                               n_overlap=n_overlap)
     elif isinstance(inst, mne.io.BaseRaw):
-        psd, freq = compute_rest_psd(inst, events=events, event_id=event_id, tmin=tmin,
-                         tmax=tmax, winlen=winlen, step=step)
+        psd, freq = compute_rest_psd(inst, events=events, event_id=event_id,
+                                     tmin=tmin, tmax=tmax, winlen=winlen,
+                                     step=step)
     else:
         raise TypeError('`compute_psd` works only with Raw or Epochs data '
                         'formats, got {}'.format(type(inst)))
@@ -385,5 +386,6 @@ class PSD(object):
     def ch_names(self):
         """List of channel names."""
         return self.info['ch_names']
+
 
 PSD.plot.__doc__ = plot_epochs_psd.__doc__
