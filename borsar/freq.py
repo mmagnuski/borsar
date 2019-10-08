@@ -220,10 +220,10 @@ class PSD(object):
             Channel names.
         '''
         # add check for psd dimensions
-        if psd.ndim < 2 or psd.ndim > 3:
-            ValueError('`psd` array has to be 3d (epochs, channels, '
-                       'frequencies) or 2d (channels, frequencies), got array'
-                       'with {} dimensions.'.format(psd.ndim))
+        if (psd.ndim < 2) or (psd.ndim > 3):
+            raise ValueError('`psd` array has to be 3d (epochs, channels, '
+                             'frequencies) or 2d (channels, frequencies), got '
+                             'array with {} dimensions.'.format(psd.ndim))
         self._has_epochs = False if psd.ndim == 2 else True
         self._data = psd
         self.freqs = freqs
