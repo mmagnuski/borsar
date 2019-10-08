@@ -7,9 +7,9 @@ from .utils import valid_windows, find_range
 from .viz import Topo
 
 
+# [ ] event_id should support dict!
 # [ ] change name to compute_psd_raw
 # [ ] use annotations when event_id was passed as str or list of str
-# [ ] event_id should support dict!
 def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                      winlen=2., step=None, padto=None, picks=None):
     '''
@@ -32,8 +32,9 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         `tmax` are not calculated with respect to events but the whole time
         range of the `raw` file.
     event_id: list | numpy array
-        Event types to use in defining segments for which psd is computed.
-        If None (default) and events were passed all event types are used.
+        Event types (IDs) to use in defining segments for which psd is
+        computed. If None (default) and events were passed all event types are
+        used.
     tmin: float
         Lower edge of each segment in seconds. If events are given the lower
         edge is with respect to each event. If events are not given only one
@@ -145,8 +146,9 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     events : numpy.ndarray | None
         mne events array (n_events by 3). Used only when event-related PSD
         calculation is used.
-    event_id :
-        FIXME
+    event_id : int | list of int | array of int
+        The id of the event to consider. If a list, all events with the IDs
+        specified in the list are used. If None, all events will be used.
     picks : list/array of int | list of str | None
         Channels to use in PSD calculation. The default (``None``) uses all
         data channels.
@@ -196,11 +198,6 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 
 # - [ ] LATER: add .get_peak()
-# - [x] add simple __repr__
-# - [x] freqs instead of freq?
-# - [x] attributes instead of returns in init docstring
-# - [x] change ch_names attr to @property
-#                               def ch_names(self):
 class PSD(object):
     def __init__(self, psd, freqs, info):
         '''Construct PowerSpectralDensity (PSD) object.
@@ -249,6 +246,8 @@ class PSD(object):
         base_str = base_str + freq_str + '>'
         return base_str
 
+    # - [ ] check if the way we copy docs from mne makes this so slow when
+    #       reloading (autoreload in ipython/spyder/notebook)...
     def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
              bandwidth=None, adaptive=False, low_bias=True,
              normalization='length', picks=None, ax=None, color='black',
@@ -304,7 +303,7 @@ class PSD(object):
             Outlines option for ``plot_topomap`` / ``Topo``. By default
             ``'skirt'``.
         show : bool
-            FIXME - copy from mne?
+            Show figure if True.
 
         Returns
         -------
@@ -316,7 +315,6 @@ class PSD(object):
                     outlines=outlines, show=show)
 
     # - [ ] consider: always 2d array if fmin and fmax are a list?
-    # - [x] return array when fmin, fmax but psd if only epochs=True
     def average(self, fmin=None, fmax=None, epochs=True):
         '''Average epochs and/or frequency ranges. If frequency ranges are
         averaged over (``fmin`` and ``fmax`` are given) then a new data array
