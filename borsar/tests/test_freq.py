@@ -20,16 +20,16 @@ def test_compute_rest_psd():
     raw._data[2, 10:14] = zigzag * 2
     raw._data[2, 21:25] = zigzag * 2
 
-    psd, freq = compute_rest_psd(raw, events=events, tmin=0., tmax=1.5,
+    psd, freqs = compute_rest_psd(raw, events=events, tmin=0., tmax=1.5,
                                  winlen=1., step=1.)
     assert psd[1][1, -1] > psd[1][0, -1]
     assert psd[2][2, -1] > psd[2][0, -1]
     assert psd[2][2, -1] > psd[1][1, -1]
 
-    psd2, freq2 = compute_rest_psd(raw, events=events, event_id=1, tmin=0.,
+    psd2, freqs2 = compute_rest_psd(raw, events=events, event_id=1, tmin=0.,
                                    tmax=1.5, winlen=1., step=1.)
     assert (psd2 == psd[1]).all()
-    assert (freq2 == freq).all()
+    assert (freqs2 == freqs).all()
 
 
 def test_psd_class():
@@ -59,7 +59,7 @@ def test_psd_class():
 
     # data shape checks
     assert len(psd.ch_names) == len(raw.ch_names)
-    assert psd.data.shape[-1] == len(psd.freq)
+    assert psd.data.shape[-1] == len(psd.freqs)
     assert psd.data.shape[-2] == len(raw.ch_names)
 
     avg_psd_arr = psd.average(fmin=10, fmax=12)
@@ -70,8 +70,8 @@ def test_psd_class():
     assert (psd.data == psd2.data).all()
 
     psd.crop(fmin=10, fmax=15)
-    assert (psd.freq[0] - 10) < 0.5
-    assert (psd.freq[-1] - 15) < 0.5
+    assert (psd.freqs[0] - 10) < 0.5
+    assert (psd.freqs[-1] - 15) < 0.5
 
     # test for (deep)copy
     psd2 = psd.copy()
@@ -106,11 +106,12 @@ def test_psd_class():
     # psd construction
     with pytest.raises(ValueError, match='has to be 3d'):
         use_data = psd_epo.data[..., np.newaxis]
-        psd = PSD(use_data, psd_epo.freq, raw.info)
+        psd = PSD(use_data, psd_epo.freqs, raw.info)
 
     with pytest.raises(ValueError, match='or 2d'):
         use_data = psd_epo.data[0, :, 0]
-        psd = PSD(use_data, psd_epo.freq, raw.info)
+        psd = PSD(use_data, psd_epo.freqs, raw.info)
+
 
     # missing:
     # compute_rest_psd when events is None

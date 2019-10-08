@@ -53,7 +53,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     -------
     psd : numpy array
         Power spectral density in <FIX: check shape> matrix.
-    freq : numpy array
+    freqs : numpy array
         Frequencies for which psd was calculated.
     '''
     from mne.time_frequency import psd_welch
@@ -84,7 +84,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
             this_tmax = event_onset + tmax
 
             # compute psd for given segment, then add to psd_dict
-            this_psd, freq = psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
+            this_psd, freqs = psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
                                        n_per_seg=n_per_seg, tmin=this_tmin,
                                        tmax=this_tmax, picks=picks,
                                        verbose=False)
@@ -103,7 +103,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         if len(event_id) == 1 and got_event_id:
             psd = psd[event_id[0]]
 
-        return psd, freq
+        return psd, freqs
     else:
         # use only tmin, tmax, a lot easier
         return psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
@@ -111,6 +111,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 
 
 # - [ ] make the default to be simple fft
+# - [ ] default winlen None - to default to tmax - tmin
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
@@ -169,13 +170,12 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     return psd
 
 
-def _convert_s_to_smp(s, sfreq):
-    return int(round(s * sfreq))
-
-
 def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
     sfreq = inst.info['sfreq']
     padto = winlen if padto is None else padto
+
+    def _convert_s_to_smp(s, sfreq):
+        return int(round(s * sfreq))
 
     n_per_seg, step_smp, n_fft = [_convert_s_to_smp(x, sfreq) for x in
                                   [winlen, step, padto]]
@@ -183,21 +183,22 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
     return n_per_seg, n_overlap, n_fft
 
 
-# - [ ] add simple __repr__
-# - [ ] add .get_peak()
-# - [ ] freqs instead of freq?
+# - [ ] LATER: add .get_peak()
+# - [x] add simple __repr__
+# - [x] freqs instead of freq?
 # - [x] attributes instead of returns in init docstring
 # - [x] change ch_names attr to @property
 #                               def ch_names(self):
 class PSD(object):
-    def __init__(self, psd, freq, info):
+    def __init__(self, psd, freqs, info):
         '''Construct PowerSpectralDensity (PSD) object.
 
         Parameters
         ----------
         psd : numpy.ndarray
-            Channels by frequencies matrix of spectrum values.
-        freq : numpy.ndarray
+            Channels by frequencies (or epochs by channels by frequencies)
+            matrix of spectrum values.
+        freqs : numpy.ndarray
             Vector of frequencies.
         info : mne.Info
             Info object with channel names and positions.
@@ -207,7 +208,7 @@ class PSD(object):
         data : numpy.ndarray
             The data array of either (channels, frequencies) shape or
             (epochs, channels, frequencies).
-        freq : numpy.ndarray
+        freqs : numpy.ndarray
             Frequencies.
         info : mne.Info
             Info object with channel names and positions.
@@ -221,7 +222,7 @@ class PSD(object):
                        'with {} dimensions.'.format(psd.ndim))
         self._has_epochs = False if psd.ndim == 2 else True
         self._data = psd
-        self.freq = freq
+        self.freqs = freqs
         self.info = info
 
     def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
@@ -238,8 +239,8 @@ class PSD(object):
                                               area_mode)
         del ax
 
-        fmax = self.freq[-1] if fmax is None else fmax
-        rng = find_range(self.freq, [fmin, fmax])
+        fmax = self.freqs[-1] if fmax is None else fmax
+        rng = find_range(self.freqs, [fmin, fmax])
 
         # create list of psd's (one element for each channel type)
         psd_list = list()
@@ -337,7 +338,7 @@ class PSD(object):
         assert len(fmin) == len(fmax)
         n_ranges = len(fmin)
         franges = [[mn, mx] for mn, mx in zip(fmin, fmax)]
-        ranges = find_range(self.freq, franges)
+        ranges = find_range(self.freqs, franges)
 
         n_channels = len(self.ch_names)
         if epochs or not self._has_epochs:
@@ -365,11 +366,11 @@ class PSD(object):
             Higher edge of frequency range. This frequency is included in the
             retained range.
         """
-        fmin = self.freq[0] if fmin is None else fmin
-        fmax = self.freq[-1] if fmax is None else fmax
+        fmin = self.freqs[0] if fmin is None else fmin
+        fmax = self.freqs[-1] if fmax is None else fmax
 
-        rng = find_range(self.freq, [fmin, fmax])
-        self.freq = self.freq[rng]
+        rng = find_range(self.freqs, [fmin, fmax])
+        self.freqs = self.freqs[rng]
         self._data = self._data[..., rng]
 
     def copy(self):
