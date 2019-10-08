@@ -229,6 +229,18 @@ class PSD(object):
         self.freqs = freqs
         self.info = info
 
+    def __repr__(self):
+        '''String representation of the PSD object.'''
+        base_str = '<borsar.freq.PSD {}'
+        dim_str = '{} channels, {} frequencies)'
+        pre_str = '({} epochs, ' if self._has_epochs else '('
+        dim_str = (pre_str + dim_str).format(*self.data.shape)
+        base_str = base_str.format(dim_str)
+
+        freq_str = ', {:g} - {:g} Hz'.format(*self.freqs[[0, -1]])
+        base_str = base_str + freq_str + '>'
+        return base_str
+
     def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
              bandwidth=None, adaptive=False, low_bias=True,
              normalization='length', picks=None, ax=None, color='black',

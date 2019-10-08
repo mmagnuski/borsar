@@ -112,6 +112,10 @@ def test_psd_class():
         use_data = psd_epo.data[0, :, 0]
         psd = PSD(use_data, psd_epo.freqs, raw.info)
 
+    # test for __repr__
+    psd_epo.crop(fmin=8, fmax=12)
+    rpr = '<borsar.freq.PSD (2 epochs, 64 channels, 9 frequencies), 8 - 12 Hz>'
+    assert str(psd_epo) == rpr
 
     # missing:
     # compute_rest_psd when events is None
