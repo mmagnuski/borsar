@@ -84,10 +84,18 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
             this_tmax = event_onset + tmax
 
             # compute psd for given segment, then add to psd_dict
-            this_psd, freqs = psd_welch(raw, n_fft=n_fft, n_overlap=n_overlap,
-                                       n_per_seg=n_per_seg, tmin=this_tmin,
-                                       tmax=this_tmax, picks=picks,
-                                       verbose=False)
+            try:
+                this_psd, freqs = psd_welch(
+                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
+                    tmin=this_tmin, tmax=this_tmax, picks=picks, average=None,
+                    verbose=False)
+                this_psd = np.nanmean(this_psd, axis=-1)
+            except TypeError:
+                # old psd function, no average kwarg...
+                this_psd, freqs = psd_welch(
+                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
+                    tmin=this_tmin, tmax=this_tmax, picks=picks, verbose=False)
+
             psd_dict[event_type].append(this_psd)
 
             # compute percent of windows that do not overlap with artifacts
@@ -338,7 +346,7 @@ class PSD(object):
         '''
         not_range = fmin is None and fmax is None
         if epochs and self._has_epochs:
-            use_data = self.data.mean(axis=0)
+            use_data = np.nanmean(self.data, axis=0)
             if not_range:
                 self._data = use_data
                 self._has_epochs = False
