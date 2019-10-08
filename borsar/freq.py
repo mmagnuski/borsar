@@ -120,24 +120,28 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
 
     Parameters
     ----------
-    inst :
-        FIXME
-    tmin :
-        FIXME
-    tmax :
-        FIXME
-    winlen :
-        FIXME
-    step :
-        FIXME
-    padto :
-        FIXME
-    events :
-        FIXME
+    inst : mne.io._BaseRaw | mne.Epochs
+        mne Epochs or Raw object to compute psd on.
+    tmin : float | None
+        Time (in seconds) marking the start of the time segment used in PSD
+        calculation.
+    tmax : float | None
+        Time (in seconds) marking the end of the time segment used in PSD
+        calculation.
+    winlen : float
+        Welch window length (in seconds). The default is 2 seconds.
+    step : float | None
+        Welch window step interval (in seconds).
+    padto : float | None
+        Length in seconds to which each Welch window should be zero-padded.
+    events : numpy.ndarray | None
+        mne events array (n_events by 3). Used only when event-related PSD
+        calculation is used.
     event_id :
         FIXME
-    picks :
-        FIXME
+    picks : list/array of int | list of str | None
+        Channels to use in PSD calculation. The default (``None``) uses all
+        data channels.
 
     Returns
     -------
@@ -250,27 +254,29 @@ class PSD(object):
                 this_psd = this_psd.mean(axis=0)
             psd_list.append(this_psd)
 
-        fig = _plot_psd(self, fig, self.freq[rng], psd_list, picks_list,
+        fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
                         titles_list, units_list, scalings_list, ax_list,
                         make_label, color, area_mode, area_alpha, dB, estimate,
                         average, spatial_colors, xscale, line_alpha)
         plt_show(show)
         return fig
 
-    # - [ ] add support for labeled grid (grid=True?)
-    # - [ ] add support for passing axes
+    # - [ ] LATER: add support for labeled grid (grid=True?)
+    # - [ ] LATER: add support for passing axes
     def plot_topomap(self, freqs=None, fmin=None, fmax=None,
                      extrapolate='head', outlines='skirt', show=True):
         '''Plot topomap of given frequency range (or ranges).
 
         Properties
         ----------
-        fmin : value or list of values
+        fmin : value | list of values | None
             Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges.
-        fmax : value or list of values
+            a list of lower frequency ranges. By default ``None`` which uses
+            the lowest frequency.
+        fmax : value | list of values
             Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges.
+            a list of upper frequency ranges. By default ``None`` which uses
+            the highest frequency.
         extrapolate : str
             Extrapolate option for ``plot_topomap`` / ``Topo``. By default
             ``'head'``.
@@ -278,14 +284,13 @@ class PSD(object):
             Outlines option for ``plot_topomap`` / ``Topo``. By default
             ``'skirt'``.
         show : bool
-            FIXME
+            FIXME - copy from mne?
 
         Returns
         -------
         tp : borsar.viz.Topo
             Instance of ``borsar.viz.Topo``.
         '''
-
         psd_array = self.average(fmin=fmin, fmax=fmax)
         return Topo(psd_array, self.info, extrapolate=extrapolate,
                     outlines=outlines, show=show)
@@ -299,12 +304,14 @@ class PSD(object):
 
         Parameters
         ----------
-        fmin : value | list of values
+        fmin : value | list of values | None
             Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges.
+            a list of lower frequency ranges. If ``None`` then frequency range
+            is not averaged. Defaults to ``None``.
         fmax : value | list of values
             Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges.
+            a list of upper frequency ranges. If ``None`` then frequency range
+            is not averaged. Defaults to ``None``.
         epochs : bool
             Whether to average epochs.
 
@@ -360,11 +367,13 @@ class PSD(object):
 
         Parameters
         ----------
-        fmin : value
-            Lower edge of frequency range.
-        fmax : value
+        fmin : valu | None
+            Lower edge of frequency range. The default is ``None`` which takes
+            the lowest frequency.
+        fmax : value | None
             Higher edge of frequency range. This frequency is included in the
-            retained range.
+            retained range. The default is ``None`` which takes the highest
+            frequency.
         """
         fmin = self.freqs[0] if fmin is None else fmin
         fmax = self.freqs[-1] if fmax is None else fmax

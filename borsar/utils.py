@@ -12,10 +12,10 @@ def find_range(vec, ranges):
 
     Parameters
     ----------
-    vec : numpy array
+    vec : numpy.ndarray
         Vector of sorted values.
     ranges: list of tuples/lists | two-element list/tuple
-        Ranges or range to be found.
+        Range (or ranges) to be found.
 
     Returns
     -------
@@ -48,7 +48,7 @@ def find_index(vec, vals):
 
     Parameters
     ----------
-    vec : numpy array
+    vec : numpy.ndarray
         Vector of values.
     vals: list of values | value
         Values to find closest representatives of in the `vec` vector.
