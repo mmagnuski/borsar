@@ -12,10 +12,10 @@ def find_range(vec, ranges):
 
     Parameters
     ----------
-    vec : numpy array
+    vec : numpy.ndarray
         Vector of sorted values.
     ranges: list of tuples/lists | two-element list/tuple
-        Ranges or range to be found.
+        Range (or ranges) to be found.
 
     Returns
     -------
@@ -48,7 +48,7 @@ def find_index(vec, vals):
 
     Parameters
     ----------
-    vec : numpy array
+    vec : numpy.ndarray
         Vector of values.
     vals: list of values | value
         Values to find closest representatives of in the `vec` vector.
@@ -397,7 +397,8 @@ def download_test_data():
     data_dir = _get_test_data_dir()
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
                    op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
-                   'chan_alpha_range.hdf5', 'test_clustering.npy']
+                   'chan_alpha_range.hdf5', 'test_clustering.npy',
+                   'DiamSar_023_rest_raw.fif']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 

@@ -277,6 +277,7 @@ class Topo(object):
 
         has_axis = 'axes' in kwargs.keys()
         if has_axis:
+            # axis was passed, check if valid
             axes = kwargs['axes']
             if self.multi_axes:
                 # multiple topos and axes were passed, check if axes correct
@@ -292,9 +293,12 @@ class Topo(object):
                 plt.sca(axes)  # FIXME - this may not be needed in future
                 self.axes = [axes]
         else:
+            # no axes passed, create figure and axes
             if self.multi_axes:
                 # create a row of topographies
-                fig, axes = plt.subplots(ncols=self.n_topos)
+                n_per_topo = 2.5
+                figsize = (n_per_topo * self.n_topos, n_per_topo)
+                fig, axes = plt.subplots(ncols=self.n_topos, figsize=figsize)
                 self.axes = axes.tolist()
             else:
                 fig, axes = plt.subplots()
