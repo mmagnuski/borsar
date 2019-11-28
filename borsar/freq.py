@@ -124,7 +124,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 # - [ ] default winlen None - to default to tmax - tmin
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
-def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
+def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                 events=None, event_id=None, picks=None):
     """Compute power spectral density on Raw or Epochs.
 
@@ -161,8 +161,9 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     """
     from mne.time_frequency import psd_welch
 
+    if winlen is None and (tmin is not None and tmax is not None):
+        winlen = tmax - tmin
     step = winlen / 4 if step is None else step
-
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
             inst, winlen, step, padto)
