@@ -170,11 +170,14 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
                               picks=picks, n_per_seg=n_per_seg,
                               n_overlap=n_overlap)
-        if events and event_id:
+        # FIXME: this will need fixing:
+        #  * inst has events and event_id
+        #  * can the user pass events? should it be ignored?
+        if event_id is not None:
             # check which epochs were selected
             chosen_events = (list(event_id.values())
                              if isinstance(event_id, dict) else event_id)
-            msk = np.in1d(events[:, -1], chosen_events)
+            msk = np.in1d(inst.events[:, -1], chosen_events)
             this_inst = inst[msk]
 
             events = this_inst.events
@@ -189,6 +192,7 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         psd, freq = compute_rest_psd(inst, events=events, event_id=event_id,
                                      tmin=tmin, tmax=tmax, winlen=winlen,
                                      step=step)
+        metadata = None
     else:
         raise TypeError('`compute_psd` works only with Raw or Epochs data '
                         'formats, got {}'.format(type(inst)))
