@@ -398,7 +398,7 @@ def download_test_data():
     check_files = ['alpha_range_clusters.hdf5', 'DiamSar-eeg-oct-6-fwd.fif',
                    op.join('fsaverage', 'bem', 'fsaverage-ico-5-src.fif'),
                    'chan_alpha_range.hdf5', 'test_clustering.npy',
-                   'DiamSar_023_rest_raw.fif']
+                   'DiamSar_023_rest_raw.fif', 'GabCon-48_epo.fif']
     if all([op.isfile(op.join(data_dir, f)) for f in check_files]):
         return
 
