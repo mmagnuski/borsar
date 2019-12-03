@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 import mne
 from mne.viz.epochs import plot_epochs_psd
+from mne.utils import GetEpochsMixin
 
 from .utils import valid_windows, find_range
 from .viz import Topo
@@ -123,7 +124,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 # - [ ] default winlen None - to default to tmax - tmin
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
-def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
+def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                 events=None, event_id=None, picks=None):
     """Compute power spectral density on Raw or Epochs.
 
@@ -160,18 +161,38 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     """
     from mne.time_frequency import psd_welch
 
+    if winlen is None and (tmin is not None and tmax is not None):
+        winlen = tmax - tmin
     step = winlen / 4 if step is None else step
-
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
             inst, winlen, step, padto)
         psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
                               picks=picks, n_per_seg=n_per_seg,
                               n_overlap=n_overlap)
+        # FIXME: this will need fixing:
+        #  * inst has events and event_id
+        #  * can the user pass events? should it be ignored?
+        if event_id is not None:
+            # check which epochs were selected
+            chosen_events = (list(event_id.values())
+                             if isinstance(event_id, dict) else event_id)
+            msk = np.in1d(inst.events[:, -1], chosen_events)
+            this_inst = inst[msk]
+
+            events = this_inst.events
+            event_id = this_inst.event_id
+            metadata = this_inst.metadata
+        else:
+            events = inst.events
+            event_id = inst.event_id
+            metadata = inst.metadata
+
     elif isinstance(inst, mne.io.BaseRaw):
         psd, freq = compute_rest_psd(inst, events=events, event_id=event_id,
                                      tmin=tmin, tmax=tmax, winlen=winlen,
                                      step=step)
+        metadata = None
     else:
         raise TypeError('`compute_psd` works only with Raw or Epochs data '
                         'formats, got {}'.format(type(inst)))
@@ -179,7 +200,9 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=2., step=None, padto=None,
     # construct PSD object
     picks_int = mne.selection.pick_types(inst.info, eeg=True, selection=picks)
     info = mne.pick_info(inst.info, sel=picks_int)
-    psd = PSD(psd, freq, info)
+
+    psd = PSD(psd, freq, info, events=events, event_id=event_id,
+              metadata=metadata)
 
     return psd
 
@@ -198,8 +221,9 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 
 # - [ ] LATER: add .get_peak()
-class PSD(object):
-    def __init__(self, psd, freqs, info):
+class PSD(GetEpochsMixin):
+    def __init__(self, psd, freqs, info, events=None, event_id=None,
+                 metadata=None):
         '''Construct PowerSpectralDensity (PSD) object.
 
         Parameters
@@ -233,6 +257,17 @@ class PSD(object):
         self._data = psd
         self.freqs = freqs
         self.info = info
+
+        # make sure that event, event_id and metadata are used only when
+        # _has_epochs
+        if self._has_epochs:
+            self.preload = True
+            self.events = events
+            self.event_id = event_id
+            self._metadata = metadata
+
+        # otherwise - disable indexing
+        # FIXME
 
     def __repr__(self):
         '''String representation of the PSD object.'''

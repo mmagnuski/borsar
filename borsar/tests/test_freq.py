@@ -119,3 +119,20 @@ def test_psd_class():
 
     # missing:
     # compute_rest_psd when events is None
+
+    # Epochs with metadata
+    # --------------------
+    # read data
+    epochs_fname = op.join(data_dir, 'GabCon-48_epo.fif')
+    epochs = mne.read_epochs(epochs_fname, preload=True)
+
+    assert epochs.metadata is not None
+
+    psd = compute_psd(epochs, tmin=0.5, tmax=1.)
+    assert psd.data.ndim == 3
+    assert psd.data.shape[0] == epochs._data.shape[0]
+
+    psd_slow = psd['RT > 0.65']
+    epochs_slow = epochs['RT > 0.65']
+    # TODO: later use len(psd_slow) here
+    assert len(epochs_slow) == psd_slow.data.shape[0]
