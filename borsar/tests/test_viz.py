@@ -8,6 +8,7 @@ from borsar.channels import select_channels
 from borsar.freq import compute_rest_psd
 from borsar.utils import find_range, _get_test_data_dir
 from borsar.viz import Topo, _extract_topo_channels
+from borsar._heatmap import _create_cluster_contour
 
 
 data_dir = _get_test_data_dir()
@@ -122,3 +123,30 @@ def test_multi_topo():
     for tp, mrk in zip(topo, mark_idxs):
         mark_pos = np.stack(tp.marks[0].get_data(), axis=1)
         assert (mark_pos == tp.chan_pos[mrk, :]).all()
+
+
+def test_outlines():
+    # test 01
+    img = np.random.rand(10, 10) > 0.65
+    plt.imshow(img)
+    cntr = _create_cluster_contour(img)
+    for cnt in cntr:
+        x, y = cnt
+        plt.plot(x, y, color='w', lw=2)
+
+    # test 02
+    data = np.zeros((5, 5), dtype='bool')
+    data[[1, 2, 2, 3], [0, 0, 1, 1]] = True
+    data[[1, 1, 2, 3, 2], [2, 3, 3, 3, 4]] = True
+    cntr = _create_cluster_contour(data)
+
+    correct_cntr = [[np.array([-0.5,  0.5,  0.5,  1.5,  1.5,  0.5,  0.5, -0.5,
+                               -0.5]),
+                     np.array([0.5, 0.5, 1.5, 1.5, 3.5, 3.5, 2.5, 2.5, 0.5])],
+                    [np.array([1.5, 3.5, 3.5, 4.5, np.nan, 4.5, 3.5, 3.5, 2.5,
+                               2.5, 1.5, 1.5]),
+                     np.array([0.5, 0.5, 1.5, 1.5, np.nan, 2.5, 2.5, 3.5, 3.5,
+                               1.5, 1.5, 0.5])]]
+
+    for c1, c2 in zip(cntr, correct_cntr):
+        np.testing.assert_equal(c1, c2)
