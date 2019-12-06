@@ -11,3 +11,25 @@ def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
     cax = divider.append_axes(side, size=size, pad=pad)
     cbar = plt.colorbar(source, cax=cax)
     return cbar
+
+
+def color_limits(data):
+    '''Set color limits from data.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data to set colorlimits for.
+
+    Returns
+    -------
+    vmin : float
+        Minimum value for the colormap.
+    vmax : float
+        Maximum value for the colormap.
+    '''
+    if data.dtype == 'bool':
+        return 0., 1.
+
+    vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
+    return -vmax, vmax

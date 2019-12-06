@@ -7,7 +7,7 @@ import pytest
 from borsar.channels import select_channels
 from borsar.freq import compute_rest_psd
 from borsar.utils import find_range, _get_test_data_dir
-from borsar.viz import Topo, _extract_topo_channels
+from borsar.viz import Topo, _extract_topo_channels, heatmap
 from borsar._heatmap import _create_cluster_contour
 
 
@@ -140,8 +140,8 @@ def test_outlines():
     data[[1, 1, 2, 3, 2], [2, 3, 3, 3, 4]] = True
     cntr = _create_cluster_contour(data)
 
-    correct_cntr = [[np.array([-0.5,  0.5,  0.5,  1.5,  1.5,  0.5,  0.5, -0.5,
-                               -0.5]),
+    correct_cntr = [[np.array([-0.5, 0.5, 0.5, 1.5, 1.5,
+                               0.5, 0.5, -0.5, -0.5]),
                      np.array([0.5, 0.5, 1.5, 1.5, 3.5, 3.5, 2.5, 2.5, 0.5])],
                     [np.array([1.5, 3.5, 3.5, 4.5, np.nan, 4.5, 3.5, 3.5, 2.5,
                                2.5, 1.5, 1.5]),
@@ -150,3 +150,17 @@ def test_outlines():
 
     for c1, c2 in zip(cntr, correct_cntr):
         np.testing.assert_equal(c1, c2)
+
+    # add test for outlines with extent
+    # FIXME
+
+
+def test_heatmap():
+    data = np.random.rand((5, 6))
+    x = np.linspace(10, 12, num=6)
+    y = np.linspace(3, 9, num=5)
+
+    heatmap(data)
+    heatmap(data, x_axis=x)
+    heatmap(data, x_axis=x, y_axis=y)
+    heatmap(data, x_axis=x, y_axis=y, mask=data > 0.5)

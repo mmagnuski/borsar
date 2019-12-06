@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from .channels import get_ch_pos
 from ._heatmap import heatmap
-from ._vizutils import add_colorbar_to_axis
+from ._vizutils import add_colorbar_to_axis, color_limits
 
 
 # CONSIDER:

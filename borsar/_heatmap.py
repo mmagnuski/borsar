@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ._vizutils import add_colorbar_to_axis, color_limits
+
 
 def _masked_image(img, mask=None, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
-                 axis=None, **imshow_kwargs):
+                  axis=None, **imshow_kwargs):
     '''Create imshow image with alpha mask.'''
     defaults = {'interpolation': 'none', 'origin': 'lower'}
     defaults.update(imshow_kwargs)
@@ -14,7 +16,7 @@ def _masked_image(img, mask=None, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     # plot images
     main_img = axis.imshow(img, **defaults)
     if mask is not None:
-        mask_img = add_image_mask(mask, alpha=alpha, mask_color=mask_color,
+        mask_img = _add_image_mask(mask, alpha=alpha, mask_color=mask_color,
                                   axis=axis, **defaults)
         return main_img, mask_img
     else:
@@ -200,7 +202,7 @@ def _create_cluster_contour(mask, extent=None):
                     new_edge = edge
                     lines[current_edge][ind] = -1
                     break
-                elif lines[edge][test_ind] == -1: # -1 means 'visited'
+                elif lines[edge][test_ind] == -1:  # -1 means 'visited'
                     closed_shape = True
                     new_edge = 'finish'
                     lines[current_edge][ind] = -1
