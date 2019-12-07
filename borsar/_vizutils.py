@@ -14,6 +14,7 @@ def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
     return cbar
 
 
+# - [ ] add some option mne 3d brain cmap dict-style
 def color_limits(data):
     '''Set color limits from data.
 
