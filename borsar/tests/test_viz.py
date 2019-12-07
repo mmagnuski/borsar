@@ -156,10 +156,11 @@ def test_outlines():
 
 
 def test_heatmap():
-    data = np.random.rand((5, 6))
+    data = np.random.random((5, 6))
     x = np.linspace(10, 12, num=6)
     y = np.linspace(3, 9, num=5)
 
+    # currently just smoke tests
     heatmap(data)
     heatmap(data, x_axis=x)
     heatmap(data, x_axis=x, y_axis=y)
