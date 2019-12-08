@@ -176,8 +176,8 @@ def test_heatmap():
     heatmap(data, x_axis=x, y_axis=y, mask=msk)
     heatmap(data, x_axis=x, y_axis=y, mask=msk, outlines=True)
 
-    main_img = plt.imshow(data)
-    mask_img = _add_image_mask(msk)
+    plt.imshow(data)
+    _add_image_mask(msk)
     plt.close('all')
 
 

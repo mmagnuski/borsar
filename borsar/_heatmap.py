@@ -23,7 +23,6 @@ def _masked_image(img, mask=None, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
         return main_img
 
 
-# - [ ] should check for image extent, origin etc.
 def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
                     axis=None, **imshow_kwargs):
     if axis is None:
@@ -46,7 +45,7 @@ def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# - [ ] multiple masks, multiple alpha, multiple outline_colors?
+# - [ ] multiple masks, multiple outline_colors, multiple alpha?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
             vmin=None, vmax=None, line_kwargs=dict(), **kwargs):
@@ -125,12 +124,12 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
 
 # TODOs:
-# create_contour:
-# - [ ] docstring
+# - [x] docstring
+# - [ ] rename to create_contour?
 # - [ ] check timing and compare against numba version
 #       numba would require some changes, we'd have to remove all the dicts
 #
-# separate cluter_contour?:
+# separate cluter_contour?
 # - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
