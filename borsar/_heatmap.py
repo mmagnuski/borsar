@@ -17,7 +17,7 @@ def _masked_image(img, mask=None, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     main_img = axis.imshow(img, **defaults)
     if mask is not None:
         mask_img = _add_image_mask(mask, alpha=alpha, mask_color=mask_color,
-                                  axis=axis, **defaults)
+                                   axis=axis, **defaults)
         return main_img, mask_img
     else:
         return main_img

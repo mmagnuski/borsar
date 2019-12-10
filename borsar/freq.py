@@ -4,7 +4,7 @@ import mne
 from mne.viz.epochs import plot_epochs_psd
 from mne.utils import GetEpochsMixin
 
-from .utils import valid_windows, find_range
+from .utils import valid_windows, find_range, find_index
 from .viz import Topo
 
 
@@ -161,8 +161,13 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     """
     from mne.time_frequency import psd_welch
 
+    if tmax is not None and tmin is None:
+        tmin = 0.
     if winlen is None and (tmin is not None and tmax is not None):
         winlen = tmax - tmin
+    # FIXME - maybe check: if one long winlen and at least some bad annotations
+    #         there should be some warning in compute_psd_raw if all data is nan
+    #         due to annotations
     step = winlen / 4 if step is None else step
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
@@ -315,6 +320,42 @@ class PSD(GetEpochsMixin):
         plt_show(show)
         return fig
 
+    def to_evoked(self):
+        '''Turn the PSD object to Evoked to use standard mne functions like
+        mne.viz.plot_compare_evokeds.'''
+        freq_diff = np.diff(self.freqs)[0]
+        sfreq = 1 / freq_diff
+        info = self.info.copy()
+        info['sfreq'] = sfreq
+        psd_evkd = mne.EvokedArray(self.data, info, tmin=self.freqs[0])
+        return psd_evkd
+
+    def plot_joint(self, freqs=None, fmin=None, fmax=None):
+        '''The same as plot_joint for Evokeds but for PSDS.
+
+        Parameters
+        ----------
+        freqs : float | list of float
+            Frequencies to plot as topomaps.
+        fmin : float
+            Frequency to start the line plot from.
+        fmax : float
+            Frequency to end the line plot with.
+        '''
+        psd_evkd = self.to_evoked()
+        if fmin is not None or fmax is not None:
+            psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
+        fig = psd_evkd.plot_joint(times=freqs)
+
+        # set up labels
+        axs = fig.axes
+        axs[0].set_xlabel('Frequency (Hz)')
+        axs[0].set_ylabel('Power')
+
+        for ax in axs[1:-3]:
+            ttl = ax.get_title()
+            ax.set_title(ttl.replace(' s', ' Hz'))
+
     # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
     def plot_topomap(self, freqs=None, fmin=None, fmax=None,
@@ -345,7 +386,13 @@ class PSD(GetEpochsMixin):
         tp : borsar.viz.Topo
             Instance of ``borsar.viz.Topo``.
         '''
-        psd_array = self.average(fmin=fmin, fmax=fmax)
+        if freqs is None:
+            psd_array = self.average(fmin=fmin, fmax=fmax)
+        else:
+            # FIXME - later check if fmin and fmax - these could refer to
+            #         around freq averaging
+            idxs = find_index(self.freqs, freqs)
+            psd_array = self.data[:, idxs]
         return Topo(psd_array, self.info, extrapolate=extrapolate,
                     outlines=outlines, show=show)
 
