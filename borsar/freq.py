@@ -65,6 +65,8 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
         raw, winlen, step, padto)
 
+    # FIXME - add warning when event_id is something and events are not passed
+    #         or warn and use annotations
     if events is not None:
         # select events
         got_event_id = event_id is not None
@@ -345,6 +347,8 @@ class PSD(GetEpochsMixin):
         psd_evkd = self.to_evoked()
         if fmin is not None or fmax is not None:
             psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
+
+        freqs = 'peaks' if freqs is None else freqs
         fig = psd_evkd.plot_joint(times=freqs)
 
         # set up labels
@@ -359,7 +363,8 @@ class PSD(GetEpochsMixin):
     # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
     def plot_topomap(self, freqs=None, fmin=None, fmax=None,
-                     extrapolate='head', outlines='skirt', show=True):
+                     extrapolate='head', outlines='skirt', show=True,
+                     vmin=None, vmax=None):
         '''Plot topomap of given frequency range (or ranges).
 
         Properties
@@ -392,9 +397,10 @@ class PSD(GetEpochsMixin):
             # FIXME - later check if fmin and fmax - these could refer to
             #         around freq averaging
             idxs = find_index(self.freqs, freqs)
-            psd_array = self.data[:, idxs]
+            psd = self.average().data if self._has_epochs else self.data
+            psd_array = psd[:, idxs]
         return Topo(psd_array, self.info, extrapolate=extrapolate,
-                    outlines=outlines, show=show)
+                    outlines=outlines, show=show, vmin=vmin, vmax=vmax)
 
     # - [ ] consider: always 2d array if fmin and fmax are a list?
     def average(self, fmin=None, fmax=None, epochs=True):
