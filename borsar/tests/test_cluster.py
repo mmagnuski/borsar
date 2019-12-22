@@ -801,17 +801,18 @@ def test_chan_freq_clusters():
     plt.close(topo.fig)
 
 
-def test_cluster_dims():
-    n_channels, n_samples = 15, 35
-    data = np.random.random((15, 35))
-    clusters = [np.random.random((15, 35)) >= 0.5]
-    dimnames = ['chan', 'time']
+def test_cluster_ignore_dims():
+    n_channels, n_times = 15, 35
     mntg = mne.channels.make_standard_montage('standard_1020')
     ch_names = mntg.ch_names[slice(0, 89, 6)]
-    times = np.linspace(-0.2, 0.5, num=n_samples)
+    times = np.linspace(-0.2, 0.5, num=n_times)
     sfreq = 1 / np.diff(times[:2])[0]
     info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
                            montage=mntg, verbose=False)
+
+    dimnames = ['chan', 'time']
+    data = np.random.random((n_channels, n_times))
+    clusters = [np.random.random((n_channels, n_times)) >= 0.5]
     clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
                     dimcoords=[ch_names, times], info=info)
 
@@ -820,7 +821,52 @@ def test_cluster_dims():
     assert _handle_dims(clst, 'time') == [1]
     assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
 
-    # check aggregation with dims passed
+    # check aggregation with ignored dims passed
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=[], ignore_space=True)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=-1)).all()
+
+    # WARNING - currently `ignore_dims=None` does `ignore_space=True`
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=None, ignore_space=False)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=-1)).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=[], ignore_space=False)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=(0, 1))).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['time'], ignore_space=False)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=0)).all()
+
+    # FIXME: additional checking cluster mask reduction
+
+    n_freqs = 15
+    freqs = np.arange(5, 20)
+    dimnames = ['chan', 'freq', 'time']
+    data = np.random.random((n_channels, n_freqs, n_times))
+    clusters = [np.random.random((n_channels, n_freqs, n_times)) >= 0.5]
+    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+                    dimcoords=[ch_names, freqs, times], info=info)
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['freq', 'time'], ignore_space=False)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=0)).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['freq'], ignore_space=False)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=(0, 2))).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['freq'], ignore_space=True)
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=2)).all()
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

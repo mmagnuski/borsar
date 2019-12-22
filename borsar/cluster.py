@@ -897,9 +897,10 @@ class Clusters(object):
         -------
         limits : tuple of slices
             Found cluster limits expressed as a slice for each dimension,
-            grouped together in a tuple. If `ignore_space=False` the spatial
-            dimension is returned as a numpy array of indices. Can be used in
-            indexing stat (`clst.stat[limits]`) or original data for example.
+            grouped together in a tuple. Can be used in indexing stat
+            (`clst.stat[limits]`) or original data for example.
+            If `ignore_space=False` the spatial dimension is returned as a
+            numpy array of indices.
         '''
         # TODO: add safety checks
         has_space = (self.dimnames is not None and
@@ -927,8 +928,8 @@ class Clusters(object):
 
     # TODO - make sure the when one dim is specified with coords and other with
     #        mass to retain, the mass is taken only from the part specified?
-    def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
-                  **kwargs):
+    def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
+                  ignore_space=True, **kwargs):
         '''
         Get indices (tuple of slices) selecting a specified range of data.
 
@@ -940,6 +941,11 @@ class Clusters(object):
             maximizing cluster mass along that dimnensions with mass to retain
             given either in relevant keyword argument or if not such keyword
             argument `retain_mass` value is used. See `kwargs`.
+        ignore_dims : str | list of str | None
+            Dimensions to ignore when finding cluster extent. Returned indices
+            corresponding to these dimensions will be empty slices (thus
+            including the whole extent for given dimension). ``None`` defaults
+            to the spatial dimension.
         retain_mass : float, optional
             If cluster_idx is passed then dimensions not adressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
@@ -969,20 +975,37 @@ class Clusters(object):
         '''
 
         if len(kwargs) > 0:
+            # check correctness of keyword arguments
+            # CHECK - is check_dimcoords necessary?
             normal_indexing, mass_indexing = _check_dimnames_kwargs(
-                self, **kwargs, check_dimcoords=True, split_range_mass=True)
+                self, **kwargs, ignore_dims=ignore_dims, check_dimcoords=True,
+                split_range_mass=True)
         else:
             normal_indexing, mass_indexing = kwargs, dict()
+
+        # ignore dimensions
+        if ignore_dims is not None:
+            for ignored in ignore_dims:
+                if ignored in normal_indexing:
+                    normal_indexing.pop(ignored)
 
         idx = _index_from_dim(self.dimnames, self.dimcoords,
                               **normal_indexing)
 
-        # when retain mass is specified use it to get ranges for
+        # when retain_mass is specified it is used to get ranges for
         # dimensions not adressed with kwargs
         # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
                           if isinstance(val, slice) and val == slice(None)]
+
+            # ignore dimensions
+            if ignore_dims is not None:
+                dim_idx = _handle_dims(clst, ignore_dims)
+                for ignored in dim_idx:
+                    if ignored in check_dims:
+                        check_dims.remove(ignored)
+
             # check cluster limits only if some dim limits were not specified
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
@@ -1460,9 +1483,17 @@ def _check_dimname_arg(clst, dimname):
     return idx
 
 
-def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
-                           allow_lists=True, **kwargs):
-    '''Ensure that **kwargs are correct dimnames and dimcoords.'''
+def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
+                           split_range_mass=False, allow_lists=True, **kwargs):
+    '''Ensure that **kwargs are correct dimnames and dimcoords.
+
+    ignore_dims : list of int?
+        Dimensions to ignore.
+    split_range_mass : bool
+        Whether to separate range (normal) and mass indices.
+    allow_lists : bool
+        Whether to allow passing lists or numpy arrays to specified dimensions.
+    '''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
                         'on named dimensions.')
@@ -1479,6 +1510,11 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
             msg = ('Could not find requested dimension {}. Available '
                    'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
+
+        if ignore_dims is not None and dim in ignore_dims:
+            msg = ("Dimension {} is both in `ignore_dims` and is used as"
+                   "keyword argument.")
+            raise ValueError(msg.format(dim))
 
         if not allow_lists and isinstance(kwargs[dim], (list, np.ndarray)):
             msg = ('Use of lists/numpy arrays of datapoints are not supported'

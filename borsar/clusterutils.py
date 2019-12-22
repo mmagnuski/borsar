@@ -59,7 +59,7 @@ def _handle_dims(clst, dims):
     '''Find indices of dimension names.'''
     if dims is None:
         if clst.dimnames[0] in ['chan', 'vert']:
-            return 0
+            return [0]
         else:
             raise ValueError("Can't infer the dimensions to plot when the"
                              " first dimension is not 'chan' or 'vert'."
@@ -78,8 +78,9 @@ def _handle_dims(clst, dims):
 #       removed.
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
-def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
-                       retain_mass=0.65, ignore_space=True, **kwargs):
+def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
+                       mask_proportion=0.5, retain_mass=0.65,
+                       ignore_space=True, **kwargs):
     '''Aggregate cluster mask and cluster stat map.
 
     Parameters
@@ -88,6 +89,10 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         Clusters object to use in aggregation.
     cluster_idx : int | list of int
         Cluster index ord indices to aggregate.
+    ignore_dims : str | list of str | None
+        Dimensions to leave out when aggregating. These dimensions are retained
+        and thus present in the output. ``None`` defaults to the spatial
+        dimension.
     mask_proportion : float
         When aggregating cluster mask: retain only mask elements that
         participate at least in ``mask_proportion`` part of the aggregated
@@ -132,14 +137,17 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
 
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
-    cluster_idx = [None] if len(clst) < max(cluster_idx) + 1 else cluster_idx
+    dim_idx = _handle_dims(clst, ignore_dims)
+    if cluster_idx[0] is not None:
+        cluster_idx = ([None] if len(clst) < max(cluster_idx) + 1
+                       else cluster_idx)
 
     # aggregating multiple clusters is eligible only when the dimname kwargs
     # exhaust the aggregated space and no dimension is set by retained mass
     if n_clusters > 1 and do_aggregation:
         dimnames = clst.dimnames.copy()
-        if ignore_space and dimnames[0] in ['chan', 'vert']:
-            dimnames.pop(0)
+        for dim in np.sort(dim_idx)[::-1]:
+            dimnames.pop(dim)
 
         non_exhausted = list()
         for dimname in dimnames:
@@ -157,18 +165,26 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
     if do_aggregation:
         # find indexing
         idx = clst.get_index(cluster_idx=cluster_idx[0],
+                             ignore_dims=ignore_dims,
                              retain_mass=retain_mass,
                              ignore_space=ignore_space, **kwargs)
         # FIXME - `reduce_axes` assumes `ignore_space=True`:
-        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim)
-                            if not isinstance(idx[ix], (np.ndarray, list)))
+        # CHECK/FIXME - why are the dimensions with a list of ndarray
+        #               not reduced? because they may be discontinuous?
+        start = 1 if ignore_space else 0
+        reduce_axes = tuple(ix for ix in range(start, clst.stat.ndim)
+                            if not (isinstance(idx[ix], (np.ndarray, list))
+                                    or ix in dim_idx))
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
 
-        clst_idx = (slice(None),) + idx
-        reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
-        clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
-                     axis=reduce_mask_axes) >= mask_proportion
-                     if cluster_idx[0] is not None else None)
+        if cluster_idx[0] is not None:
+            clst_idx = (slice(None),) + idx
+            reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
+            clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
+                         axis=reduce_mask_axes) >= mask_proportion
+                         if cluster_idx[0] is not None else None)
+        else:
+            clst_mask = None
     else:
         # no aggregation
         idx = (slice(None),)
