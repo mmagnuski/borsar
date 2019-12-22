@@ -55,11 +55,27 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
         return vmin, vmax
 
 
+def _handle_dims(clst, dims):
+    '''Find indices of dimension names.'''
+    if dims is None:
+        if clst.dimnames[0] in ['chan', 'vert']:
+            return 0
+        else:
+            raise ValueError("Can't infer the dimensions to plot when the"
+                             " first dimension is not 'chan' or 'vert'."
+                             " Please use ``dims`` argument.")
+    else:
+        if isinstance(dims, str):
+            dims = [dims]
+        dim_idx = [clst.dimnames.index(dim) for dim in dims]
+        return dim_idx
+
+
 # TODO:
 # - [ ] _aggregate_cluster aggregates by default everything except the spatial
 #       dimension. This would be problematic for spaces like [freq, time]
-#       consider adding ``along`` or ``dim`` argument. Then ``ignore_space``
-#       could be removed.
+#       consider adding ``dim`` argument. Then ``ignore_space`` could be
+#       removed.
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,

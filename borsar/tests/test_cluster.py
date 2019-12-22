@@ -19,7 +19,7 @@ from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             _check_description, _clusters_chan_vert_checks,
                             _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description,
+                                 _prepare_cluster_description, _handle_dims,
                                  _aggregate_cluster, _get_units)
 
 # setup
@@ -680,7 +680,7 @@ def test_clusters_safety_checks():
     # number of dimcoords has to match the number of dimensions
     stat = np.random.rand(5, 10)
     clusters = [np.random.rand(5, 10) > 0.8 for _ in range(3)]
-    info = mne.create_info([l for l in list('abcde')], 250.)
+    info = mne.create_info(list('abcde'), 250.)
 
     with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
         Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
@@ -799,6 +799,28 @@ def test_chan_freq_clusters():
     marker_kwargs = dict(marker='+')
     topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
+
+
+def test_cluster_dims():
+    n_channels, n_samples = 15, 35
+    data = np.random.random((15, 35))
+    clusters = [np.random.random((15, 35)) >= 0.5]
+    dimnames = ['chan', 'time']
+    mntg = mne.channels.make_standard_montage('standard_1020')
+    ch_names = mntg.ch_names[slice(0, 89, 6)]
+    times = np.linspace(-0.2, 0.5, num=n_samples)
+    sfreq = 1 / np.diff(times[:2])[0]
+    info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                           montage=mntg, verbose=False)
+    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+                    dimcoords=[ch_names, times], info=info)
+
+    # test that _handle_dims works well
+    assert _handle_dims(clst, 'chan') == [0]
+    assert _handle_dims(clst, 'time') == [1]
+    assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
+
+    # check aggregation with dims passed
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

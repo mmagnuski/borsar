@@ -4,7 +4,8 @@ from scipy import sparse
 from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
-from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
+from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
+                                 _handle_dims)
 from borsar.channels import find_channels
 
 
@@ -500,6 +501,9 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 # TODO - consider empty lists/arrays instead of None when no clusters...
 #      - [ ] add repr so that Cluster has nice text representation
 #      - [ ] add reading and writing to FieldTrip cluster structs
+#      - [ ] change order to stat, clusters, pvals
+#      - [ ] make stat, clusters and pvals keyword
+#      - [ ] make only stat necessary
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
