@@ -856,15 +856,29 @@ def test_cluster_ignore_dims():
     assert clst_mask is None
     assert (clst_stat == data.mean(axis=(1, 2))).all()
 
-    clst_mask, clst_stat, _ = _aggregate_cluster(
+    clst_mask, clst_stat1, _ = _aggregate_cluster(
         clst, [None], ignore_dims=['freq', 'time'])
     assert clst_mask is None
-    assert (clst_stat == data.mean(axis=0)).all()
+    assert (clst_stat1 == data.mean(axis=0)).all()
 
     clst_mask, clst_stat, _ = _aggregate_cluster(
         clst, [None], ignore_dims=['freq'])
     assert clst_mask is None
     assert (clst_stat == data.mean(axis=(0, 2))).all()
+
+    # test heatmap
+    # ------------
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'])
+    # make sure image data is correct
+    data = np.array(axs[0].images[0].get_array())
+    assert (clst.stat.mean(axis=0) == data).all()
+
+    # make sure axes are annotated correctly
+    ylab = axs[0].get_ylabel()
+    assert ylab == 'Frequency (Hz)'
+
+    xlab = axs[0].get_xlabel()
+    assert xlab == 'Time (s)'
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
