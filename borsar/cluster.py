@@ -5,7 +5,7 @@ from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
-                                 _handle_dims)
+                                 _handle_dims, _get_dimcoords, _label_axis)
 from borsar.channels import find_channels
 
 
@@ -983,12 +983,6 @@ class Clusters(object):
         else:
             normal_indexing, mass_indexing = kwargs, dict()
 
-        # ignore dimensions
-        if ignore_dims is not None:
-            for ignored in ignore_dims:
-                if ignored in normal_indexing:
-                    normal_indexing.pop(ignored)
-
         idx = _index_from_dim(self.dimnames, self.dimcoords,
                               **normal_indexing)
 
@@ -1001,7 +995,7 @@ class Clusters(object):
 
             # ignore dimensions
             if ignore_dims is not None:
-                dim_idx = _handle_dims(clst, ignore_dims)
+                dim_idx = _handle_dims(self, ignore_dims)
                 for ignored in dim_idx:
                     if ignored in check_dims:
                         check_dims.remove(ignored)
@@ -1009,8 +1003,9 @@ class Clusters(object):
             # check cluster limits only if some dim limits were not specified
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
-                    cluster_idx, ignore_space=ignore_space,
-                    retain_mass=retain_mass, idx=idx, **mass_indexing)
+                    cluster_idx, check_dims=check_dims,
+                    ignore_space=ignore_space, retain_mass=retain_mass,
+                    idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx
@@ -1037,8 +1032,8 @@ class Clusters(object):
 
         return plot_cluster_contribution(self, dimname, axis=axis)
 
-    def plot(self, cluster_idx=None, aggregate='mean', set_light=True,
-             vmin=None, vmax=None, mark_kwargs=None, **kwargs):
+    def plot(self, cluster_idx=None, dims=None, aggregate='mean',
+             set_light=True, vmin=None, vmax=None, mark_kwargs=None, **kwargs):
         '''
         Plot cluster.
 
@@ -1046,6 +1041,9 @@ class Clusters(object):
         ----------
         cluster_idx : int
             Cluster index to plot.
+        dims : str | list of str | None
+            Dimensions to plot. Defaults to ``None`` which plots only the
+            spatial dimension.
         aggregate : str
             TODO: mean, max, weighted
         vmin : float, optional
@@ -1096,8 +1094,8 @@ class Clusters(object):
                                     aggregate=aggregate, set_light=set_light,
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
-            return plot_cluster_chan(self, cluster_idx, vmin=vmin, vmax=vmax,
-                                     aggregate=aggregate,
+            return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
+                                     vmax=vmax, aggregate=aggregate,
                                      mark_kwargs=mark_kwargs, **kwargs)
 
 
@@ -1164,8 +1162,9 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     return axis
 
 
-def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
-                      vmax=None, mark_kwargs=None, **kwargs):
+# FIXME - allow for channel sorting (by region and y position)
+def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
+                      vmin=None, vmax=None, mark_kwargs=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
@@ -1174,6 +1173,9 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Clusters object to use in plotting.
     cluster_idx : int
         Cluster index to plot.
+    dims : str | list of str | None
+        Dimensions to visualize. By default (``None``) only spatial dimension
+        is plotted.
     aggregate : str
         TODO: mean, max, weighted
     vmin : float, optional
@@ -1212,51 +1214,110 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     > # to plot the second cluster selecting frequencies that make up at least
     > # 70% of the cluster mass:
     > clst.plot(cluster_idx=1, freq=0.7)
+    > # plot time-frequency representation of the first cluster:
+    > clst.plot(cluster_idx=0, dims=['freq', 'time'])
     '''
     # TODO - if cluster_idx is not None and there is no such cluster - error
     #      - if no clusters and None - plot without highlighting
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
-    # split kwargs into topo_kwargs and dim_kwargs
-    topo_kwargs, dim_kwargs = dict(), dict()
+    # split kwargs into plotfun_kwargs and dim_kwargs
+    plotfun_kwargs, dim_kwargs = dict(), dict()
     for k, v in kwargs.items():
         if k not in clst.dimnames:
-            topo_kwargs[k] = v
+            plotfun_kwargs[k] = v
         else:
             dim_kwargs[k] = v
 
+    # consider dims
+    dim_idx = _handle_dims(clst, dims)
+    dims = [clst.dimnames[ix] for ix in dim_idx]
+
     # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
+    # CONSIDER ? add retain_mass and mask_proportion to args?
     clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **dim_kwargs)
-    n_topos = clst_stat.shape[1] if clst_stat.ndim > 1 else 1
+        clst, cluster_idx, ignore_dims=dims, mask_proportion=0.5,
+        retain_mass=0.65, **dim_kwargs)
+    n_elements = clst_stat.shape[1] if clst_stat.ndim > len(dim_idx) else 1
 
-    # create Topo object
-    from borsar.viz import Topo
-    vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
-    topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
-                **topo_kwargs)
-    topo.solid_lines()
+    # Viz rules:
+    # ----------
+    # 1. if 1 spatial dim is plotted -> Topo
+    # 2. if 2 dims are plotted -> heatmap
+    # 3. if 1 non-spatial dim -> line
+    if len(dim_idx) == 1:
+        if dims[0] == 'chan':
 
-    # FIXME: temporary hack to make all channels more visible
-    # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
-    #                    markerfacecolor='k', linewidth=0.)
+            # topographical plot
+            # ------------------
 
-    if clst_mask is not None and clst_mask.any():
-        if mark_kwargs is not None:
-            if 'markersize' not in mark_kwargs:
-                mark_kwargs.update({'markersize': 5})
+            # create Topo object
+            from borsar.viz import Topo
+            vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
+                                   pysurfer=False)
+            topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
+                        **plotfun_kwargs)
+            topo.solid_lines()
+
+            # FIXME: temporary hack to make all channels more visible
+            # FIXME: this could be done via .set_... on relevant object
+            # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
+            #                    markerfacecolor='k', linewidth=0.)
+
+            # mark cluster channels
+            if clst_mask is not None and clst_mask.any():
+                if mark_kwargs is not None:
+                    if 'markersize' not in mark_kwargs:
+                        mark_kwargs.update({'markersize': 5})
+                else:
+                    mark_kwargs = dict(markersize=5)
+
+                if n_elements == 1:
+                    topo.mark_channels(clst_mask, **mark_kwargs)
+                else:
+                    for idx, tp in enumerate(topo):
+                        tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+
+            return topo
         else:
-            mark_kwargs = dict(markersize=5)
+            # line plot
+            # ---------
 
-        if n_topos == 1:
-            topo.mark_channels(clst_mask, **mark_kwargs)
-        else:
-            for idx, tp in enumerate(topo):
-                tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+            # FIXME - work in progress
+            # show a line plot of the effect
+            # plt.plot(clst_stat)
+            raise NotImplementedError
+            # add highligh (will have to wait for moving highligh from sarna)
+    elif len(dim_idx) == 2:
+        # heatmap
+        # -------
 
-    return topo
+        from .viz import heatmap
+        outlines = True
+        if clst_mask is not None and not clst_mask.any():
+            clst_mask = None
+
+        if clst_mask is None:
+            outlines = False
+        # else:
+        #     if clst_mask.ndim > len(dim_idx):
+        #         clst_mask = clst_mask.any(axis=(ix + 1 for ix i))
+
+        # get dimension coords
+        x_axis = _get_dimcoords(clst, dim_idx[1], idx[dim_idx[1]])
+        y_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
+
+        axs = heatmap(clst_stat, mask=clst_mask, outlines=outlines,
+                      x_axis=x_axis, y_axis=y_axis)
+
+        # add dimension labels
+        _label_axis(axs[0], clst, dim_idx[1], ax_dim='x')
+        _label_axis(axs[0], clst, dim_idx[0], ax_dim='y')
+
+        return axs
+    else:
+        raise ValueError("Can't plot more than two dimensions.")
 
 
 # - [ ] add special functions for handling dims like vert or chan

@@ -11,6 +11,42 @@ def _get_units(dimname, fullname=False):
                 'vert': 'vertices'}[dimname]
 
 
+def _full_dimname(dimname):
+    '''Return unit for specified dimension name.'''
+    return {'freq': 'frequency', 'time': 'time', 'vert': 'vertices'}[dimname]
+
+
+def _get_dimcoords(clst, dim_idx, idx=None):
+    if idx is None:
+        idx = slice(None)
+
+    if clst.dimcoords[dim_idx] is not None:
+        coords = clst.dimcoords[dim_idx][idx]
+    else:
+        numel = clst.stat.shape[dim_idx]
+        coords = np.arange(numel)[idx]
+    return coords
+
+
+def _label_axis(ax, clst, dim_idx, ax_dim):
+    dimname = clst.dimnames[dim_idx]
+    if dimname == 'chan':
+        label = 'Channels'
+    else:
+        label = _full_dimname(dimname).capitalize()
+        unit = _get_units(dimname)
+        label = label + ' ({})'.format(unit)
+
+    if ax_dim == 'x':
+        ax.set_xlabel(label, fontsize=12)
+        if dimname == 'chan':
+            ax.set_xticks([])
+    elif ax_dim == 'y':
+        ax.set_ylabel(label, fontsize=12)
+        if dimname == 'chan':
+            ax.set_yticks([])
+
+
 def _check_stc(clst):
     '''Make sure Clusters has a list of mne.SourceEstimate in stc attribute.'''
     import mne
@@ -72,15 +108,15 @@ def _handle_dims(clst, dims):
 
 
 # TODO:
-# - [ ] _aggregate_cluster aggregates by default everything except the spatial
+# - [x] _aggregate_cluster aggregates by default everything except the spatial
 #       dimension. This would be problematic for spaces like [freq, time]
 #       consider adding ``dim`` argument. Then ``ignore_space`` could be
 #       removed.
+# - [ ] make sure dimensions are sorted according to ``ignore_dims``
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
-                       mask_proportion=0.5, retain_mass=0.65,
-                       ignore_space=True, **kwargs):
+                       mask_proportion=0.5, retain_mass=0.65, **kwargs):
     '''Aggregate cluster mask and cluster stat map.
 
     Parameters
@@ -102,8 +138,6 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         ``**kwargs`` - define range to aggregate over by retaining at least
         ``retain_mass`` proportion of cluster mass along that dimension.
         FIXME - add note about "see also".
-    ignore_space : bool
-        Ignore spatial dimension in aggregation.
     **kwargs : additional arguments
         Additional arguments used in aggregation, defining the points to
         select (if argument value is a list of float) or the range to
@@ -130,7 +164,6 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         Indexers for the aggregated dimensions.
         See ``borsar.Cluster.get_index``
     '''
-    do_aggregation = clst.stat.ndim > 1
     cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
                    else cluster_idx)
     n_clusters = len(cluster_idx)
@@ -138,6 +171,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
     dim_idx = _handle_dims(clst, ignore_dims)
+    do_aggregation = clst.stat.ndim > 1 and (clst.stat.ndim - len(dim_idx) > 0)
+
     if cluster_idx[0] is not None:
         cluster_idx = ([None] if len(clst) < max(cluster_idx) + 1
                        else cluster_idx)
@@ -162,17 +197,15 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
                              'Some dimensions were not fully specified: '
                              '{}'.format(', '.join(non_exhausted)))
 
+    # find indexing
+    # FIXME - what if more clusters?
+    idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
+                         retain_mass=retain_mass, **kwargs)
+
     if do_aggregation:
-        # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx[0],
-                             ignore_dims=ignore_dims,
-                             retain_mass=retain_mass,
-                             ignore_space=ignore_space, **kwargs)
-        # FIXME - `reduce_axes` assumes `ignore_space=True`:
         # CHECK/FIXME - why are the dimensions with a list of ndarray
         #               not reduced? because they may be discontinuous?
-        start = 1 if ignore_space else 0
-        reduce_axes = tuple(ix for ix in range(start, clst.stat.ndim)
+        reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
                             if not (isinstance(idx[ix], (np.ndarray, list))
                                     or ix in dim_idx))
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
@@ -187,7 +220,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
             clst_mask = None
     else:
         # no aggregation
-        idx = (slice(None),)
+        # FIXME - what if more clusters?
         clst_stat = clst.stat.copy()
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)

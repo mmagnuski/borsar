@@ -151,8 +151,12 @@ def read_info(fname):
     mntg = None
     pos = data_dict['pos']
     if pos is not None and not np.isnan(pos).all():
-        mntg = mne.channels.Montage(pos, ch_names, 'unknown',
-                                    np.arange(pos.shape[0]))
+        try:
+            mntg = mne.channels.Montage(pos, ch_names, 'unknown',
+                                        np.arange(pos.shape[0]))
+        except AttributeError:
+            ch_pos = {chnm: chpos for chnm, chpos in zip(ch_names, pos)}
+            mntg = mne.channels.make_dig_montage(ch_pos=ch_pos)
 
     # create info
     info = mne.create_info(ch_names, data_dict['sfreq'],
