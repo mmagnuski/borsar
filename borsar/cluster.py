@@ -1183,7 +1183,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
     vmax : float, optional
         Value mapped to maximum in the colormap. Inferred from data by default.
     mark_kwargs : dict | None, optional
-        Keyword arguments for ``Topo.mark_channels``. For example:
+        Keyword arguments for ``Topo.mark_channels`` used to mark channels
+        participating in selected cluster. For example:
         ``mark_kwargs={'markersize': 3}`` to change the size of the markers.
         ``None`` defaults to ``{'markersize: 5'}``.
     **kwargs : additional arguments
@@ -1300,9 +1301,18 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
 
         if clst_mask is None:
             outlines = False
+
+        # CHECK - cluster reduction seems not to be necessary as it is done
+        #         cluster aggregation
         # else:
         #     if clst_mask.ndim > len(dim_idx):
         #         clst_mask = clst_mask.any(axis=(ix + 1 for ix i))
+
+        # make sure the dimension order is correct
+        if not (np.sort(dim_idx) == dim_idx).all():
+            clst_stat = clst_stat.T
+            if clst_mask is not None:
+                clst_mask = clst_mask.T
 
         # get dimension coords
         x_axis = _get_dimcoords(clst, dim_idx[1], idx[dim_idx[1]])

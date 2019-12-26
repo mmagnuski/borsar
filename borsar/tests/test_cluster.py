@@ -11,7 +11,8 @@ import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir, has_numba
+from borsar.utils import (download_test_data, _get_test_data_dir, has_numba,
+                          find_index)
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
                             cluster_based_regression, _get_mass_range,
@@ -840,7 +841,28 @@ def test_cluster_ignore_dims():
     assert clst_mask is None
     assert (clst_stat == data.mean(axis=0)).all()
 
-    # FIXME: additional checking cluster mask reduction
+    mark_kwargs = {'markerfacecolor': 'seagreen',
+                   'markeredgecolor': 'seagreen'}
+    topo = clst.plot(cluster_idx=0, time=[0.05, 0.15, 0.25, 0.35],
+                     outlines='skirt', extrapolate='head',
+                     mark_kwargs=mark_kwargs)
+
+    # * topo should be Topographies
+    assert isinstance(topo, borsar.viz.Topo)
+    assert len(topo) == 4
+
+    # * topo channels should have the picked color
+    assert topo.marks[1][0].get_markerfacecolor() == 'seagreen'
+    assert topo.marks[1][0].get_markeredgecolor() == 'seagreen'
+
+    # * check mask reduction - whether channel marks are where they should be
+    t2 = find_index(times, 0.15)
+    mask = clst.clusters[0][:, t2]
+    mark_pos = np.stack([x.data for x in topo.marks[1][0].get_data()], axis=1)
+    assert (topo.chan_pos[mask, :] == mark_pos).all()
+
+    # check whether topography is correct:
+    assert (topo.values[:, 1] == clst.stat[:, t2]).all()
 
     # time-frequency test
     # -------------------
@@ -874,11 +896,17 @@ def test_cluster_ignore_dims():
     assert (clst.stat.mean(axis=0) == data).all()
 
     # make sure axes are annotated correctly
+    xlab = axs[0].get_xlabel()
     ylab = axs[0].get_ylabel()
     assert ylab == 'Frequency (Hz)'
-
-    xlab = axs[0].get_xlabel()
     assert xlab == 'Time (s)'
+
+    # test that axes are inverted when dimension order is
+    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    data = np.array(axs[0].images[0].get_array())
+    assert (clst.stat.mean(axis=0).T == data).all()
+    assert axs[0].get_xlabel() == 'Frequency (Hz)'
+    assert axs[0].get_ylabel() == 'Time (s)'
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
