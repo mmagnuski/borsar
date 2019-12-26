@@ -21,7 +21,8 @@ from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description, _handle_dims,
-                                 _aggregate_cluster, _get_units)
+                                 _aggregate_cluster, _get_units,
+                                 _get_dimcoords, _label_axis)
 
 # setup
 download_test_data()
@@ -803,8 +804,8 @@ def test_chan_freq_clusters():
 
 
 def test_cluster_ignore_dims():
-    '''Test ignoring cluster dimensions in aggregation and dimension selection
-    in plotting.'''
+    '''Test 1. ignoring cluster dimensions in aggregation and 2. dimension
+    selection in plotting.'''
 
     # Evoked-like tests
     # -----------------
@@ -826,6 +827,13 @@ def test_cluster_ignore_dims():
     assert _handle_dims(clst, 'chan') == [0]
     assert _handle_dims(clst, 'time') == [1]
     assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
+
+    # _handle_dims can only take None as the second arg if the first dim
+    # in the CLusters is spatial
+    clst2 = clst.copy()
+    clst2.dimnames[0] = 'cheese'
+    with pytest.raises(ValueError, match="Can't infer dimensions to plot"):
+        _handle_dims(clst2, None)
 
     # check aggregation with ignored dims passed
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
@@ -872,7 +880,7 @@ def test_cluster_ignore_dims():
     data = np.random.random((n_channels, n_freqs, n_times))
     clusters = [np.random.random((n_channels, n_freqs, n_times)) >= 0.5]
     clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
-                    dimcoords=[ch_names, freqs, times], info=info)
+                    dimcoords=[None, freqs, times], info=info)
 
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
     assert clst_mask is None
@@ -907,6 +915,28 @@ def test_cluster_ignore_dims():
     assert (clst.stat.mean(axis=0).T == data).all()
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
     assert axs[0].get_ylabel() == 'Time (s)'
+
+    # _get_dimcoords
+    coords = _get_dimcoords(clst, 1)
+    assert (coords == clst.dimcoords[1]).all()
+
+    coords = _get_dimcoords(clst, 2)
+    assert (coords == clst.dimcoords[2]).all()
+
+    coords = _get_dimcoords(clst, 0)
+    assert (coords == np.arange(n_channels)).all()
+
+    idx = slice(2, 5)
+    coords = _get_dimcoords(clst, 0, idx=idx)
+    assert (coords == np.arange(n_channels)[idx]).all()
+
+    # _label_axis (aspects that are not tested earlier)
+    fig, ax = plt.subplots()
+    _label_axis(ax, clst, 0, 'x')
+    assert ax.get_xlabel() == 'Channels'
+
+    _label_axis(ax, clst, 0, 'y')
+    assert ax.get_ylabel() == 'Channels'
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
