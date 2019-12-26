@@ -4,6 +4,8 @@ import warnings
 
 import pytest
 import numpy as np
+import matplotlib.pyplot as plt
+
 from scipy import sparse
 from scipy.io import loadmat
 from skimage.filters import gaussian
@@ -831,8 +833,9 @@ def test_cluster_ignore_dims():
     # _handle_dims can only take None as the second arg if the first dim
     # in the CLusters is spatial
     clst2 = clst.copy()
+    clst2.dimnames = clst2.dimnames.copy()
     clst2.dimnames[0] = 'cheese'
-    with pytest.raises(ValueError, match="Can't infer dimensions to plot"):
+    with pytest.raises(ValueError, match="Can't infer the dimensions to plot"):
         _handle_dims(clst2, None)
 
     # check aggregation with ignored dims passed
