@@ -5,7 +5,8 @@ from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
-                                 _handle_dims, _get_dimcoords, _label_axis)
+                                 _handle_dims, _get_dimcoords, _label_axis,
+                                 _mark_cluster_range)
 from borsar.channels import find_channels
 
 
@@ -1287,9 +1288,13 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
 
             # FIXME - work in progress
             # show a line plot of the effect
-            # plt.plot(clst_stat)
-            raise NotImplementedError
-            # add highligh (will have to wait for moving highligh from sarna)
+            import matplotlib.pyplot as plt
+            x_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
+            fig, ax = plt.subplots()
+            ax.plot(x_axis, clst_stat)
+            _label_axis(ax, clst, dim_idx[0], ax_dim='x')
+            _mark_cluster_range(clst_mask, x_axis, ax)
+            return ax
     elif len(dim_idx) == 2:
         # heatmap
         # -------
