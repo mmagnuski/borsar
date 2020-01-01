@@ -1,5 +1,7 @@
 import numpy as np
-from borsar.stats import format_pvalue
+
+from .utils import group_mask
+from .stats import format_pvalue
 
 
 def _get_units(dimname, fullname=False):
@@ -29,6 +31,8 @@ def _get_dimcoords(clst, dim_idx, idx=None):
 
 
 def _label_axis(ax, clst, dim_idx, ax_dim):
+    '''Label x or y axis with relevant label according to cluster dimnames, its
+    unit and indexed range.'''
     dimname = clst.dimnames[dim_idx]
     if dimname == 'chan':
         label = 'Channels'
@@ -45,6 +49,25 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
         ax.set_ylabel(label, fontsize=12)
         if dimname == 'chan':
             ax.set_yticks([])
+
+
+def _mark_cluster_range(msk, x_values, ax):
+    from matplotlib.patches import Rectangle
+
+    alpha = 0.5
+    color = [0.75, 0.75, 0.75]
+
+    grp = group_mask(msk)
+    ylims = ax.get_ylim()
+    y_rng = np.diff(ylims)
+    hlf_dist = np.diff(x_values).mean()
+    for gr in grp:
+        this_x = x_values[gr[0]:gr[1] + 1]
+        start = this_x[0] - hlf_dist
+        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
+        ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
+                         facecolor=color, alpha=alpha)
+        ax.add_patch(ptch)
 
 
 def _check_stc(clst):
@@ -72,6 +95,7 @@ def _check_stc(clst):
 
 
 # prepare figure colorbar limits
+# - [ ] make more universal? there is already some public function for this...
 def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
     """Get color limits from data - rounding to steps of 0.5."""
     if vmin is None and vmax is None:
@@ -112,7 +136,8 @@ def _handle_dims(clst, dims):
 #       dimension. This would be problematic for spaces like [freq, time]
 #       consider adding ``dim`` argument. Then ``ignore_space`` could be
 #       removed.
-# - [ ] make sure dimensions are sorted according to ``ignore_dims``
+# - [~] make sure dimensions are sorted according to ``ignore_dims``
+#       (this is done elsewhere - in plotting now, here it might not matter)
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
