@@ -72,6 +72,30 @@ def find_index(vec, vals):
         return np.array(outlist)
 
 
+def group_mask(mask):
+    '''Groups a 1D boolean mask into array of starts and stops of ``True``
+    value ranges.
+
+    Parameters
+    ----------
+    mask : 1D boolean array
+        Boolean array to group.
+
+    Returns
+    -------
+    groups : 2D int array
+        Array of True ranges starts (first column) and stops (last column).
+        Each row represents one range of True values.
+    '''
+    changes = np.where(np.diff(mask))[0]
+    frnt = [-1] if mask[0] else np.array([], dtype='int')
+    bck = [mask.shape[0] - 1] if mask[-1] else np.array([], dtype='int')
+    groups = np.concatenate([frnt, changes, bck])
+    groups = groups.reshape((-1, 2))
+    groups[:, 0] += 1
+    return groups
+
+
 def get_info(inst):
     '''Simple helper function that returns Info whatever mne object it gets.'''
 
