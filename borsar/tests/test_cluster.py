@@ -4,6 +4,7 @@ import warnings
 
 import pytest
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from scipy import sparse
@@ -919,6 +920,13 @@ def test_cluster_ignore_dims():
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
     assert axs[0].get_ylabel() == 'Time (s)'
 
+    # test empty clusters -> no outlines
+    clst2 = clst.copy()
+    clst2.clusters = clst2.clusters.copy()
+    clst2.clusters[0] = False
+    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    # FIXME - check that there is no outlines now / no cluster mask
+
     # _get_dimcoords
     coords = _get_dimcoords(clst, 1)
     assert (coords == clst.dimcoords[1]).all()
@@ -940,6 +948,17 @@ def test_cluster_ignore_dims():
 
     _label_axis(ax, clst, 0, 'y')
     assert ax.get_ylabel() == 'Channels'
+
+    # no more than 2 dims:
+    with pytest.raises(ValueError, match='more than two'):
+        clst.plot(cluster_idx=0, dims=['chan', 'freq', 'time'])
+
+    # line plot
+    # ---------
+    ax = clst.plot(dims='time')
+    chld = ax.get_children()
+    assert isinstance(chld[0], mpl.patches.Rectangle)
+    assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
