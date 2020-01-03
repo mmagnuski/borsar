@@ -220,7 +220,6 @@ def test_group():
     grp = group_mask(msk)
     assert (grp == np.array([[0, 1], [4, 8], [24, 26]])).all()
 
-
     msk[12:19] = True
     grp = group_mask(msk)
     assert (grp == np.array([[0, 1], [4, 8], [12, 18], [24, 26]])).all()
