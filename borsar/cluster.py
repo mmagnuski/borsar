@@ -1590,11 +1590,6 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
                    'dimensions: {}.'.format(dim, ', '.join(clst.dimnames)))
             raise ValueError(msg)
 
-        if ignore_dims is not None and dim in ignore_dims:
-            msg = ("Dimension {} is both in `ignore_dims` and is used as"
-                   "keyword argument.")
-            raise ValueError(msg.format(dim))
-
         if not allow_lists and isinstance(kwargs[dim], (list, np.ndarray)):
             msg = ('Use of lists/numpy arrays of datapoints are not supported'
                    ' in this context. Use range ((min, max) tuple) or mass/'
