@@ -11,7 +11,8 @@ from borsar.channels import get_ch_pos
 from borsar.utils import (create_fake_raw, _check_tmin_tmax, detect_overlap,
                           get_info, valid_windows, get_dropped_epochs,
                           find_range, find_index, silent_mne, read_info,
-                          write_info, _get_test_data_dir, has_numba)
+                          write_info, _get_test_data_dir, has_numba,
+                          group_mask)
 
 
 def almost_equal(val1, val2, error=1e-13):
@@ -201,3 +202,24 @@ def test_silent_mne():
             warn('annoying warning!', DeprecationWarning)
 
     assert len(record) == 0
+
+
+def test_group():
+    msk = np.array([False, False, False, False, True, True, True, True, True,
+                    False, False, False, False, False, False, False, False,
+                    False, False, False, False, False, False, False, False,
+                    False, False])
+    grp = group_mask(msk)
+    assert (grp == np.array([[4, 8]])).all()
+
+    msk[:2] = True
+    grp = group_mask(msk)
+    assert (grp == np.array([[0, 1], [4, 8]])).all()
+
+    msk[-3:] = True
+    grp = group_mask(msk)
+    assert (grp == np.array([[0, 1], [4, 8], [24, 26]])).all()
+
+    msk[12:19] = True
+    grp = group_mask(msk)
+    assert (grp == np.array([[0, 1], [4, 8], [12, 18], [24, 26]])).all()

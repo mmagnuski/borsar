@@ -4,7 +4,9 @@ from scipy import sparse
 from borsar.utils import find_index, find_range, has_numba
 from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
-from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units)
+from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
+                                 _handle_dims, _get_dimcoords, _label_axis,
+                                 _mark_cluster_range)
 from borsar.channels import find_channels
 
 
@@ -500,6 +502,9 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 # TODO - consider empty lists/arrays instead of None when no clusters...
 #      - [ ] add repr so that Cluster has nice text representation
 #      - [ ] add reading and writing to FieldTrip cluster structs
+#      - [ ] change order to stat, clusters, pvals
+#      - [ ] make stat, clusters and pvals keyword
+#      - [ ] make only stat necessary
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
@@ -858,9 +863,11 @@ class Clusters(object):
     # TODO: consider continuous vs discontinuous limits
     # TODO: consider merging more with get_index?
     # TODO: rename to `get_limits()`
+    # TODO: `idx` variable was ad-hoc and is not a good API choice
+    #       this will have to be cleaned-up, preferably when writing
+    #       an example on handling cluster limits
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           ignore_space=True, check_dims=None, idx=None,
-                           **kwargs):
+                           dims=None, idx=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -873,12 +880,9 @@ class Clusters(object):
             Percentage of cluster mass to retain in cluster limits for
             dimensions not specified with keyword arugments (see `kwargs`).
             Defaults to 0.65.
-        ignore_space : bool
-            Whether to ignore the spatial dimension - not look for limits along
-            that dimension. Defaults to True.
-        check_dims : list-like of int | None, optional
+        dims : list-like of int | list-like of str | None, optional
             Which dimensions to check. Defaults to None which checks all
-            dimensions (with the exception of spatial if `ignore_space=True`).
+            dimensions except spatial.
         **kwargs : additional keyword arguments
             Additional arguments defining the cluster extent to retain along
             specified dimensions. Float argument between 0. and 1. - defines
@@ -893,17 +897,22 @@ class Clusters(object):
         -------
         limits : tuple of slices
             Found cluster limits expressed as a slice for each dimension,
-            grouped together in a tuple. If `ignore_space=False` the spatial
-            dimension is returned as a numpy array of indices. Can be used in
-            indexing stat (`clst.stat[limits]`) or original data for example.
+            grouped together in a tuple. Can be used in indexing stat
+            (`clst.stat[limits]`) or original data for example.
+            The spatial dimension, if not ignored, is returned as a numpy array
+            of indices.
         '''
         # TODO: add safety checks
         has_space = (self.dimnames is not None and
                      self.dimnames[0] in ['vert', 'chan'])
-        if check_dims is None:
+
+        if dims is None:
             check_dims = list(range(self.stat.ndim))
-        if has_space and ignore_space and 0 in check_dims:
-            check_dims.remove(0)
+            if has_space:
+                check_dims.remove(0)
+        else:
+            if isinstance(dims[0], str):
+                check_dims = _handle_dims(self, dims)
 
         limits = list()
         for dim_idx in range(self.stat.ndim):
@@ -921,9 +930,10 @@ class Clusters(object):
                 limits.append(slice(None))
         return tuple(limits)
 
-    # TODO - make sure the when one dim is specified with coords and other with
-    #        mass to retain, the mass is taken only from the part specified?
-    def get_index(self, cluster_idx=None, retain_mass=0.65, ignore_space=True,
+    # TODO - make sure that when one dim is specified with coords and other
+    #        with mass to retain, the mass is taken only from the part
+    #        specified? (this is done in get_limits with `idx` variable)
+    def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
                   **kwargs):
         '''
         Get indices (tuple of slices) selecting a specified range of data.
@@ -936,6 +946,11 @@ class Clusters(object):
             maximizing cluster mass along that dimnensions with mass to retain
             given either in relevant keyword argument or if not such keyword
             argument `retain_mass` value is used. See `kwargs`.
+        ignore_dims : str | list of str | None
+            Dimensions to ignore when finding cluster extent. Returned indices
+            corresponding to these dimensions will be empty slices (thus
+            including the whole extent for given dimension). ``None`` defaults
+            to the spatial dimension.
         retain_mass : float, optional
             If cluster_idx is passed then dimensions not adressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
@@ -965,24 +980,36 @@ class Clusters(object):
         '''
 
         if len(kwargs) > 0:
+            # check correctness of keyword arguments
+            # CHECK - is check_dimcoords necessary?
             normal_indexing, mass_indexing = _check_dimnames_kwargs(
-                self, **kwargs, check_dimcoords=True, split_range_mass=True)
+                self, **kwargs, ignore_dims=ignore_dims, check_dimcoords=True,
+                split_range_mass=True)
         else:
             normal_indexing, mass_indexing = kwargs, dict()
 
         idx = _index_from_dim(self.dimnames, self.dimcoords,
                               **normal_indexing)
 
-        # when retain mass is specified use it to get ranges for
+        # when retain_mass is specified it is used to get ranges for
         # dimensions not adressed with kwargs
         # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
                           if isinstance(val, slice) and val == slice(None)]
+
+            # ignore dimensions
+            if ignore_dims is not None:
+                dim_idx = _handle_dims(self, ignore_dims)
+                for ignored in dim_idx:
+                    if ignored in check_dims:
+                        check_dims.remove(ignored)
+
             # check cluster limits only if some dim limits were not specified
+            # TODO: idx arg may be unnecessary if I clean things up
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
-                    cluster_idx, ignore_space=ignore_space,
+                    cluster_idx, check_dims=check_dims,
                     retain_mass=retain_mass, idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
@@ -1010,8 +1037,8 @@ class Clusters(object):
 
         return plot_cluster_contribution(self, dimname, axis=axis)
 
-    def plot(self, cluster_idx=None, aggregate='mean', set_light=True,
-             vmin=None, vmax=None, mark_kwargs=None, **kwargs):
+    def plot(self, cluster_idx=None, dims=None, aggregate='mean',
+             set_light=True, vmin=None, vmax=None, mark_kwargs=None, **kwargs):
         '''
         Plot cluster.
 
@@ -1019,6 +1046,9 @@ class Clusters(object):
         ----------
         cluster_idx : int
             Cluster index to plot.
+        dims : str | list of str | None
+            Dimensions to plot. Defaults to ``None`` which plots only the
+            spatial dimension.
         aggregate : str
             TODO: mean, max, weighted
         vmin : float, optional
@@ -1069,8 +1099,8 @@ class Clusters(object):
                                     aggregate=aggregate, set_light=set_light,
                                     **kwargs)
         elif self.dimnames[0] == 'chan':
-            return plot_cluster_chan(self, cluster_idx, vmin=vmin, vmax=vmax,
-                                     aggregate=aggregate,
+            return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
+                                     vmax=vmax, aggregate=aggregate,
                                      mark_kwargs=mark_kwargs, **kwargs)
 
 
@@ -1137,8 +1167,9 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     return axis
 
 
-def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
-                      vmax=None, mark_kwargs=None, **kwargs):
+# FIXME - allow for channel sorting (by region and y position)
+def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
+                      vmin=None, vmax=None, mark_kwargs=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
@@ -1147,6 +1178,9 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
         Clusters object to use in plotting.
     cluster_idx : int
         Cluster index to plot.
+    dims : str | list of str | None
+        Dimensions to visualize. By default (``None``) only spatial dimension
+        is plotted.
     aggregate : str
         TODO: mean, max, weighted
     vmin : float, optional
@@ -1154,7 +1188,8 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     vmax : float, optional
         Value mapped to maximum in the colormap. Inferred from data by default.
     mark_kwargs : dict | None, optional
-        Keyword arguments for ``Topo.mark_channels``. For example:
+        Keyword arguments for ``Topo.mark_channels`` used to mark channels
+        participating in selected cluster. For example:
         ``mark_kwargs={'markersize': 3}`` to change the size of the markers.
         ``None`` defaults to ``{'markersize: 5'}``.
     **kwargs : additional arguments
@@ -1185,51 +1220,122 @@ def plot_cluster_chan(clst, cluster_idx=None, aggregate='mean', vmin=None,
     > # to plot the second cluster selecting frequencies that make up at least
     > # 70% of the cluster mass:
     > clst.plot(cluster_idx=1, freq=0.7)
+    > # plot time-frequency representation of the first cluster:
+    > clst.plot(cluster_idx=0, dims=['freq', 'time'])
     '''
     # TODO - if cluster_idx is not None and there is no such cluster - error
     #      - if no clusters and None - plot without highlighting
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
-    # split kwargs into topo_kwargs and dim_kwargs
-    topo_kwargs, dim_kwargs = dict(), dict()
+    # split kwargs into plotfun_kwargs and dim_kwargs
+    plotfun_kwargs, dim_kwargs = dict(), dict()
     for k, v in kwargs.items():
         if k not in clst.dimnames:
-            topo_kwargs[k] = v
+            plotfun_kwargs[k] = v
         else:
             dim_kwargs[k] = v
 
+    # consider dims
+    dim_idx = _handle_dims(clst, dims)
+    dims = [clst.dimnames[ix] for ix in dim_idx]
+
     # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
+    # CONSIDER ? add retain_mass and mask_proportion to args?
     clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **dim_kwargs)
-    n_topos = clst_stat.shape[1] if clst_stat.ndim > 1 else 1
+        clst, cluster_idx, ignore_dims=dims, mask_proportion=0.5,
+        retain_mass=0.65, **dim_kwargs)
+    n_elements = clst_stat.shape[1] if clst_stat.ndim > len(dim_idx) else 1
 
-    # create Topo object
-    from borsar.viz import Topo
-    vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=False)
-    topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
-                **topo_kwargs)
-    topo.solid_lines()
+    # Viz rules:
+    # ----------
+    # 1. if 1 spatial dim is plotted -> Topo
+    # 2. if 2 dims are plotted -> heatmap
+    # 3. if 1 non-spatial dim -> line
+    if len(dim_idx) == 1:
+        if dims[0] == 'chan':
 
-    # FIXME: temporary hack to make all channels more visible
-    # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
-    #                    markerfacecolor='k', linewidth=0.)
+            # topographical plot
+            # ------------------
 
-    if clst_mask is not None and clst_mask.any():
-        if mark_kwargs is not None:
-            if 'markersize' not in mark_kwargs:
-                mark_kwargs.update({'markersize': 5})
+            # create Topo object
+            from borsar.viz import Topo
+            vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
+                                   pysurfer=False)
+            topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
+                        **plotfun_kwargs)
+            topo.solid_lines()
+
+            # FIXME: temporary hack to make all channels more visible
+            # FIXME: this could be done via .set_... on relevant object
+            # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
+            #                    markerfacecolor='k', linewidth=0.)
+
+            # mark cluster channels
+            if clst_mask is not None and clst_mask.any():
+                if mark_kwargs is not None:
+                    if 'markersize' not in mark_kwargs:
+                        mark_kwargs.update({'markersize': 5})
+                else:
+                    mark_kwargs = dict(markersize=5)
+
+                if n_elements == 1:
+                    topo.mark_channels(clst_mask, **mark_kwargs)
+                else:
+                    for idx, tp in enumerate(topo):
+                        tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+
+            return topo
         else:
-            mark_kwargs = dict(markersize=5)
+            # line plot
+            # ---------
 
-        if n_topos == 1:
-            topo.mark_channels(clst_mask, **mark_kwargs)
-        else:
-            for idx, tp in enumerate(topo):
-                tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+            # show a line plot of the effect
+            import matplotlib.pyplot as plt
+            x_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
+            fig, ax = plt.subplots()
+            ax.plot(x_axis, clst_stat)
+            _label_axis(ax, clst, dim_idx[0], ax_dim='x')
+            _mark_cluster_range(clst_mask, x_axis, ax)
+            return ax
+    elif len(dim_idx) == 2:
+        # heatmap
+        # -------
 
-    return topo
+        from .viz import heatmap
+        outlines = True
+        if clst_mask is not None and not clst_mask.any():
+            clst_mask = None
+
+        if clst_mask is None:
+            outlines = False
+
+        # CHECK - cluster reduction seems not to be necessary as it is done
+        #         cluster aggregation
+        # else:
+        #     if clst_mask.ndim > len(dim_idx):
+        #         clst_mask = clst_mask.any(axis=(ix + 1 for ix i))
+
+        # make sure the dimension order is correct
+        if not (np.sort(dim_idx) == dim_idx).all():
+            clst_stat = clst_stat.T
+            if clst_mask is not None:
+                clst_mask = clst_mask.T
+
+        # get dimension coords
+        x_axis = _get_dimcoords(clst, dim_idx[1], idx[dim_idx[1]])
+        y_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
+
+        axs = heatmap(clst_stat, mask=clst_mask, outlines=outlines,
+                      x_axis=x_axis, y_axis=y_axis)
+
+        # add dimension labels
+        _label_axis(axs[0], clst, dim_idx[1], ax_dim='x')
+        _label_axis(axs[0], clst, dim_idx[0], ax_dim='y')
+
+        return axs
+    else:
+        raise ValueError("Can't plot more than two dimensions.")
 
 
 # - [ ] add special functions for handling dims like vert or chan
@@ -1456,9 +1562,17 @@ def _check_dimname_arg(clst, dimname):
     return idx
 
 
-def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
-                           allow_lists=True, **kwargs):
-    '''Ensure that **kwargs are correct dimnames and dimcoords.'''
+def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
+                           split_range_mass=False, allow_lists=True, **kwargs):
+    '''Ensure that **kwargs are correct dimnames and dimcoords.
+
+    ignore_dims : list of int?
+        Dimensions to ignore.
+    split_range_mass : bool
+        Whether to separate range (normal) and mass indices.
+    allow_lists : bool
+        Whether to allow passing lists or numpy arrays to specified dimensions.
+    '''
     if clst.dimnames is None:
         raise TypeError('Clusters has to have dimnames to use operations '
                         'on named dimensions.')

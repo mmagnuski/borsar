@@ -54,8 +54,7 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     # get and aggregate cluster mask and cluster stat
     # TODO - first idx then aggregation
     clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65,
-        ignore_space=True, **kwargs)
+        clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65, **kwargs)
 
     # create label from cluster
     clst_label = _label_from_cluster(clst, clst_mask.astype('float'))

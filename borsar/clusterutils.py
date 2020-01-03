@@ -1,5 +1,7 @@
 import numpy as np
-from borsar.stats import format_pvalue
+
+from .utils import group_mask
+from .stats import format_pvalue
 
 
 def _get_units(dimname, fullname=False):
@@ -9,6 +11,63 @@ def _get_units(dimname, fullname=False):
     else:
         return {'freq': 'hertz', 'time': 'seconds',
                 'vert': 'vertices'}[dimname]
+
+
+def _full_dimname(dimname):
+    '''Return unit for specified dimension name.'''
+    return {'freq': 'frequency', 'time': 'time', 'vert': 'vertices'}[dimname]
+
+
+def _get_dimcoords(clst, dim_idx, idx=None):
+    if idx is None:
+        idx = slice(None)
+
+    if clst.dimcoords[dim_idx] is not None:
+        coords = clst.dimcoords[dim_idx][idx]
+    else:
+        numel = clst.stat.shape[dim_idx]
+        coords = np.arange(numel)[idx]
+    return coords
+
+
+def _label_axis(ax, clst, dim_idx, ax_dim):
+    '''Label x or y axis with relevant label according to cluster dimnames, its
+    unit and indexed range.'''
+    dimname = clst.dimnames[dim_idx]
+    if dimname == 'chan':
+        label = 'Channels'
+    else:
+        label = _full_dimname(dimname).capitalize()
+        unit = _get_units(dimname)
+        label = label + ' ({})'.format(unit)
+
+    if ax_dim == 'x':
+        ax.set_xlabel(label, fontsize=12)
+        if dimname == 'chan':
+            ax.set_xticks([])
+    elif ax_dim == 'y':
+        ax.set_ylabel(label, fontsize=12)
+        if dimname == 'chan':
+            ax.set_yticks([])
+
+
+def _mark_cluster_range(msk, x_values, ax):
+    from matplotlib.patches import Rectangle
+
+    alpha = 0.5
+    color = [0.75, 0.75, 0.75]
+
+    grp = group_mask(msk)
+    ylims = ax.get_ylim()
+    y_rng = np.diff(ylims)
+    hlf_dist = np.diff(x_values).mean()
+    for gr in grp:
+        this_x = x_values[gr[0]:gr[1] + 1]
+        start = this_x[0] - hlf_dist
+        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
+        ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
+                         facecolor=color, alpha=alpha)
+        ax.add_patch(ptch)
 
 
 def _check_stc(clst):
@@ -36,6 +95,7 @@ def _check_stc(clst):
 
 
 # prepare figure colorbar limits
+# - [ ] make more universal? there is already some public function for this...
 def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
     """Get color limits from data - rounding to steps of 0.5."""
     if vmin is None and vmax is None:
@@ -55,15 +115,33 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
         return vmin, vmax
 
 
+def _handle_dims(clst, dims):
+    '''Find indices of dimension names.'''
+    if dims is None:
+        if clst.dimnames[0] in ['chan', 'vert']:
+            return [0]
+        else:
+            raise ValueError("Can't infer the dimensions to plot when the"
+                             " first dimension is not 'chan' or 'vert'."
+                             " Please use ``dims`` argument.")
+    else:
+        if isinstance(dims, str):
+            dims = [dims]
+        dim_idx = [clst.dimnames.index(dim) for dim in dims]
+        return dim_idx
+
+
 # TODO:
-# - [ ] _aggregate_cluster aggregates by default everything except the spatial
+# - [x] _aggregate_cluster aggregates by default everything except the spatial
 #       dimension. This would be problematic for spaces like [freq, time]
-#       consider adding ``along`` or ``dim`` argument. Then ``ignore_space``
-#       could be removed.
+#       consider adding ``dim`` argument. Then ``ignore_space`` could be
+#       removed.
+# - [~] make sure dimensions are sorted according to ``ignore_dims``
+#       (this is done elsewhere - in plotting now, here it might not matter)
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
-def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
-                       retain_mass=0.65, ignore_space=True, **kwargs):
+def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
+                       mask_proportion=0.5, retain_mass=0.65, **kwargs):
     '''Aggregate cluster mask and cluster stat map.
 
     Parameters
@@ -72,6 +150,10 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         Clusters object to use in aggregation.
     cluster_idx : int | list of int
         Cluster index ord indices to aggregate.
+    ignore_dims : str | list of str | None
+        Dimensions to leave out when aggregating. These dimensions are retained
+        and thus present in the output. ``None`` defaults to the spatial
+        dimension.
     mask_proportion : float
         When aggregating cluster mask: retain only mask elements that
         participate at least in ``mask_proportion`` part of the aggregated
@@ -81,8 +163,6 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         ``**kwargs`` - define range to aggregate over by retaining at least
         ``retain_mass`` proportion of cluster mass along that dimension.
         FIXME - add note about "see also".
-    ignore_space : bool
-        Ignore spatial dimension in aggregation.
     **kwargs : additional arguments
         Additional arguments used in aggregation, defining the points to
         select (if argument value is a list of float) or the range to
@@ -109,21 +189,25 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
         Indexers for the aggregated dimensions.
         See ``borsar.Cluster.get_index``
     '''
-    do_aggregation = clst.stat.ndim > 1
     cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
                    else cluster_idx)
     n_clusters = len(cluster_idx)
 
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
-    cluster_idx = [None] if len(clst) < max(cluster_idx) + 1 else cluster_idx
+    dim_idx = _handle_dims(clst, ignore_dims)
+    do_aggregation = clst.stat.ndim > 1 and (clst.stat.ndim - len(dim_idx) > 0)
+
+    if cluster_idx[0] is not None:
+        cluster_idx = ([None] if len(clst) < max(cluster_idx) + 1
+                       else cluster_idx)
 
     # aggregating multiple clusters is eligible only when the dimname kwargs
     # exhaust the aggregated space and no dimension is set by retained mass
     if n_clusters > 1 and do_aggregation:
         dimnames = clst.dimnames.copy()
-        if ignore_space and dimnames[0] in ['chan', 'vert']:
-            dimnames.pop(0)
+        for dim in np.sort(dim_idx)[::-1]:
+            dimnames.pop(dim)
 
         non_exhausted = list()
         for dimname in dimnames:
@@ -138,24 +222,30 @@ def _aggregate_cluster(clst, cluster_idx, mask_proportion=0.5,
                              'Some dimensions were not fully specified: '
                              '{}'.format(', '.join(non_exhausted)))
 
+    # find indexing
+    # FIXME - what if more clusters?
+    idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
+                         retain_mass=retain_mass, **kwargs)
+
     if do_aggregation:
-        # find indexing
-        idx = clst.get_index(cluster_idx=cluster_idx[0],
-                             retain_mass=retain_mass,
-                             ignore_space=ignore_space, **kwargs)
-        # FIXME - `reduce_axes` assumes `ignore_space=True`:
-        reduce_axes = tuple(ix for ix in range(1, clst.stat.ndim)
-                            if not isinstance(idx[ix], (np.ndarray, list)))
+        # CHECK/FIXME - why are the dimensions with a list of ndarray
+        #               not reduced? because they may be discontinuous?
+        reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
+                            if not (isinstance(idx[ix], (np.ndarray, list))
+                                    or ix in dim_idx))
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
 
-        clst_idx = (slice(None),) + idx
-        reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
-        clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
-                     axis=reduce_mask_axes) >= mask_proportion
-                     if cluster_idx[0] is not None else None)
+        if cluster_idx[0] is not None:
+            clst_idx = (slice(None),) + idx
+            reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
+            clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
+                         axis=reduce_mask_axes) >= mask_proportion
+                         if cluster_idx[0] is not None else None)
+        else:
+            clst_mask = None
     else:
         # no aggregation
-        idx = (slice(None),)
+        # FIXME - what if more clusters?
         clst_stat = clst.stat.copy()
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)

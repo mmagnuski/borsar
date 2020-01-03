@@ -4,6 +4,9 @@ import warnings
 
 import pytest
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
 from scipy import sparse
 from scipy.io import loadmat
 from skimage.filters import gaussian
@@ -11,7 +14,8 @@ import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir, has_numba
+from borsar.utils import (download_test_data, _get_test_data_dir, has_numba,
+                          find_index)
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
                             cluster_based_regression, _get_mass_range,
@@ -19,8 +23,9 @@ from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             _check_description, _clusters_chan_vert_checks,
                             _check_dimnames_kwargs)
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description,
-                                 _aggregate_cluster, _get_units)
+                                 _prepare_cluster_description, _handle_dims,
+                                 _aggregate_cluster, _get_units,
+                                 _get_dimcoords, _label_axis)
 
 # setup
 download_test_data()
@@ -317,13 +322,13 @@ def test_cluster_limits():
     clst = Clusters([clusters], pvals, stat, dimnames=['chan', 'freq'],
                     dimcoords=dimcoords, info=info)
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.66, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.68, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.83, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
 
 
@@ -680,7 +685,7 @@ def test_clusters_safety_checks():
     # number of dimcoords has to match the number of dimensions
     stat = np.random.rand(5, 10)
     clusters = [np.random.rand(5, 10) > 0.8 for _ in range(3)]
-    info = mne.create_info([l for l in list('abcde')], 250.)
+    info = mne.create_info(list('abcde'), 250.)
 
     with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
         Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
@@ -799,6 +804,161 @@ def test_chan_freq_clusters():
     marker_kwargs = dict(marker='+')
     topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
+
+
+def test_cluster_ignore_dims():
+    '''Test 1. ignoring cluster dimensions in aggregation and 2. dimension
+    selection in plotting.'''
+
+    # Evoked-like tests
+    # -----------------
+    n_channels, n_times = 15, 35
+    mntg = mne.channels.make_standard_montage('standard_1020')
+    ch_names = mntg.ch_names[slice(0, 89, 6)]
+    times = np.linspace(-0.2, 0.5, num=n_times)
+    sfreq = 1 / np.diff(times[:2])[0]
+    info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                           montage=mntg, verbose=False)
+
+    dimnames = ['chan', 'time']
+    data = np.random.random((n_channels, n_times))
+    clusters = [np.random.random((n_channels, n_times)) >= 0.5]
+    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+                    dimcoords=[ch_names, times], info=info)
+
+    # test that _handle_dims works well
+    assert _handle_dims(clst, 'chan') == [0]
+    assert _handle_dims(clst, 'time') == [1]
+    assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
+
+    # _handle_dims can only take None as the second arg if the first dim
+    # in the CLusters is spatial
+    clst2 = clst.copy()
+    clst2.dimnames = clst2.dimnames.copy()
+    clst2.dimnames[0] = 'cheese'
+    with pytest.raises(ValueError, match="Can't infer the dimensions to plot"):
+        _handle_dims(clst2, None)
+
+    # check aggregation with ignored dims passed
+    clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=-1)).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None], ignore_dims=[])
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=(0, 1))).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['time'])
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=0)).all()
+
+    mark_kwargs = {'markerfacecolor': 'seagreen',
+                   'markeredgecolor': 'seagreen'}
+    topo = clst.plot(cluster_idx=0, time=[0.05, 0.15, 0.25, 0.35],
+                     outlines='skirt', extrapolate='head',
+                     mark_kwargs=mark_kwargs)
+
+    # * topo should be Topographies
+    assert isinstance(topo, borsar.viz.Topo)
+    assert len(topo) == 4
+
+    # * topo channels should have the picked color
+    assert topo.marks[1][0].get_markerfacecolor() == 'seagreen'
+    assert topo.marks[1][0].get_markeredgecolor() == 'seagreen'
+
+    # * check mask reduction - whether channel marks are where they should be
+    t2 = find_index(times, 0.15)
+    mask = clst.clusters[0][:, t2]
+    mark_pos = np.stack([x.data for x in topo.marks[1][0].get_data()], axis=1)
+    assert (topo.chan_pos[mask, :] == mark_pos).all()
+
+    # check whether topography is correct:
+    assert (topo.values[:, 1] == clst.stat[:, t2]).all()
+
+    # time-frequency test
+    # -------------------
+    n_freqs = 15
+    freqs = np.arange(5, 20)
+    dimnames = ['chan', 'freq', 'time']
+    data = np.random.random((n_channels, n_freqs, n_times))
+    clusters = [np.random.random((n_channels, n_freqs, n_times)) >= 0.5]
+    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+                    dimcoords=[None, freqs, times], info=info)
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=(1, 2))).all()
+
+    clst_mask, clst_stat1, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['freq', 'time'])
+    assert clst_mask is None
+    assert (clst_stat1 == data.mean(axis=0)).all()
+
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, [None], ignore_dims=['freq'])
+    assert clst_mask is None
+    assert (clst_stat == data.mean(axis=(0, 2))).all()
+
+    # test heatmap
+    # ------------
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'])
+    # make sure image data is correct
+    data = np.array(axs[0].images[0].get_array())
+    assert (clst.stat.mean(axis=0) == data).all()
+
+    # make sure axes are annotated correctly
+    xlab = axs[0].get_xlabel()
+    ylab = axs[0].get_ylabel()
+    assert ylab == 'Frequency (Hz)'
+    assert xlab == 'Time (s)'
+
+    # test that axes are inverted when dimension order is
+    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    data = np.array(axs[0].images[0].get_array())
+    assert (clst.stat.mean(axis=0).T == data).all()
+    assert axs[0].get_xlabel() == 'Frequency (Hz)'
+    assert axs[0].get_ylabel() == 'Time (s)'
+
+    # test empty clusters -> no outlines
+    clst2 = clst.copy()
+    clst2.clusters = clst2.clusters.copy()
+    clst2.clusters[0] = False
+    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    # FIXME - check that there is no outlines now / no cluster mask
+
+    # _get_dimcoords
+    coords = _get_dimcoords(clst, 1)
+    assert (coords == clst.dimcoords[1]).all()
+
+    coords = _get_dimcoords(clst, 2)
+    assert (coords == clst.dimcoords[2]).all()
+
+    coords = _get_dimcoords(clst, 0)
+    assert (coords == np.arange(n_channels)).all()
+
+    idx = slice(2, 5)
+    coords = _get_dimcoords(clst, 0, idx=idx)
+    assert (coords == np.arange(n_channels)[idx]).all()
+
+    # _label_axis (aspects that are not tested earlier)
+    fig, ax = plt.subplots()
+    _label_axis(ax, clst, 0, 'x')
+    assert ax.get_xlabel() == 'Channels'
+
+    _label_axis(ax, clst, 0, 'y')
+    assert ax.get_ylabel() == 'Channels'
+
+    # no more than 2 dims:
+    with pytest.raises(ValueError, match='more than two'):
+        clst.plot(cluster_idx=0, dims=['chan', 'freq', 'time'])
+
+    # line plot
+    # ---------
+    ax = clst.plot(dims='time')
+    chld = ax.get_children()
+    assert isinstance(chld[0], mpl.patches.Rectangle)
+    assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
