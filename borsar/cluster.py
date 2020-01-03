@@ -863,9 +863,11 @@ class Clusters(object):
     # TODO: consider continuous vs discontinuous limits
     # TODO: consider merging more with get_index?
     # TODO: rename to `get_limits()`
+    # TODO: `idx` variable was ad-hoc and is not a good API choice
+    #       this will have to be cleaned-up, preferably when writing
+    #       an example on handling cluster limits
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           ignore_space=True, check_dims=None, idx=None,
-                           **kwargs):
+                           dims=None, idx=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -878,12 +880,9 @@ class Clusters(object):
             Percentage of cluster mass to retain in cluster limits for
             dimensions not specified with keyword arugments (see `kwargs`).
             Defaults to 0.65.
-        ignore_space : bool
-            Whether to ignore the spatial dimension - not look for limits along
-            that dimension. Defaults to True.
-        check_dims : list-like of int | None, optional
+        dims : list-like of int | list-like of str | None, optional
             Which dimensions to check. Defaults to None which checks all
-            dimensions (with the exception of spatial if `ignore_space=True`).
+            dimensions except spatial.
         **kwargs : additional keyword arguments
             Additional arguments defining the cluster extent to retain along
             specified dimensions. Float argument between 0. and 1. - defines
@@ -900,16 +899,20 @@ class Clusters(object):
             Found cluster limits expressed as a slice for each dimension,
             grouped together in a tuple. Can be used in indexing stat
             (`clst.stat[limits]`) or original data for example.
-            If `ignore_space=False` the spatial dimension is returned as a
-            numpy array of indices.
+            The spatial dimension, if not ignored, is returned as a numpy array
+            of indices.
         '''
         # TODO: add safety checks
         has_space = (self.dimnames is not None and
                      self.dimnames[0] in ['vert', 'chan'])
-        if check_dims is None:
+
+        if dims is None:
             check_dims = list(range(self.stat.ndim))
-        if has_space and ignore_space and 0 in check_dims:
-            check_dims.remove(0)
+            if has_space:
+                check_dims.remove(0)
+        else:
+            if isinstance(dims[0], str):
+                check_dims = _handle_dims(self, dims)
 
         limits = list()
         for dim_idx in range(self.stat.ndim):
@@ -927,10 +930,11 @@ class Clusters(object):
                 limits.append(slice(None))
         return tuple(limits)
 
-    # TODO - make sure the when one dim is specified with coords and other with
-    #        mass to retain, the mass is taken only from the part specified?
+    # TODO - make sure that when one dim is specified with coords and other
+    #        with mass to retain, the mass is taken only from the part
+    #        specified? (this is done in get_limits with `idx` variable)
     def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
-                  ignore_space=True, **kwargs):
+                  **kwargs):
         '''
         Get indices (tuple of slices) selecting a specified range of data.
 
@@ -1002,11 +1006,11 @@ class Clusters(object):
                         check_dims.remove(ignored)
 
             # check cluster limits only if some dim limits were not specified
+            # TODO: idx arg may be unnecessary if I clean things up
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
                     cluster_idx, check_dims=check_dims,
-                    ignore_space=ignore_space, retain_mass=retain_mass,
-                    idx=idx, **mass_indexing)
+                    retain_mass=retain_mass, idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx
@@ -1286,7 +1290,6 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
             # line plot
             # ---------
 
-            # FIXME - work in progress
             # show a line plot of the effect
             import matplotlib.pyplot as plt
             x_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])

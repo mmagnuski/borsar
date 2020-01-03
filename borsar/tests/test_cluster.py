@@ -322,13 +322,13 @@ def test_cluster_limits():
     clst = Clusters([clusters], pvals, stat, dimnames=['chan', 'freq'],
                     dimcoords=dimcoords, info=info)
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.66, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.68, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.83, ignore_space=False)
+    lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
 
 
