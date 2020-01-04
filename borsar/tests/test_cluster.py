@@ -347,6 +347,10 @@ def test_clusters():
             == len(clst.cluster_polarity))
     assert len(clst) == 14
 
+    txt = repr(clst)
+    correct_repr = ('<borsar.Clusters  |  14 clusters in '
+                    'vertices x frequency space>')
+    assert txt == correct_repr
 
     # selection
     # ---------

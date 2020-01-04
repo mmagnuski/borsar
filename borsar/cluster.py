@@ -6,7 +6,7 @@ from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
                                  _handle_dims, _get_dimcoords, _label_axis,
-                                 _mark_cluster_range)
+                                 _mark_cluster_range, _full_dimname)
 from borsar.channels import find_channels
 
 
@@ -775,6 +775,13 @@ class Clusters(object):
         clst.cluster_polarity = [self.cluster_polarity[self._current]]
         self._current += 1
         return clst
+
+    def __repr__(self):
+        base_txt = '<borsar.Clusters  |  {} clusters in {} space>'
+        n_clusters = len(self)
+        dimnames = [_full_dimname(dimname) for dimname in self.dimnames]
+        dimnames = ' x '.join(dimnames)
+        return base_txt.format(n_clusters, dimnames)
 
     def save(self, fname, description=None, overwrite=False):
         '''
