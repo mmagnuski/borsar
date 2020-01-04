@@ -13,9 +13,11 @@ def _get_units(dimname, fullname=False):
                 'vert': 'vertices'}[dimname]
 
 
+# TODO: add singular=False to have vertex and vertices possible
 def _full_dimname(dimname):
     '''Return unit for specified dimension name.'''
-    return {'freq': 'frequency', 'time': 'time', 'vert': 'vertices'}[dimname]
+    return {'freq': 'frequency', 'time': 'time', 'vert': 'vertices',
+            'chan': 'channels'}[dimname]
 
 
 def _get_dimcoords(clst, dim_idx, idx=None):
