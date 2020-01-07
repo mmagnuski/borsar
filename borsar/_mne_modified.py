@@ -300,3 +300,45 @@ def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         ax.RS = RectangleSelector(ax, onselect=onselect)
     plt_show(show)
     return im, cont, interp, patch_
+
+
+class _GridData(object):
+    """Unstructured (x,y) data interpolator.
+    This class allows optimized interpolation by computing parameters
+    for a fixed set of true points, and allowing the values at those points
+    to be set independently.
+    """
+
+    def __init__(self, pos, method='box', head_radius=None):
+        # in principle this works in N dimensions, not just 2
+        assert pos.ndim == 2 and pos.shape[1] == 2
+        # Adding points outside the extremes helps the interpolators
+        outer_pts, tri = _get_extra_points(pos, method, head_radius)
+        self.n_extra = outer_pts.shape[0]
+        self.tri = tri
+
+    def set_values(self, v):
+        """Set the values at interpolation points."""
+        # Rbf with thin-plate is what we used to use, but it's slower and
+        # looks about the same:
+        #
+        #     zi = Rbf(x, y, v, function='multiquadric', smooth=0)(xi, yi)
+        #
+        # Eventually we could also do set_values with this class if we want,
+        # see scipy/interpolate/rbf.py, especially the self.nodes one-liner.
+        from scipy.interpolate import CloughTocher2DInterpolator
+        v = np.concatenate((v, np.zeros(self.n_extra)))
+        self.interpolator = CloughTocher2DInterpolator(self.tri, v)
+        return self
+
+    def set_locations(self, Xi, Yi):
+        """Set locations for easier (delayed) calling."""
+        self.Xi = Xi
+        self.Yi = Yi
+        return self
+
+    def __call__(self, *args):
+        """Evaluate the interpolator."""
+        if len(args) == 0:
+            args = [self.Xi, self.Yi]
+        return self.interpolator(*args)
