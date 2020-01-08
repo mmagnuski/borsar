@@ -1,11 +1,13 @@
 import warnings
 import numpy as np
+from numbers import Integral
+
 from mne import Info
 from mne.io.pick import _pick_data_channels, pick_info, channel_type
 from mne.defaults import _handle_default
 from mne.viz.utils import plt_show, _setup_vmin_vmax
 from mne.viz.topomap import (_check_outlines, _prepare_topomap, _autoshrink,
-                             _plot_sensors, _draw_outlines, _GridData,
+                             _plot_sensors, _draw_outlines, _get_extra_points,
                              _find_topomap_coords)
 
 
@@ -13,8 +15,9 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
                  res=64, axes=None, names=None, show_names=False, mask=None,
                  mask_params=None, outlines='head',
                  contours=6, image_interp='bilinear', show=True,
-                 head_pos=None, onselect=None, extrapolate='box'):
+                 head_pos=None, onselect=None, extrapolate='box', border=0):
     """Plot a topographic map as image.
+
     Parameters
     ----------
     data : array, shape (n_chan,)
@@ -100,6 +103,10 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         points (approximately to points closer than median inter-electrode
         distance).
         .. versionadded:: 0.18
+    border : float | 'mean'
+        Value to extrapolate to on the topomap borders. If ``'mean'`` then
+        each extrapolated point has the average value of its neighbours.
+
     Returns
     -------
     im : matplotlib.image.AxesImage
@@ -110,14 +117,14 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
     return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
                          names, show_names, mask, mask_params, outlines,
                          contours, image_interp, show,
-                         head_pos, onselect, extrapolate)
+                         head_pos, onselect, extrapolate, border)
 
 
 def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
                   res=64, axes=None, names=None, show_names=False, mask=None,
                   mask_params=None, outlines='head',
                   contours=6, image_interp='bilinear', show=True,
-                  head_pos=None, onselect=None, extrapolate='box'):
+                  head_pos=None, onselect=None, extrapolate='box', border=0):
     import matplotlib.pyplot as plt
     from matplotlib.widgets import RectangleSelector
     data = np.asarray(data)
@@ -213,7 +220,7 @@ def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
     xi = np.linspace(xmin, xmax, res)
     yi = np.linspace(ymin, ymax, res)
     Xi, Yi = np.meshgrid(xi, yi)
-    interp = _GridData(pos, extrapolate, head_radius).set_values(data)
+    interp = _GridData(pos, extrapolate, head_radius, border).set_values(data)
     Zi = interp.set_locations(Xi, Yi)()
 
     # plot outline
@@ -300,3 +307,59 @@ def _plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         ax.RS = RectangleSelector(ax, onselect=onselect)
     plt_show(show)
     return im, cont, interp, patch_
+
+
+class _GridData(object):
+    """Unstructured (x,y) data interpolator.
+    This class allows optimized interpolation by computing parameters
+    for a fixed set of true points, and allowing the values at those points
+    to be set independently.
+    """
+
+    def __init__(self, pos, method='box', head_radius=None, border=0):
+        # in principle this works in N dimensions, not just 2
+        assert pos.ndim == 2 and pos.shape[1] == 2
+        # Adding points outside the extremes helps the interpolators
+        outer_pts, tri = _get_extra_points(pos, method, head_radius)
+        self.n_extra = outer_pts.shape[0]
+        self.border = border
+        self.tri = tri
+
+    def set_values(self, v):
+        """Set the values at interpolation points."""
+        # Rbf with thin-plate is what we used to use, but it's slower and
+        # looks about the same:
+        #
+        #     zi = Rbf(x, y, v, function='multiquadric', smooth=0)(xi, yi)
+        #
+        # Eventually we could also do set_values with this class if we want,
+        # see scipy/interpolate/rbf.py, especially the self.nodes one-liner.
+        from scipy.interpolate import CloughTocher2DInterpolator
+
+        if isinstance(self.border, Integral):
+            v_extra = np.ones(self.n_extra) * self.border
+        elif isinstance(self.border, str) and self.border == 'mean':
+            n_points = v.shape[0]
+            v_extra = np.zeros(self.n_extra)
+            indices, indptr = self.tri.vertex_neighbor_vertices
+            rng = range(n_points, n_points + self.n_extra)
+            for idx, extra_idx in enumerate(rng):
+                ngb = indptr[indices[extra_idx]:indices[extra_idx + 1]]
+                ngb = ngb[ngb < n_points]
+                v_extra[idx] = v[ngb].mean()
+
+        v = np.concatenate((v, v_extra))
+        self.interpolator = CloughTocher2DInterpolator(self.tri, v)
+        return self
+
+    def set_locations(self, Xi, Yi):
+        """Set locations for easier (delayed) calling."""
+        self.Xi = Xi
+        self.Yi = Yi
+        return self
+
+    def __call__(self, *args):
+        """Evaluate the interpolator."""
+        if len(args) == 0:
+            args = [self.Xi, self.Yi]
+        return self.interpolator(*args)

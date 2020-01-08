@@ -63,6 +63,12 @@ def test_topo():
     topo = Topo(alpha_topo, raw.info, show=False)
     topo.update(alpha_topo[::-1])
 
+    # make sure border='mean' works
+    topo = Topo(alpha_topo, raw.info, outlines='skirt', extrapolate='head',
+                border='mean', show=False)
+    assert topo.interpolator.border == 'mean'
+    # add a test for one point checking if its value is the mean of neighbours
+
 
 def test_multi_topo():
     n_channels = len(raw.ch_names)
