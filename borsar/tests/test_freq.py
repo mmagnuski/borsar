@@ -113,9 +113,18 @@ def test_psd_class():
         psd = PSD(use_data, psd_epo.freqs, raw.info)
 
     # test for __repr__
-    psd_epo.crop(fmin=8, fmax=12)
+    psd_epo2 = psd_epo.copy().crop(fmin=8, fmax=12)
     rpr = '<borsar.freq.PSD (2 epochs, 64 channels, 9 frequencies), 8 - 12 Hz>'
-    assert str(psd_epo) == rpr
+    assert str(psd_epo2) == rpr
+
+    # test chaining
+    psd_epo3 = psd_epo.copy().crop(fmin=8, fmax=12).average()
+    rpr = '<borsar.freq.PSD (64 channels, 9 frequencies), 8 - 12 Hz>'
+    assert str(psd_epo3) == rpr
+
+    # test channel picking
+    psd2 = psd_epo.copy().pick_channels(['Fz', 'Pz'])
+    assert psd2.data.shape[1] == 2
 
     # missing:
     # compute_rest_psd when events is None

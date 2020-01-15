@@ -3,6 +3,7 @@ import numpy as np
 import mne
 from mne.viz.epochs import plot_epochs_psd
 from mne.utils import GetEpochsMixin
+from mne.channels.channels import UpdateChannelsMixin
 
 from .utils import valid_windows, find_range, find_index
 from .viz import Topo
@@ -123,7 +124,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
 
 
 # - [ ] make the default to be simple fft
-# - [ ] default winlen None - to default to tmax - tmin
+# - [x] default winlen None - to default to tmax - tmin
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
@@ -228,7 +229,7 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 
 # - [ ] LATER: add .get_peak()
-class PSD(GetEpochsMixin):
+class PSD(GetEpochsMixin, UpdateChannelsMixin):
     def __init__(self, psd, freqs, info, events=None, event_id=None,
                  metadata=None):
         '''Construct PowerSpectralDensity (PSD) object.
@@ -487,6 +488,7 @@ class PSD(GetEpochsMixin):
         rng = find_range(self.freqs, [fmin, fmax])
         self.freqs = self.freqs[rng]
         self._data = self._data[..., rng]
+        return self
 
     def copy(self):
         """Copy the instance of PSD."""
