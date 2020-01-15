@@ -117,6 +117,10 @@ def test_psd_class():
     rpr = '<borsar.freq.PSD (2 epochs, 64 channels, 9 frequencies), 8 - 12 Hz>'
     assert str(psd_epo) == rpr
 
+    # test channel picking
+    psd2 = psd_epo.copy().pick_channels(['Fz', 'Pz'])
+    assert psd2.data.shape[1] == 2
+
     # missing:
     # compute_rest_psd when events is None
 
