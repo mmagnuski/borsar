@@ -482,6 +482,7 @@ class PSD(GetEpochsMixin, UpdateChannelsMixin):
         rng = find_range(self.freqs, [fmin, fmax])
         self.freqs = self.freqs[rng]
         self._data = self._data[..., rng]
+        return self
 
     def copy(self):
         """Copy the instance of PSD."""
