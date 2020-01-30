@@ -115,7 +115,7 @@ def _check_stc(clst):
             data_single = clst.stat[:, np.newaxis].copy()
 
         clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
-                                         tstep=tstep, subject=clst.subject)
+                                      tstep=tstep, subject=clst.subject)
 
 
 # prepare figure colorbar limits

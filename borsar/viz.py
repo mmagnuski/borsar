@@ -97,7 +97,6 @@ class Topo(object):
             self.marks = self.marks[0]
             self.axes = self.axes[0]
 
-
     def remove_levels(self, lvl):
         '''
         Remove countour lines at specified levels.
@@ -324,11 +323,11 @@ def _extract_topo_channels(ax):
 
     Returns
     -------
-    chans : `matplotlib.patches.Circle` or `matplotlib.collections.PathCollection`
-        Matplotlib object representing channels. Some older mne versions use
-        `plt.scatter` to draw channels so the channels are marked with
-        `mpl.patches.Circle`. At other times `mpl.collections.PathCollection`
-        is being used.
+    chans : ``matplotlib.patches.Circle`` or
+        ``matplotlib.collections.PathCollection`` matplotlib object
+        representing channels. Some older mne versions use ``plt.scatter`` to
+        draw channels so the channels are marked with ``mpl.patches.Circle``.
+        At other times ``mpl.collections.PathCollection`` is being used.
     chan_pos : numpy array
         Numpy array of shape (n_channels, 2) representing channel positions.
         First column contains the x position and second column the y position.
@@ -381,7 +380,7 @@ def _infer_topo_part(info):
 
 def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
-    from mne.viz.topomap import _check_outlines, _find_topomap_coords
+    from mne.viz.topomap import _find_topomap_coords
 
     # project channels to 2d
     picks = range(len(info['ch_names']))
