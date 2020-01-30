@@ -56,6 +56,12 @@ class Topo(object):
         else:
             self.values = self.values[:, np.newaxis]
 
+        # default outlines='skirt' and extrapolate='head':
+        if 'outlines' not in kwargs:
+            kwargs['outlines'] = 'skirt'
+        if 'extrapolate' not in kwargs:
+            kwargs['extrapolate'] = 'head'
+
         self._check_axes(kwargs)
         part = _infer_topo_part(info)
         info, kwargs = _construct_topo_part(info, part, kwargs)
