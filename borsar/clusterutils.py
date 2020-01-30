@@ -53,6 +53,27 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
             ax.set_yticks([])
 
 
+def _label_topos(topo, dim_kwargs):
+    '''Label cluster topoplots with relevant units.'''
+
+    if len(dim_kwargs) == 1:
+        # currently works only for one selected dimension
+        dim = list(dim_kwargs.keys())[0]
+        unit = _get_units(dim)
+        values = dim_kwargs[dim]
+        labels = [str(v) for v in values]
+
+        if isinstance(values, (list, np.ndarray)):
+            assert len(topo) == len(values)
+            for tp, lb in zip(topo, labels):
+                tp.axes.set_title(lb + ' ' + unit, fontsize=12)
+
+        elif isinstance(values, tuple) and len(values) == 2:
+            # range
+            ttl = '{} - {} {}'.format(*labels, unit)
+            topo.axes.set_title(ttl, fontsize=12)
+
+
 def _mark_cluster_range(msk, x_values, ax):
     from matplotlib.patches import Rectangle
 

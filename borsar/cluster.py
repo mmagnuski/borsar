@@ -6,7 +6,8 @@ from borsar.stats import compute_regression_t
 from borsar._viz3d import plot_cluster_src
 from borsar.clusterutils import (_get_clim, _aggregate_cluster, _get_units,
                                  _handle_dims, _get_dimcoords, _label_axis,
-                                 _mark_cluster_range, _full_dimname)
+                                 _mark_cluster_range, _full_dimname,
+                                 _label_topos)
 from borsar.channels import find_channels
 
 
@@ -1280,6 +1281,9 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
             # FIXME: this could be done via .set_... on relevant object
             # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
             #                    markerfacecolor='k', linewidth=0.)
+
+            # FIXME: labels axes also when resulting from idx reduction
+            _label_topos(topo, dim_kwargs)
 
             # mark cluster channels
             if clst_mask is not None and clst_mask.any():
