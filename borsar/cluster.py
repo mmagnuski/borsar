@@ -359,7 +359,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
 
     if stat_threshold is None:
         from scipy.stats import t
-        df = data.shape[0] - 2 # in future: preds.shape[1]
+        df = data.shape[0] - 2  # in future: preds.shape[1]
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
 
     # TODO - move progressbar code from DiamSar!
@@ -437,8 +437,10 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
             max_val = perm_cluster_stats.max()
             min_val = perm_cluster_stats.min()
 
-            if max_val > 0: pos_dist[perm] = max_val
-            if min_val < 0: neg_dist[perm] = min_val
+            if max_val > 0:
+                pos_dist[perm] = max_val
+            if min_val < 0:
+                neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
@@ -593,8 +595,8 @@ class Clusters(object):
             # check polarity of clusters
             polarity = ['neg', 'pos']
             self.cluster_polarity = ([polarity[int(stat[cl].mean() > 0)]
-                                      for cl in clusters] if pvals is not None
-                                      else None)
+                                      for cl in clusters]
+                                     if pvals is not None else None)
 
         if pvals is not None:
             pvals = np.asarray(pvals)
@@ -624,7 +626,6 @@ class Clusters(object):
         # FIXME: find better way for this (maybe during safety checks earlier)
         if self.info is not None and safety_checks:
             _ensure_correct_info(self)
-
 
 # - [ ] more tests for select (n_points was not working)
 # - [ ] add warning if all clusters removed
@@ -771,7 +772,7 @@ class Clusters(object):
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description,
                         safety_checks=False, sort_pvals=False)
-        clst.stc = self.stc # or .copy()?
+        clst.stc = self.stc  # or .copy()?
         clst.cluster_polarity = [self.cluster_polarity[self._current]]
         self._current += 1
         return clst
@@ -910,8 +911,8 @@ class Clusters(object):
             of indices.
         '''
         # TODO: add safety checks
-        has_space = (self.dimnames is not None and
-                     self.dimnames[0] in ['vert', 'chan'])
+        has_space = (self.dimnames is not None
+                     and self.dimnames[0] in ['vert', 'chan'])
 
         if dims is None:
             check_dims = list(range(self.stat.ndim))
@@ -1059,9 +1060,11 @@ class Clusters(object):
         aggregate : str
             TODO: mean, max, weighted
         vmin : float, optional
-            Value mapped to minimum in the colormap. Inferred from data by default.
+            Value mapped to minimum in the colormap. Inferred from data by
+            default.
         vmax : float, optional
-            Value mapped to maximum in the colormap. Inferred from data by default.
+            Value mapped to maximum in the colormap. Inferred from data by
+            default.
         title : str, optional
             Optional title for the figure.
         mark_kwargs : dict | None, optional
@@ -1100,7 +1103,7 @@ class Clusters(object):
         '''
         if self.dimnames is None:
             raise TypeError('To plot the data you need to construct the '
-                             'cluster using the dimnames keyword argument.')
+                            'cluster using the dimnames keyword argument.')
         if self.dimnames[0] == 'vert':
             return plot_cluster_src(self, cluster_idx, vmin=vmin, vmax=vmax,
                                     aggregate=aggregate, set_light=set_light,
@@ -1168,7 +1171,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
     # TODO - reduced dimnames could be: channel-frequency bins
     elements_name = ({'vert': 'vertices', 'chan': 'channels'}
-                      [clst.dimnames[0]] if clst.dimcoords is not None
+                     [clst.dimnames[0]] if clst.dimcoords is not None
                      else 'elements')
     axis.set_ylabel('Number of ' + elements_name)
     return axis
@@ -1450,7 +1453,7 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     if dimnames is not None:
         if not isinstance(dimnames, list):
             raise TypeError('`dimnames` must be a list of dimension names.'
-                             'Got {}.'.format(type(dimnames)))
+                            'Got {}.'.format(type(dimnames)))
         which_str = np.array([isinstance(el, str) for el in dimnames])
         if not which_str.all():
             other_type = type(dimnames[np.where(~which_str)[0][0]])
@@ -1460,8 +1463,8 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         if not len(dimnames) == stat.ndim:
             raise ValueError('Length of `dimnames` must be the same as number'
                              ' of dimensions in `stat`.')
-        if ('chan' in dimnames and not dimnames.index('chan') == 0 or
-            'vert' in dimnames and not dimnames.index('vert') == 0):
+        if ('chan' in dimnames and not dimnames.index('chan') == 0
+            or 'vert' in dimnames and not dimnames.index('vert') == 0):
             msg = ('If using channels ("chan" dimension name) or vertices ('
                    'for source space - "vert" dimension name) - it must be '
                    'the first dimension in the `stat` array and therefore the'
@@ -1470,7 +1473,7 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     if dimcoords is not None:
         if not isinstance(dimcoords, list):
             raise TypeError('`dimcoords` must be a list of dimension '
-                             'coordinates. Got {}.'.format(type(dimcoords)))
+                            'coordinates. Got {}.'.format(type(dimcoords)))
         if not len(dimcoords) == stat.ndim:
             raise ValueError('Length of `dimcoords` must be the same as number'
                              ' of dimensions in the `stat`.')
@@ -1556,9 +1559,9 @@ def _check_dimname_arg(clst, dimname):
                             'operations on named dimensions.')
         if dimname not in clst.dimnames:
             raise ValueError('Clusters does not seem to have the dimension you'
-                            ' requested. You asked for "{}", while Clusters has '
-                            'the following dimensions: {}.'.format(
-                                dimname, ', '.join(clst.dimnames)))
+                             ' requested. You asked for "{}", while Clusters '
+                             'has the following dimensions: {}.'.format(
+                                 dimname, ', '.join(clst.dimnames)))
         idx = clst.dimnames.index(dimname)
     else:
         if not (dimname >= 0 and dimname < clst.stat.ndim):
@@ -1677,7 +1680,6 @@ def _get_mass_range(contrib, mass, adjacent=True):
         if len(retains_mass) > 0:
             indices = indices[:retains_mass[0] + 1]
         return np.sort(indices)
-
 
 
 def _cluster_selection(clst, sel):
