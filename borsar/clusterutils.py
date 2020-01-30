@@ -24,11 +24,12 @@ def _get_dimcoords(clst, dim_idx, idx=None):
     if idx is None:
         idx = slice(None)
 
-    if clst.dimcoords[dim_idx] is not None:
-        coords = clst.dimcoords[dim_idx][idx]
-    else:
+    if (clst.dimcoords[dim_idx] is None
+        or isinstance(clst.dimcoords[dim_idx][0], str)):
         numel = clst.stat.shape[dim_idx]
         coords = np.arange(numel)[idx]
+    else:
+        coords = clst.dimcoords[dim_idx][idx]
     return coords
 
 
