@@ -1176,7 +1176,8 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 # FIXME - allow for channel sorting (by region and y position)
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
-                      vmin=None, vmax=None, mark_kwargs=None, **kwargs):
+                      vmin=None, vmax=None, mark_clst_prop=0.65,
+                      mark_kwargs=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
@@ -1194,6 +1195,12 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
         Value mapped to minimum in the colormap. Inferred from data by default.
     vmax : float, optional
         Value mapped to maximum in the colormap. Inferred from data by default.
+    mark_clst_prop : float
+        Mark elements that exceed this proportion in the reduced cluster range.
+        For example if 4 frequency bins are reduced using ``freq=(8, 12)``
+        then if ``mark_clst_prop`` is ``0.5`` only channels contributing
+        at least 2 frequency bins (4 bins * 0.5 proportion) in this range
+        will be marked in the topomap.
     mark_kwargs : dict | None, optional
         Keyword arguments for ``Topo.mark_channels`` used to mark channels
         participating in selected cluster. For example:
@@ -1250,7 +1257,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
     # get and aggregate cluster mask and cluster stat
     # CONSIDER ? add retain_mass and mask_proportion to args?
     clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, ignore_dims=dims, mask_proportion=0.5,
+        clst, cluster_idx, ignore_dims=dims, mask_proportion=mark_clst_prop,
         retain_mass=0.65, **dim_kwargs)
     n_elements = clst_stat.shape[1] if clst_stat.ndim > len(dim_idx) else 1
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
