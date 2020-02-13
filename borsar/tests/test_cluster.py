@@ -74,8 +74,8 @@ def test_contstruct_adjacency():
 
     # test 7, multiple channels with the same name found in neighbours
     arr = np.array([(ch_names[idx], np.array(ch_names)[adj_correct[idx]])
-                    for idx in range(adj_correct.shape[0])] +
-                   [(ch_names[0], np.array(ch_names)[adj_correct[0]])],
+                    for idx in range(adj_correct.shape[0])]
+                   + [(ch_names[0], np.array(ch_names)[adj_correct[0]])],
                    dtype=dtypes)
     with pytest.raises(ValueError):
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
@@ -141,7 +141,6 @@ def test_find_clusters():
     assert (clst[0] == correct_clst).all()
 
 
-
 def test_cluster_based_regression():
     data_dir = _get_test_data_dir()
 
@@ -196,7 +195,6 @@ def test_cluster_based_regression():
     # ----------------------------------
     np.testing.assert_allclose(stat['stat'].item(), t_values, rtol=1e-10)
 
-
     # TEST 2
     # ======
     # smoke test for running cluster_based_regression with adjacency
@@ -250,10 +248,10 @@ def test_cluster_based_regression_3d_simulated():
 
     # find index of positive and negative clusters
     clst_stat = np.array([stat[c].sum() for c in clst])
-    pos_clst_idx = (pvals[clst_stat > 0].argmin() +
-                    np.where(clst_stat > 0)[0][0])
-    neg_clst_idx = (pvals[clst_stat < 0].argmin() +
-                    np.where(clst_stat < 0)[0][0])
+    pos_clst_idx = (pvals[clst_stat > 0].argmin()
+                    + np.where(clst_stat > 0)[0][0])
+    neg_clst_idx = (pvals[clst_stat < 0].argmin()
+                    + np.where(clst_stat < 0)[0][0])
 
     # assert that clusters are similar to locations of original effects
     assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
@@ -272,12 +270,12 @@ def test_get_mass_range():
     assert _get_mass_range(contrib, 0.48) == slice(2, 6)
     assert _get_mass_range(contrib, 0.57) == slice(2, 7)
 
-    assert (_get_mass_range(contrib, 0.3, adjacent=False) ==
-            np.array([3, 4])).all()
-    assert (_get_mass_range(contrib, 0.38, adjacent=False) ==
-            np.array([0, 3, 4])).all()
-    assert (_get_mass_range(contrib, 0.53, adjacent=False) ==
-            np.array([0, 3, 4, 9])).all()
+    assert (_get_mass_range(contrib, 0.3, adjacent=False)
+            == np.array([3, 4])).all()
+    assert (_get_mass_range(contrib, 0.38, adjacent=False)
+            == np.array([0, 3, 4])).all()
+    assert (_get_mass_range(contrib, 0.53, adjacent=False)
+            == np.array([0, 3, 4, 9])).all()
 
     # with break
     contrib = np.array([0.15, 0.15, 0., 0.15, 0.2, 0.1, 0.])
@@ -292,14 +290,14 @@ def test_index_from_dim():
                  np.arange(-0.2, 0.51, step=0.1)]
     assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
     assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
-    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5)) ==
-            (slice(None), slice(4, 8), slice(None)))
+    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5))
+            == (slice(None), slice(4, 8), slice(None)))
     assert (_index_from_dim(dimnames, dimcoords, freq=(9.5, 10), time=(0, 0.3))
             == (slice(None), slice(3, 5), slice(2, 6)))
     print(_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3)))
     idx = _index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3))
-    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all() and
-            idx[2] == slice(2, 6))
+    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all()
+            and idx[2] == slice(2, 6))
     with pytest.raises(TypeError):
         _index_from_dim(dimnames, dimcoords, freq=[9.5], time=(0, 0.2, 0.3))
 
@@ -393,7 +391,6 @@ def test_clusters():
     clst3 = clst2.copy().select(p_threshold=0.5, n_points_in=100)
     assert len(clst3) == 3
 
-
     # write - read round-trip
     # ----------------------
     fname = op.join(data_dir, 'temp_clst.hdf5')
@@ -408,7 +405,6 @@ def test_clusters():
 
     with pytest.raises(TypeError):
         clst2.save(fname, description=list('abc'))
-
 
     # test contribution
     # -----------------
@@ -472,7 +468,6 @@ def test_clusters():
     with pytest.raises(ValueError, match='No clusters present'):
         clst_no.plot_contribution('freq')
 
-
     # get index and limits
     # --------------------
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
@@ -507,13 +502,11 @@ def test_clusters():
     with pytest.raises(TypeError, match=match):
         clst2.get_index(freq='abc')
 
-
     # test iteration
     pvls = list()
     for c in clst2:
         pvls.append(c.pvals[0])
     assert (clst2.pvals == pvls).all()
-
 
     # plotting
     # --------
@@ -770,8 +763,8 @@ def test_cluster_pvals_and_polarity_sorting():
     assert (clst_srt.pvals == pvals[correct_sorting]).all()
 
     # make sure polarities are correctly sorted:
-    assert (np.array(clst_srt.cluster_polarity) ==
-            np.array(clst_nosrt.cluster_polarity)[correct_sorting]).all()
+    assert (np.array(clst_srt.cluster_polarity)
+            == np.array(clst_nosrt.cluster_polarity)[correct_sorting]).all()
 
     # make sure clusters are correctly sorted
     assert (correct_sorting == [np.where(c)[0][0] for c in clst_srt.clusters]
