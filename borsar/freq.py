@@ -2,8 +2,18 @@ from copy import deepcopy
 import numpy as np
 import mne
 from mne.viz.epochs import plot_epochs_psd
-from mne.utils import GetEpochsMixin
+
+try:
+    has_epochs_mixin = True
+    from mne.utils import GetEpochsMixin
+except ImportError:
+    has_epochs_mixin = False
+
 from mne.channels.channels import UpdateChannelsMixin
+if has_epochs_mixin:
+    mixins = (GetEpochsMixin, UpdateChannelsMixin)
+else:
+    mixins = (UpdateChannelsMixin,)
 
 from .utils import valid_windows, find_range, find_index
 from .viz import Topo
@@ -229,7 +239,7 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 
 # - [ ] LATER: add .get_peak()
-class PSD(GetEpochsMixin, UpdateChannelsMixin):
+class PSD(*mixins):
     def __init__(self, psd, freqs, info, events=None, event_id=None,
                  metadata=None):
         '''Construct PowerSpectralDensity (PSD) object.

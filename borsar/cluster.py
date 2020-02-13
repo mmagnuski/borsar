@@ -1253,7 +1253,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
         clst, cluster_idx, ignore_dims=dims, mask_proportion=0.5,
         retain_mass=0.65, **dim_kwargs)
     n_elements = clst_stat.shape[1] if clst_stat.ndim > len(dim_idx) else 1
-
+    vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
+                           pysurfer=False)
     # Viz rules:
     # ----------
     # 1. if 1 spatial dim is plotted -> Topo
@@ -1267,8 +1268,6 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
 
             # create Topo object
             from borsar.viz import Topo
-            vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
-                                   pysurfer=False)
             topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
                         **plotfun_kwargs)
             topo.solid_lines()
@@ -1301,7 +1300,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
             import matplotlib.pyplot as plt
             x_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
             fig, ax = plt.subplots()
-            ax.plot(x_axis, clst_stat)
+            ax.plot(x_axis, clst_stat, **plotfun_kwargs)
             _label_axis(ax, clst, dim_idx[0], ax_dim='x')
             _mark_cluster_range(clst_mask, x_axis, ax)
             return ax
@@ -1334,7 +1333,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
         y_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
 
         axs = heatmap(clst_stat, mask=clst_mask, outlines=outlines,
-                      x_axis=x_axis, y_axis=y_axis)
+                      x_axis=x_axis, y_axis=y_axis, vmin=vmin, vmax=vmax,
+                      **plotfun_kwargs)
 
         # add dimension labels
         _label_axis(axs[0], clst, dim_idx[1], ax_dim='x')
