@@ -24,11 +24,12 @@ def _get_dimcoords(clst, dim_idx, idx=None):
     if idx is None:
         idx = slice(None)
 
-    if clst.dimcoords[dim_idx] is not None:
-        coords = clst.dimcoords[dim_idx][idx]
-    else:
+    if (clst.dimcoords[dim_idx] is None
+        or isinstance(clst.dimcoords[dim_idx][0], str)):
         numel = clst.stat.shape[dim_idx]
         coords = np.arange(numel)[idx]
+    else:
+        coords = clst.dimcoords[dim_idx][idx]
     return coords
 
 
@@ -51,6 +52,27 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
         ax.set_ylabel(label, fontsize=12)
         if dimname == 'chan':
             ax.set_yticks([])
+
+
+def _label_topos(topo, dim_kwargs):
+    '''Label cluster topoplots with relevant units.'''
+
+    if len(dim_kwargs) == 1:
+        # currently works only for one selected dimension
+        dim = list(dim_kwargs.keys())[0]
+        unit = _get_units(dim)
+        values = dim_kwargs[dim]
+        labels = [str(v) for v in values]
+
+        if isinstance(values, (list, np.ndarray)):
+            assert len(topo) == len(values)
+            for tp, lb in zip(topo, labels):
+                tp.axes.set_title(lb + ' ' + unit, fontsize=12)
+
+        elif isinstance(values, tuple) and len(values) == 2:
+            # range
+            ttl = '{} - {} {}'.format(*labels, unit)
+            topo.axes.set_title(ttl, fontsize=12)
 
 
 def _mark_cluster_range(msk, x_values, ax):
@@ -93,7 +115,7 @@ def _check_stc(clst):
             data_single = clst.stat[:, np.newaxis].copy()
 
         clst.stc = mne.SourceEstimate(data_single, vertices=vert, tmin=tmin,
-                                         tstep=tstep, subject=clst.subject)
+                                      tstep=tstep, subject=clst.subject)
 
 
 # prepare figure colorbar limits
