@@ -37,7 +37,7 @@ install:
       conda install numba;
     fi
   - conda install scikit-image
-  - pip install codecov tqdm
+  - pip install codecov tqdm mne
   - python setup.py develop
 
 script:
