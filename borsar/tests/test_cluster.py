@@ -954,7 +954,8 @@ def test_cluster_ignore_dims():
     # ---------
     ax = clst.plot(dims='time')
     chld = ax.get_children()
-    assert isinstance(chld[0], mpl.patches.Rectangle)
+    rectangles = [ch for ch in chld if isinstance(ch, mpl.patches.Rectangle)]
+    assert len(rectangles) > 1
     assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
 
 
