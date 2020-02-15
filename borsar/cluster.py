@@ -922,6 +922,8 @@ class Clusters(object):
         else:
             if isinstance(dims[0], str):
                 check_dims = _handle_dims(self, dims)
+            else:
+                check_dims = dims
 
         limits = list()
         for dim_idx in range(self.stat.ndim):
@@ -1018,8 +1020,8 @@ class Clusters(object):
             # TODO: idx arg may be unnecessary if I clean things up
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
-                    cluster_idx, check_dims=check_dims,
-                    retain_mass=retain_mass, idx=idx, **mass_indexing)
+                    cluster_idx, dims=check_dims, retain_mass=retain_mass,
+                    idx=idx, **mass_indexing)
                 idx = tuple([idx_mass[i] if i in check_dims else idx[i]
                              for i in range(len(idx))])
         return idx

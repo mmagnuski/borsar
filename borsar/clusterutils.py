@@ -84,7 +84,7 @@ def _mark_cluster_range(msk, x_values, ax):
     grp = group_mask(msk)
     ylims = ax.get_ylim()
     y_rng = np.diff(ylims)
-    hlf_dist = np.diff(x_values).mean()
+    hlf_dist = np.diff(x_values).mean() / 2
     for gr in grp:
         this_x = x_values[gr[0]:gr[1] + 1]
         start = this_x[0] - hlf_dist
@@ -248,15 +248,33 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
 
     # find indexing
     # FIXME - what if more clusters?
+    # FIXME - get_index should deal with arrays better
     idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
                          retain_mass=retain_mass, **kwargs)
+    sequences = [x for x in range(len(idx))
+                 if isinstance(idx[x], (list, np.ndarray))]
+    if len(sequences) > 1:
+        # we have to use np.ix_ to turn multiple lists/arrays to
+        # indexers acceptable by numpy (.oix would be helpful here...)
+        seq = [[0]] * len(idx)
+        for s_idx in sequences:
+            seq[s_idx] = idx[s_idx]
+
+        seq = np.ix_(*seq)
+        idx = list(idx)
+        for s_idx in sequences:
+            idx[s_idx] = seq[s_idx]
+        idx = tuple(idx)
 
     if do_aggregation:
-        # CHECK/FIXME - why are the dimensions with a list of ndarray
-        #               not reduced? because they may be discontinuous?
         reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
-                            if not (isinstance(idx[ix], (np.ndarray, list))
-                                    or ix in dim_idx))
+                            if not (isinstance(idx[ix], (list, np.ndarray))
+                            or ix in dim_idx))
+        # reduce spatial if present, not in dim_idx and list / array
+        if (0 not in reduce_axes and clst.dimnames[0] in ['chan', 'vert']
+            and 0 not in dim_idx and isinstance(idx[0], (list, np.ndarray))):
+            reduce_axes = (0, ) + reduce_axes
+
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
 
         if cluster_idx[0] is not None:
