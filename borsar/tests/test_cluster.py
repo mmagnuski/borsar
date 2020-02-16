@@ -560,8 +560,9 @@ def test_clusters():
     # _aggregate_cluster - 2d
     mask, stat, idx = _aggregate_cluster(clst2, 0, mask_proportion=0.5,
                                          retain_mass=0.65)
-    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65)
-    assert idx == correct_idx
+    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65,
+                                  ignore_dims='vert')
+    assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
 
@@ -570,10 +571,11 @@ def test_clusters():
 
     # aggregate two clusters in 2d
     mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
-    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10))
+    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10),
+                                  ignore_dims='vert')
     correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
                     axis=-1) >= 0.5).any(axis=0)
-    assert idx == correct_idx
+    assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == correct_mask).all()
 

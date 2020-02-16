@@ -220,6 +220,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
     dim_idx = _handle_dims(clst, ignore_dims)
+    if ignore_dims is None and len(dim_idx) > 0:
+        ignore_dims = [clst.dimnames[ix] for ix in dim_idx]
     do_aggregation = clst.stat.ndim > 1 and (clst.stat.ndim - len(dim_idx) > 0)
 
     if cluster_idx[0] is not None:
