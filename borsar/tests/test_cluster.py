@@ -560,8 +560,9 @@ def test_clusters():
     # _aggregate_cluster - 2d
     mask, stat, idx = _aggregate_cluster(clst2, 0, mask_proportion=0.5,
                                          retain_mass=0.65)
-    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65)
-    assert idx == correct_idx
+    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65,
+                                  ignore_dims='vert')
+    assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == (clst2.clusters[0][idx].mean(axis=-1) >= 0.5)).all()
 
@@ -570,10 +571,11 @@ def test_clusters():
 
     # aggregate two clusters in 2d
     mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
-    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10))
+    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10),
+                                  ignore_dims='vert')
     correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
                     axis=-1) >= 0.5).any(axis=0)
-    assert idx == correct_idx
+    assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == correct_mask).all()
 
@@ -899,21 +901,33 @@ def test_cluster_ignore_dims():
 
     # test heatmap
     # ------------
+    clst.clusters[0] = np.zeros(clst.stat.shape, dtype='bool')
+    clst.clusters[0, 4:7, 8:13, 20:26] = True
+
+    # (A) 65% channels reduced automatically
     axs = clst.plot(cluster_idx=0, dims=['freq', 'time'])
+
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
-    assert (clst.stat.mean(axis=0) == data).all()
+    assert (clst.stat[5:7].mean(axis=0) == data).all()
 
-    # make sure axes are annotated correctly
+    # (B) we request all channels reduced
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan=1.)
+
+    # make sure image data is correct
+    data = np.array(axs[0].images[0].get_array())
+    assert (clst.stat[4:7].mean(axis=0) == data).all()
+
+    # (C) make sure axes are annotated correctly
     xlab = axs[0].get_xlabel()
     ylab = axs[0].get_ylabel()
     assert ylab == 'Frequency (Hz)'
     assert xlab == 'Time (s)'
 
-    # test that axes are inverted when dimension order is
+    # (D) test that axes are inverted when dimension order is
     axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
     data = np.array(axs[0].images[0].get_array())
-    assert (clst.stat.mean(axis=0).T == data).all()
+    assert (clst.stat[5:7].mean(axis=0).T == data).all()
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
     assert axs[0].get_ylabel() == 'Time (s)'
 
@@ -954,7 +968,9 @@ def test_cluster_ignore_dims():
     # ---------
     ax = clst.plot(dims='time')
     chld = ax.get_children()
-    assert isinstance(chld[0], mpl.patches.Rectangle)
+    rectangles = [ch for ch in chld
+                  if isinstance(ch, mpl.patches.Rectangle)]
+    assert len(rectangles) > 1
     assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
 
 
