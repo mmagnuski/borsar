@@ -1319,17 +1319,11 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
 
         from .viz import heatmap
         outlines = True
-        if clst_mask is not None and not clst_mask.any():
-            clst_mask = None
-
         if clst_mask is None:
-            outlines = False
+            clst_mask = np.zeros(clst_stat.shape, dtype='bool')
 
-        # CHECK - cluster reduction seems not to be necessary as it is done
-        #         cluster aggregation
-        # else:
-        #     if clst_mask.ndim > len(dim_idx):
-        #         clst_mask = clst_mask.any(axis=(ix + 1 for ix i))
+        if not clst_mask.any():
+           outlines = False
 
         # make sure the dimension order is correct
         if not (np.sort(dim_idx) == dim_idx).all():
