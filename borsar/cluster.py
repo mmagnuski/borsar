@@ -1048,8 +1048,8 @@ class Clusters(object):
 
         return plot_cluster_contribution(self, dimname, axis=axis)
 
-    def plot(self, cluster_idx=None, dims=None, aggregate='mean',
-             set_light=True, vmin=None, vmax=None, mark_kwargs=None, **kwargs):
+    def plot(self, cluster_idx=None, dims=None, set_light=True, vmin=None,
+             vmax=None, mark_kwargs=None, **kwargs):
         '''
         Plot cluster.
 
@@ -1060,8 +1060,6 @@ class Clusters(object):
         dims : str | list of str | None
             Dimensions to plot. Defaults to ``None`` which plots only the
             spatial dimension.
-        aggregate : str
-            TODO: mean, max, weighted
         vmin : float, optional
             Value mapped to minimum in the colormap. Inferred from data by
             default.
@@ -1181,9 +1179,8 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 
 
 # FIXME - allow for channel sorting (by region and y position)
-def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
-                      vmin=None, vmax=None, mark_clst_prop=0.65,
-                      mark_kwargs=None, **kwargs):
+def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
+                      mark_clst_prop=0.65, mark_kwargs=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
@@ -1195,8 +1192,6 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
     dims : str | list of str | None
         Dimensions to visualize. By default (``None``) only spatial dimension
         is plotted.
-    aggregate : str
-        TODO: mean, max, weighted
     vmin : float, optional
         Value mapped to minimum in the colormap. Inferred from data by default.
     vmax : float, optional
@@ -1326,17 +1321,11 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, aggregate='mean',
 
         from .viz import heatmap
         outlines = True
-        if clst_mask is not None and not clst_mask.any():
-            clst_mask = None
-
         if clst_mask is None:
-            outlines = False
+            clst_mask = np.zeros(clst_stat.shape, dtype='bool')
 
-        # CHECK - cluster reduction seems not to be necessary as it is done
-        #         cluster aggregation
-        # else:
-        #     if clst_mask.ndim > len(dim_idx):
-        #         clst_mask = clst_mask.any(axis=(ix + 1 for ix i))
+        if not clst_mask.any():
+           outlines = False
 
         # make sure the dimension order is correct
         if not (np.sort(dim_idx) == dim_idx).all():
