@@ -1107,12 +1107,11 @@ class Clusters(object):
                             'cluster using the dimnames keyword argument.')
         if self.dimnames[0] == 'vert':
             return plot_cluster_src(self, cluster_idx, vmin=vmin, vmax=vmax,
-                                    aggregate=aggregate, set_light=set_light,
-                                    **kwargs)
+                                    set_light=set_light, **kwargs)
         elif self.dimnames[0] == 'chan':
             return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
-                                     vmax=vmax, aggregate=aggregate,
-                                     mark_kwargs=mark_kwargs, **kwargs)
+                                     vmax=vmax, mark_kwargs=mark_kwargs,
+                                     **kwargs)
 
 
 # TODO - add special case for dimension='vert' and 'chan'
