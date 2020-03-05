@@ -1528,23 +1528,38 @@ def _clusters_chan_vert_checks(dimnames, dimcoords, info, src, subject,
         vertices = dimcoords[0]
         if vertices is not None:
             # FIXME - move to separate function
-            # FIXME - allow for dict of indices
             # check against left and right hemi
             vert_num_lh = src[0]['vertno'].shape[0]
             vert_num_rh = src[1]['vertno'].shape[0]
             vert_num_all = vert_num_lh + vert_num_rh
-            vert_idx_in_src = (vertices < vert_num_all).all()
-            if not vert_idx_in_src:
-                msg = ('Some vertex indices exceed the available source '
-                       'space size. Number of vertices in the src (lh + rh) = '
-                       '{:d}, while maximum index in the ``vertices`` = {:d}.')
-                raise ValueError(msg.format(vert_num_all, vertices.max()))
 
-            # turn to lh, rh dictionary
-            lh_mask = vertices < vert_num_lh
-            vertices = {'lh': vertices[lh_mask],
-                        'rh': vertices[~lh_mask] - vert_num_lh}
-            dimcoords[0] = vertices
+            if isinstance(vertices, np.ndarray):
+                vert_idx_in_src = (vertices < vert_num_all).all()
+                if not vert_idx_in_src:
+                    msg = ('Some vertex indices exceed the available source '
+                           'space size. Number of vertices in the src (lh + '
+                           'rh) = {:d}, while maximum index in the ``vertice'
+                           's`` = {:d}.')
+                    raise ValueError(msg.format(vert_num_all, vertices.max()))
+
+                # turn to lh, rh dictionary
+                lh_mask = vertices < vert_num_lh
+                vertices = {'lh': vertices[lh_mask],
+                            'rh': vertices[~lh_mask] - vert_num_lh}
+                dimcoords[0] = vertices
+            elif isinstance(vertices, dict):
+                assert 'lh' in vertices and 'rh' in vertices
+                vert_idx_in_src = ((vertices['lh'] < vert_num_all).all()
+                                   and (vertices['rh'] < vert_num_rh).all())
+                if not vert_idx_in_src:
+                    msg = ('Some vertex indices exceed the available source '
+                           'space size. Number of vertices in the src is: lh '
+                           '= {:d}; rh = {:d}, while maximum index in the``ve'
+                           'rtices``: lh = {:d}; rh = {:d}.')
+                    formatted_msg = msg.format(vert_num_lh, vert_num_rh,
+                                               vertices['lh'].max(),
+                                               vertices['rh'].max())
+                    raise ValueError(formatted_msg)
 
     return dimcoords
 
