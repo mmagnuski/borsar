@@ -333,5 +333,11 @@ def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
         time_label = ', '.join(time_label) + '\n'
     else:
         time_label = ''
-    time_label += format_pvalue(clst.pvals[cluster_idx])
+
+    if clst.pvals is not None:
+        pval = format_pvalue(clst.pvals[cluster_idx])
+    else:
+        pval = 'p = NA'
+
+    time_label += pval
     return time_label

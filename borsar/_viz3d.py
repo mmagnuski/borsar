@@ -57,7 +57,11 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65, **kwargs)
 
     # create label from cluster
-    clst_label = _label_from_cluster(clst, clst_mask.astype('float'))
+    if clst_mask is not None:
+        clst_label = _label_from_cluster(clst, clst_mask.astype('float'))
+        use_hemi = clst_label.hemi
+    else:
+        use_hemi = 'lh' if len(clst.dimcoords[0]['lh']) > 0 else 'rh'
 
     # prepare 'time' label
     time_label = _prepare_cluster_description(clst, cluster_idx, idx)
@@ -66,14 +70,15 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     clst.stc.data[:, 0] = clst_stat
     clim = _get_clim(clst_stat, vmin=vmin, vmax=vmax, pysurfer=True)
     brain = clst.stc.plot(
-        subjects_dir=clst.subjects_dir, hemi=clst_label.hemi, alpha=0.8,
+        subjects_dir=clst.subjects_dir, hemi=use_hemi, alpha=0.8,
         colormap='RdBu_r', transparent=False, background='white',
         foreground='black', clim=clim, time_label=time_label)
 
     # add title and cluster label
     if title is not None:
         brain.add_text(0.1, 0.9, analysis_text, 'title', font_size=18)
-    brain.add_label(clst_label, borders=True, color='w')
+    if clst_mask is not None:
+        brain.add_label(clst_label, borders=True, color='w')
 
     # set light
     if set_light:
