@@ -335,7 +335,11 @@ def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
         time_label = ''
 
     if clst.pvals is not None:
-        pval = format_pvalue(clst.pvals[cluster_idx])
+        pvals = clst.pvals[cluster_idx]
+        if isinstance(pvals, np.ndarray):
+            pval = 'p = ' + ', '.join([str(x) for x in pvals])
+        else:
+            pval = format_pvalue(pvals)
     else:
         pval = 'p = NA'
 
