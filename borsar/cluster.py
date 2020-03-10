@@ -1049,7 +1049,7 @@ class Clusters(object):
         return plot_cluster_contribution(self, dimname, axis=axis)
 
     def plot(self, cluster_idx=None, dims=None, set_light=True, vmin=None,
-             vmax=None, mark_kwargs=None, **kwargs):
+             vmax=None, mark_kwargs=None, figure_size=None, **kwargs):
         '''
         Plot cluster.
 
@@ -1107,6 +1107,7 @@ class Clusters(object):
                             'cluster using the dimnames keyword argument.')
         if self.dimnames[0] == 'vert':
             return plot_cluster_src(self, cluster_idx, vmin=vmin, vmax=vmax,
+                                    figure_size=figure_size,
                                     set_light=set_light, **kwargs)
         elif self.dimnames[0] == 'chan':
             return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
@@ -1324,7 +1325,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             clst_mask = np.zeros(clst_stat.shape, dtype='bool')
 
         if not clst_mask.any():
-           outlines = False
+            outlines = False
 
         # make sure the dimension order is correct
         if not (np.sort(dim_idx) == dim_idx).all():

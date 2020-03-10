@@ -4,7 +4,8 @@ from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
 
 
 def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
-                     vmin=None, vmax=None, title=None, **kwargs):
+                     vmin=None, vmax=None, title=None, figure_size=None,
+                     **kwargs):
     '''
     Plot cluster in source space.
 
@@ -24,6 +25,8 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
         Value mapped to maximum in the colormap. Inferred from data by default.
     title : str, optional
         Optional title for the figure.
+    figure_size : None | (width, height)
+        Size of the figure in pixels.
     **kwargs : additional keyword arguments
         Additional arguments used in aggregation, defining the range to
         aggregate for given dimension. List of two values defines explicit
@@ -72,11 +75,12 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     brain = clst.stc.plot(
         subjects_dir=clst.subjects_dir, hemi=use_hemi, alpha=0.8,
         colormap='RdBu_r', transparent=False, background='white',
-        foreground='black', clim=clim, time_label=time_label)
+        foreground='black', clim=clim, time_label=time_label,
+        size=figure_size)
 
     # add title and cluster label
     if title is not None:
-        brain.add_text(0.1, 0.9, analysis_text, 'title', font_size=18)
+        brain.add_text(0.1, 0.9, title, 'title', font_size=18)
     if clst_mask is not None:
         brain.add_label(clst_label, borders=True, color='w')
 
