@@ -748,6 +748,23 @@ def test_clusters_safety_checks():
     assert (dimcoords[0]['lh'] == np.array([2, 5])).all()
     assert (dimcoords[0]['rh'] == np.array([2, 5])).all()
 
+    # if dict vertices are passed they are left untouched (if they are OK)
+    vert_idx = np.array([2, 5])
+    vertices = dict(lh=vert_idx, rh=vert_idx)
+    dimcoords = _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                           None, fwd['src'], 'fsaverage',
+                                           data_dir)
+    assert (dimcoords[0]['lh'] == vert_idx).all()
+    assert (dimcoords[0]['rh'] == vert_idx).all()
+
+    # if dict vertices exceed the space, and error is raised
+    vert_idx = np.array([2, 5])
+    vertices = dict(lh=vert_idx, rh=vert_idx + n_vert_lh)
+    with pytest.raises(ValueError, match='vertex indices exceed'):
+        dimcoords = _clusters_chan_vert_checks(
+            ['vert', 'freq'], [vertices, None], None, fwd['src'], 'fsaverage',
+            data_dir)
+
 
 def test_cluster_pvals_and_polarity_sorting():
     pvals = np.array([0.5, 0.1, 0.32, 0.002, 0.73])
