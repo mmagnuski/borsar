@@ -25,7 +25,8 @@ from borsar.cluster import (Clusters, cluster_3d, find_clusters,
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description, _handle_dims,
                                  _aggregate_cluster, _get_units,
-                                 _get_dimcoords, _label_axis)
+                                 _get_dimcoords, _label_axis,
+                                 _format_cluster_pvalues)
 
 # setup
 download_test_data()
@@ -602,6 +603,18 @@ def test_clusters():
 
     # _get_units
     assert _get_units('time', fullname=True) == 'seconds'
+
+    # _format_cluster_pvalues
+    clst_1d.pvals = np.array([0.4, 0.2111, 0.11])
+    pvals_txt = _format_cluster_pvalues(clst_1d, np.array([0, 1, 2]))
+    assert pvals_txt == 'p = 0.4, 0.211, 0.11'
+
+    pvals_txt = _format_cluster_pvalues(clst_1d, 1)
+    assert pvals_txt == 'p = 0.211'
+
+    clst_1d.pvals = None
+    pvals_txt = _format_cluster_pvalues(clst_1d, 0)
+    assert pvals_txt == 'p = NA'
 
     # create empty clusters
     clst_empty = Clusters(
