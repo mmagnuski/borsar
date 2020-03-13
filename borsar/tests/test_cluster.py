@@ -25,7 +25,8 @@ from borsar.cluster import (Clusters, cluster_3d, find_clusters,
 from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
                                  _prepare_cluster_description, _handle_dims,
                                  _aggregate_cluster, _get_units,
-                                 _get_dimcoords, _label_axis)
+                                 _get_dimcoords, _label_axis,
+                                 _format_cluster_pvalues)
 
 # setup
 download_test_data()
@@ -603,6 +604,18 @@ def test_clusters():
     # _get_units
     assert _get_units('time', fullname=True) == 'seconds'
 
+    # _format_cluster_pvalues
+    clst_1d.pvals = np.array([0.4, 0.2111, 0.11])
+    pvals_txt = _format_cluster_pvalues(clst_1d, np.array([0, 1, 2]))
+    assert pvals_txt == 'p = 0.4, 0.211, 0.11'
+
+    pvals_txt = _format_cluster_pvalues(clst_1d, 1)
+    assert pvals_txt == 'p = 0.211'
+
+    clst_1d.pvals = None
+    pvals_txt = _format_cluster_pvalues(clst_1d, 0)
+    assert pvals_txt == 'p = NA'
+
     # create empty clusters
     clst_empty = Clusters(
         None, None, clst2.stat[slice_idx], dimcoords=[clst2.dimcoords[1]],
@@ -734,6 +747,23 @@ def test_clusters_safety_checks():
                                            data_dir)
     assert (dimcoords[0]['lh'] == np.array([2, 5])).all()
     assert (dimcoords[0]['rh'] == np.array([2, 5])).all()
+
+    # if dict vertices are passed they are left untouched (if they are OK)
+    vert_idx = np.array([2, 5])
+    vertices = dict(lh=vert_idx, rh=vert_idx)
+    dimcoords = _clusters_chan_vert_checks(['vert', 'freq'], [vertices, None],
+                                           None, fwd['src'], 'fsaverage',
+                                           data_dir)
+    assert (dimcoords[0]['lh'] == vert_idx).all()
+    assert (dimcoords[0]['rh'] == vert_idx).all()
+
+    # if dict vertices exceed the space, and error is raised
+    vert_idx = np.array([2, 5])
+    vertices = dict(lh=vert_idx, rh=vert_idx + n_vert_lh)
+    with pytest.raises(ValueError, match='vertex indices exceed'):
+        dimcoords = _clusters_chan_vert_checks(
+            ['vert', 'freq'], [vertices, None], None, fwd['src'], 'fsaverage',
+            data_dir)
 
 
 def test_cluster_pvals_and_polarity_sorting():
