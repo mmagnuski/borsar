@@ -47,6 +47,8 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
         raise TypeError('`pvals` has to be a list of floats or numpy array.')
         # check if each element of list is float and array is of dtype float
 
+    # check dimnames
+    # --------------
     if dimnames is not None:
         if not isinstance(dimnames, list):
             raise TypeError('`dimnames` must be a list of dimension names.'
@@ -67,6 +69,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
                    'the first dimension in the `stat` array and therefore the'
                    ' first dimension name in `dimnames`.')
             raise ValueError(msg)
+
+    # check dimcoords
+    # ---------------
     if dimcoords is not None:
         if not isinstance(dimcoords, list):
             raise TypeError('`dimcoords` must be a list of dimension '
@@ -84,6 +89,7 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
                    'same as the length of the corresponding dimension in '
                    '`stat` array.')
             raise ValueError(msg)
+
     _check_description(description)
     return clusters, pvals
 

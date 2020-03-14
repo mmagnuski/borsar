@@ -45,11 +45,12 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
-#      - [ ] add repr so that Cluster has nice text representation
-#      - [ ] add reading and writing to FieldTrip cluster structs
-#      - [ ] change order to stat, clusters, pvals
+#      - [x] add repr so that Cluster has nice text representation
 #      - [ ] make stat, clusters and pvals keyword
-#      - [ ] make only stat necessary
+#            * clusters=None and pvals=None by default
+#      - [ ] change order to stat, clusters, pvals
+#      - [ ] sometine: make only stat necessary
+#      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
     '''
     Container for results of cluster-based tests.
