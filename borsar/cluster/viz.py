@@ -3,7 +3,7 @@ import numpy as np
 from .checks import _check_dimname_arg
 from .utils import (_get_full_dimname, _get_units, _get_clim, _handle_dims,
                     _aggregate_cluster, _get_dimcoords, _mark_cluster_range,
-                    _get_full_dimname, _full_dimname)
+                    _full_dimname)
 
 
 # TODO - add special case for dimension='vert' and 'chan'

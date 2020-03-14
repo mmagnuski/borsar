@@ -61,7 +61,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         n_channels = len(ch_names)
         adj = np.zeros((n_channels, n_channels), dtype='bool')
 
-        for ii, chan in enumerate(ch_names):
+        for ch_idx, chan in enumerate(ch_names):
             ngb_ind = np.where(neighbours['label'] == chan)[0]
 
             # safty checks:
@@ -78,8 +78,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
             connections = [ch_names.index(ch)
                            for ch in neighbours['neighblabel'][ngb_ind]
                            if ch in ch_names]
-            chan_ind = ch_names.index(chan)
-            adj[chan_ind, connections] = True
+            adj[ch_idx, connections] = True
 
     if as_sparse:
         return sparse.coo_matrix(adj)

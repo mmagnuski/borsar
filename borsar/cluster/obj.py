@@ -1,6 +1,5 @@
 import numpy as np
 
-from ..utils import find_index, find_range
 from .viz import plot_cluster_contribution, plot_cluster_chan
 from ._viz3d import plot_cluster_src
 from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
@@ -57,6 +56,11 @@ class Clusters(object):
 
     Parameters
     ----------
+    stat : ndarray
+        Statistical map of the analysis. Usual dimensions are: space,
+        space x time, space x frequencies, space x frequencies x
+        time where space corresponds to channels or vertices (in the source
+        space).
     clusters : list of boolean ndarrays | boolean ndarray
         List of boolean masks - one per cluster. The masks should match the
         dimensions of the `stat` ndarray. Each mask descirbes which elements
@@ -67,11 +71,6 @@ class Clusters(object):
         List/array of p values corresponding to consecutive clusters in
         `clusters`. If no clusters were found this can be an empty numpy array,
         an empty list or None.
-    stat : ndarray
-        Statistical map of the analysis. Usual dimensions are: space,
-        space x time, space x frequencies, space x frequencies x
-        time where space corresponds to channels or vertices (in the source
-        space).
     dimnames : list of str, optional
         List of dimension names. For example ``['chan', 'freq']`` or ``['vert',
         'time']``. The length of `dimnames` has to mach ``stat.ndim``.
@@ -123,9 +122,10 @@ class Clusters(object):
     sort_pvals : bool
         Whether to sort clusters by their p-value (ascending). Default: True.
     '''
-    def __init__(self, stat, clusters=None, pvals=None, dimnames=None, dimcoords=None,
-                 info=None, src=None, subject=None, subjects_dir=None,
-                 description=None, sort_pvals=True, safety_checks=True):
+    def __init__(self, stat, clusters=None, pvals=None, dimnames=None,
+                 dimcoords=None, info=None, src=None, subject=None,
+                 subjects_dir=None, description=None, sort_pvals=True,
+                 safety_checks=True):
 
         if safety_checks:
             # basic safety checks
