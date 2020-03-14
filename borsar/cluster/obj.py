@@ -37,7 +37,7 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     # subjects_dir = mne.utils.get_subjects_dir(subjects_dir, raise_error=True)
     data_dict = h5io.read_hdf5(fname)
     clst = Clusters(
-        data_dict['clusters'], data_dict['pvals'], data_dict['stat'],
+        data_dict['stat'], data_dict['clusters'], data_dict['pvals'],
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
         subject=data_dict['subject'], subjects_dir=subjects_dir, info=info,
         src=src, description=data_dict['description'])
@@ -123,7 +123,7 @@ class Clusters(object):
     sort_pvals : bool
         Whether to sort clusters by their p-value (ascending). Default: True.
     '''
-    def __init__(self, clusters, pvals, stat, dimnames=None, dimcoords=None,
+    def __init__(self, stat, clusters=None, pvals=None, dimnames=None, dimcoords=None,
                  info=None, src=None, subject=None, subjects_dir=None,
                  description=None, sort_pvals=True, safety_checks=True):
 
@@ -284,7 +284,7 @@ class Clusters(object):
         clst : Clusters
             Copied Clusters object.
         '''
-        clst = Clusters(self.clusters, self.pvals, self.stat, self.dimnames,
+        clst = Clusters(self.stat, self.clusters, self.pvals, self.dimnames,
                         self.dimcoords, info=self.info, src=self.src,
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description,
@@ -310,8 +310,8 @@ class Clusters(object):
         '''
         if self._current >= len(self):
             raise StopIteration
-        clst = Clusters(self.clusters[self._current],
-                        self.pvals[[self._current]], self.stat, self.dimnames,
+        clst = Clusters(self.stat, self.clusters[self._current],
+                        self.pvals[[self._current]], self.dimnames,
                         self.dimcoords, info=self.info, src=self.src,
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description,
