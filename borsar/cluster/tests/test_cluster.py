@@ -18,15 +18,16 @@ from borsar.utils import (download_test_data, _get_test_data_dir, has_numba,
                           find_index)
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
-                            cluster_based_regression, _get_mass_range,
-                            _index_from_dim, _clusters_safety_checks,
-                            _check_description, _clusters_chan_vert_checks,
-                            _check_dimnames_kwargs)
-from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description, _handle_dims,
-                                 _aggregate_cluster, _get_units,
-                                 _get_dimcoords, _label_axis,
-                                 _format_cluster_pvalues)
+                            cluster_based_regression)
+from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
+                                   _clusters_chan_vert_checks,
+                                   _check_dimnames_kwargs)
+from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
+                                  _prepare_cluster_description, _handle_dims,
+                                  _aggregate_cluster, _get_units,
+                                  _get_dimcoords, _get_mass_range,
+                                  _format_cluster_pvalues, _index_from_dim)
+from borsar.cluster.viz import _label_axis
 
 # setup
 download_test_data()
@@ -84,7 +85,7 @@ def test_contstruct_adjacency():
 
 def test_numba_clustering():
     if has_numba():
-        from borsar.cluster_numba import cluster_3d_numba
+        from borsar.cluster.label_numba import cluster_3d_numba
         data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
         # smooth each 'channel' independently

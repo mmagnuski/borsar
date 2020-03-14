@@ -1,7 +1,89 @@
 import numpy as np
+from scipy import sparse
 
-from .utils import group_mask
-from .stats import format_pvalue
+from ..utils import group_mask, find_range, find_index
+from ..stats import format_pvalue
+from ..channels import find_channels
+
+
+# FIXME - currently the reading of neighbours seems to be a bit
+#         messy. They should be read into the same format, either
+#         FieldTrip struct (for a starter) or a new class Adjacency
+#         with sparse matrix and channel/vert names
+#         (this adjacency could hold additional adjacency options in
+#          future that govern how clustering is done (?))
+def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
+    '''
+    Construct adjacency matrix out of neighbours structure (fieldtrip format).
+
+    Parameters
+    ----------
+    neighbours : structured array | dict
+        FieldTrip neighbours structure represented either as numpy structured
+        array or dictionary. Needs to contain ``'label'`` and ``'neighblabel'``
+        fields / keys.
+    ch_names : list of str, optional
+        List of channel names to use. Defaults to ``None`` which uses all
+        channel names in ``neighbours`` in the same order as they appear in
+        ``neighbours['label']``.
+    as_sparse : bool
+        Whether to return the adjacency matrix in sparse format. Defaults to
+        ``False`` which returns adjacency matrix in dense format.
+
+    Returns
+    -------
+    adj : numpy array
+        Constructed adjacency matrix.
+    '''
+    # checks for ch_names
+    if ch_names is not None:
+        ch_names_from_neighb = False
+        assert isinstance(ch_names, list), 'ch_names must be a list.'
+        assert all(map(lambda x: isinstance(x, str), ch_names)), \
+            'ch_names must be a list of strings'
+    else:
+        ch_names_from_neighb = True
+        ch_names = neighbours['label']
+        if isinstance(ch_names, np.ndarray):
+            ch_names = ch_names.tolist()
+
+    if (isinstance(neighbours, dict) and 'adjacency' in neighbours
+            and isinstance(neighbours['adjacency'], np.ndarray)
+            and neighbours['adjacency'].dtype == 'bool'):
+        # python dictionary from .hdf5 file
+        if ch_names_from_neighb:
+            adj = neighbours['adjacency']
+        else:
+            ch_idx = [neighbours['label'].index(ch) for ch in ch_names]
+            adj = neighbours['adjacency'][ch_idx][:, ch_idx]
+    else:
+        # fieldtrip adjacency structure
+        n_channels = len(ch_names)
+        adj = np.zeros((n_channels, n_channels), dtype='bool')
+
+        for ii, chan in enumerate(ch_names):
+            ngb_ind = np.where(neighbours['label'] == chan)[0]
+
+            # safty checks:
+            if len(ngb_ind) == 0:
+                raise ValueError(('channel {} was not found in neighbours.'
+                                  .format(chan)))
+            elif len(ngb_ind) == 1:
+                ngb_ind = ngb_ind[0]
+            else:
+                raise ValueError('found more than one neighbours entry for '
+                                 'channel name {}.'.format(chan))
+
+            # find connections and fill up adjacency matrix
+            connections = [ch_names.index(ch)
+                           for ch in neighbours['neighblabel'][ngb_ind]
+                           if ch in ch_names]
+            chan_ind = ch_names.index(chan)
+            adj[chan_ind, connections] = True
+
+    if as_sparse:
+        return sparse.coo_matrix(adj)
+    return adj
 
 
 def _get_units(dimname, fullname=False):
@@ -31,48 +113,6 @@ def _get_dimcoords(clst, dim_idx, idx=None):
     else:
         coords = clst.dimcoords[dim_idx][idx]
     return coords
-
-
-def _label_axis(ax, clst, dim_idx, ax_dim):
-    '''Label x or y axis with relevant label according to cluster dimnames, its
-    unit and indexed range.'''
-    dimname = clst.dimnames[dim_idx]
-    if dimname == 'chan':
-        label = 'Channels'
-    else:
-        label = _full_dimname(dimname).capitalize()
-        unit = _get_units(dimname)
-        label = label + ' ({})'.format(unit)
-
-    if ax_dim == 'x':
-        ax.set_xlabel(label, fontsize=12)
-        if dimname == 'chan':
-            ax.set_xticks([])
-    elif ax_dim == 'y':
-        ax.set_ylabel(label, fontsize=12)
-        if dimname == 'chan':
-            ax.set_yticks([])
-
-
-def _label_topos(topo, dim_kwargs):
-    '''Label cluster topoplots with relevant units.'''
-
-    if len(dim_kwargs) == 1:
-        # currently works only for one selected dimension
-        dim = list(dim_kwargs.keys())[0]
-        unit = _get_units(dim)
-        values = dim_kwargs[dim]
-        labels = [str(v) for v in values]
-
-        if isinstance(values, (list, np.ndarray)):
-            assert len(topo) == len(values)
-            for tp, lb in zip(topo, labels):
-                tp.axes.set_title(lb + ' ' + unit, fontsize=12)
-
-        elif isinstance(values, tuple) and len(values) == 2:
-            # range
-            ttl = '{} - {} {}'.format(*labels, unit)
-            topo.axes.set_title(ttl, fontsize=12)
 
 
 def _mark_cluster_range(msk, x_values, ax):
@@ -340,6 +380,7 @@ def _prepare_cluster_description(clst, cluster_idx, idx, reduce_axes=None):
 
 
 def _format_cluster_pvalues(clst, idx):
+    '''Format cluster p values into a string.'''
     if clst.pvals is not None:
         pvals = clst.pvals[idx]
         if isinstance(pvals, np.ndarray):
@@ -350,3 +391,159 @@ def _format_cluster_pvalues(clst, idx):
     else:
         pval = 'p = NA'
     return pval
+
+
+def _get_full_dimname(dimname):
+    '''Return full dimension name.'''
+    dct = {'freq': 'frequency', 'time': 'time', 'vert': 'vertices',
+           'chan': 'channels'}
+    return dct[dimname] if dimname in dct else dimname
+
+
+def _get_mass_range(contrib, mass, adjacent=True):
+    '''Find range that retains given mass (sum) of the contributions vector.
+
+    Parameters
+    ----------
+    contrib : np.ndarray
+        Vector of contributions.
+    mass : float
+        Requested mass to retain.
+    adjacent : boolean
+        Whether to extend from the maximum point by adjacency or not.
+
+    Returns
+    -------
+    extent : slice or np.ndarray of int
+        Slice (when `adjacency=True`) or indices (when `adjacency=False`)
+        retaining the required mass.
+    '''
+    contrib_len = contrib.shape[0]
+    max_idx = np.argmax(contrib)
+    current_mass = contrib[max_idx]
+
+    if adjacent:
+        side_idx = np.array([max_idx, max_idx])
+        while current_mass < mass:
+            side_idx += [-1, +1]
+            vals = [0. if side_idx[0] < 0 else contrib[side_idx[0]],
+                    0. if side_idx[1] + 1 >= contrib_len
+                    else contrib[side_idx[1]]]
+
+            if sum(vals) == 0.:
+                side_idx += [+1, -1]
+                break
+            ord = np.argmax(vals)
+            current_mass += contrib[side_idx[ord]]
+            one_back = [+1, -1]
+            one_back[ord] = 0
+            side_idx += one_back
+
+        return slice(side_idx[0], side_idx[1] + 1)
+    else:
+        indices = np.argsort(contrib)[::-1]
+        cum_mass = np.cumsum(contrib[indices])
+        retains_mass = np.where(cum_mass >= mass)[0]
+        if len(retains_mass) > 0:
+            indices = indices[:retains_mass[0] + 1]
+        return np.sort(indices)
+
+
+def _cluster_selection(clst, sel):
+    '''Select Clusters according to selection vector `sel`. Works in-place.
+
+    Parameters
+    ----------
+    clst : borsar.Clusters
+        Clusters to select from.
+    sel : list-like of int | array of bool
+        Clusters to select.
+
+    Returns
+    -------
+    clst : borsar.Clusters
+        Selected clusters.
+    '''
+    if isinstance(sel, np.ndarray):
+        if sel.dtype == 'bool' and sel.all():
+            return clst
+        if sel.dtype == 'bool':
+            sel = np.where(sel)[0]
+
+    if len(sel) > 0:
+        # select relevant fields
+        clst.cluster_polarity = [clst.cluster_polarity[idx]
+                                 for idx in sel]
+        clst.clusters = clst.clusters[sel]
+        clst.pvals = clst.pvals[sel]
+    else:
+        # no cluster selected - returning empty Clusters
+        clst.cluster_polarity = []
+        clst.clusters = None
+        clst.pvals = None
+    return clst
+
+
+def _ensure_correct_info(clst):
+    # check if we have channel names:
+    has_ch_names = clst.dimcoords[0] is not None
+    if has_ch_names:
+        from mne import pick_info
+
+        ch_names = clst.dimcoords[0]
+        ch_idx = find_channels(clst.info, ch_names)
+        clst.info = pick_info(clst.info, ch_idx)
+
+
+# - [ ] add special functions for handling dims like vert or chan
+def _index_from_dim(dimnames, dimcoords, **kwargs):
+    '''
+    Find axis indices or slices given dimnames, dimcoords and dimname keyword
+    arguments of ``dimname=value`` form.
+
+    Parameters
+    ----------
+    dimnames : list of str
+        List of dimension names. For example ``['chan', 'freq']``` or
+        ``['vert', 'time']``. The length of `dimnames` has to mach
+        ``stat.ndim``.
+    dimcoords : list of arrays
+        List of arrays, where each array contains coordinates (labels) for
+        consecutive elements in corresponding dimension.
+    **kwargs : additional keywords
+        Keywords referring to dimension names. Value of these keyword has to be
+        either:
+        * a tuple of two numbers representing lower and upper limits for
+          dimension selection.
+        * a list of one or more numbers, where each number represents specific
+          point in coordinates of the given dimension.
+
+    Returns
+    -------
+    idx : tuple of slices
+        Tuple that can be used to index the data array: `data[idx]`.
+
+    Examples
+    --------
+    >>> dimnames = ['freq', 'time']
+    >>> dimcoords = [np.arange(8, 12), np.arange(-0.2, 0.6, step=0.05)]
+    >>> _index_from_dim(dimnames, dimcoords, freq=(9, 11), time=(0.25, 0.5))
+    (slice(1, 4, None), slice(9, 15, None))
+    >>> _index_from_dim(dimnames, dimcoords, freq=[9, 11], time=(0.25, 0.5))
+    ([1, 3], slice(9, 15, None))
+    '''
+
+    idx = list()
+    for dname, dcoord in zip(dimnames, dimcoords):
+        if dname not in kwargs:
+            idx.append(slice(None))
+            continue
+        sel_ax = kwargs.pop(dname)
+        if isinstance(sel_ax, tuple) and len(sel_ax) == 2:
+            idx.append(find_range(dcoord, sel_ax))
+        elif isinstance(sel_ax, list):
+            idx.append(find_index(dcoord, sel_ax))
+        else:
+            raise TypeError('Keyword arguments has to have tuple of length 2 '
+                            'or a list, got {}.'.format(type(sel_ax)))
+    return tuple(idx)
