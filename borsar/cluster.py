@@ -266,6 +266,9 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     return clusters, cluster_stats
 
 
+# - [ ] within is not implemented - remove
+# - [ ] permute only some predictors
+# - [ ] or pass perm_idx to stat_fun?
 # - [ ] FIXME: consider cluster_pred always adressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
@@ -273,7 +276,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
                              cluster_pred=None, backend='auto',
                              progressbar=True, return_distribution=False,
-                             within=None):
+                             within=None, stat_fun=None):
     '''Compute cluster-based permutation test with regression as the
     statistical function.
 
@@ -337,6 +340,10 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         of interest and use a cluster based test against zero on the calculated
         t value maps (the null hypothesis is then that the data are
         symmetrically scattered around zero across participants).
+    stat_fun : None | callable
+        Function to compute regression. The function should take two arguments:
+        data (data to predict) and preds (predictors to use) and return a
+        matrix of regression parameters.
 
     Returns
     -------
@@ -362,6 +369,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         from scipy.stats import t
         df = data.shape[0] - 2  # in future: preds.shape[1]
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
+
+    if stat_fun is None:
+        stat_fun = compute_regression_t
 
     # TODO - move progressbar code from DiamSar!
     #      - then support tqdm pbar as input
@@ -389,7 +399,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         cluster_pred = 1
 
     # regression on non-permuted data
-    t_values = compute_regression_t(data, preds)[cluster_pred]
+    t_values = stat_fun(data, preds)[cluster_pred]
 
     if use_3d_clustering:
         # use 3d clustering
@@ -425,7 +435,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         # permute predictors
         perm_inds = np.random.permutation(n_obs)
         this_perm = perm_preds[perm_inds]
-        perm_tvals = compute_regression_t(data, this_perm)[cluster_pred]
+        perm_tvals = stat_fun(data, this_perm)[cluster_pred]
 
         # cluster
         _, perm_cluster_stats = find_clusters(
