@@ -1,6 +1,5 @@
-from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description,
-                                 _aggregate_cluster)
+from .utils import (_check_stc, _label_from_cluster, _get_clim,
+                    _prepare_cluster_description, _aggregate_cluster)
 
 
 def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,

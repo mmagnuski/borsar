@@ -14,6 +14,6 @@ comment:
   behavior: default
 ignore:
   - "borsar/_mne_modified.py"
-  - "borsar/_viz3d.py"
-  - "borsar/cluster_numba.py"
+  - "borsar/cluster/_viz3d.py"
+  - "borsar/cluster/label_numba.py"
   - "borsar/tests"

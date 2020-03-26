@@ -18,15 +18,16 @@ from borsar.utils import (download_test_data, _get_test_data_dir, has_numba,
                           find_index)
 from borsar.cluster import (Clusters, cluster_3d, find_clusters,
                             construct_adjacency_matrix, read_cluster,
-                            cluster_based_regression, _get_mass_range,
-                            _index_from_dim, _clusters_safety_checks,
-                            _check_description, _clusters_chan_vert_checks,
-                            _check_dimnames_kwargs)
-from borsar.clusterutils import (_check_stc, _label_from_cluster, _get_clim,
-                                 _prepare_cluster_description, _handle_dims,
-                                 _aggregate_cluster, _get_units,
-                                 _get_dimcoords, _label_axis,
-                                 _format_cluster_pvalues)
+                            cluster_based_regression)
+from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
+                                   _clusters_chan_vert_checks,
+                                   _check_dimnames_kwargs)
+from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
+                                  _prepare_cluster_description, _handle_dims,
+                                  _aggregate_cluster, _get_units,
+                                  _get_dimcoords, _get_mass_range,
+                                  _format_cluster_pvalues, _index_from_dim)
+from borsar.cluster.viz import _label_axis
 
 # setup
 download_test_data()
@@ -84,7 +85,7 @@ def test_contstruct_adjacency():
 
 def test_numba_clustering():
     if has_numba():
-        from borsar.cluster_numba import cluster_3d_numba
+        from borsar.cluster.label_numba import cluster_3d_numba
         data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
         # smooth each 'channel' independently
@@ -318,7 +319,7 @@ def test_cluster_limits():
     info = mne.create_info(list('ABCDEFG'), sfreq=250.)
     # FIX: dimcoords should not be necessary, but we get error without
     dimcoords = [list('ABCDEFG'), np.linspace(3., 25., num=100)]
-    clst = Clusters([clusters], pvals, stat, dimnames=['chan', 'freq'],
+    clst = Clusters(stat, [clusters], pvals, dimnames=['chan', 'freq'],
                     dimcoords=dimcoords, info=info)
 
     lmts = clst.get_cluster_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
@@ -582,8 +583,8 @@ def test_clusters():
 
     # _aggregate_cluster - 1d
     slice_idx = 2
-    clst_1d = Clusters([c[:, slice_idx] for c in clst2.clusters[:2]],
-                       clst2.pvals[:2], clst2.stat[:, slice_idx],
+    sel_clusters = [c[:, slice_idx] for c in clst2.clusters[:2]]
+    clst_1d = Clusters(clst2.stat[:, slice_idx], sel_clusters, clst2.pvals[:2],
                        dimnames=[clst2.dimnames[0]], dimcoords=[None],
                        src=clst2.src, subject=clst2.subject,
                        subjects_dir=clst2.subjects_dir)
@@ -618,13 +619,13 @@ def test_clusters():
 
     # create empty clusters
     clst_empty = Clusters(
-        None, None, clst2.stat[slice_idx], dimcoords=[clst2.dimcoords[1]],
+        clst2.stat[slice_idx], None, None, dimcoords=[clst2.dimcoords[1]],
         dimnames=[clst2.dimnames[1]])
     clst_empty = Clusters(
-        np.zeros(0, dtype='bool'), np.zeros(0), clst2.stat[slice_idx],
+        clst2.stat[slice_idx], np.zeros(0, dtype='bool'), np.zeros(0),
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
     clst_empty = Clusters(
-        list(), np.zeros(0), clst2.stat[slice_idx],
+        clst2.stat[slice_idx], list(), np.zeros(0),
         dimcoords=[clst2.dimcoords[1]], dimnames=[clst2.dimnames[1]])
     assert len(clst_empty) == 0
 
@@ -700,7 +701,7 @@ def test_clusters_safety_checks():
     info = mne.create_info(list('abcde'), 250.)
 
     with pytest.raises(ValueError, match='Length of `dimcoords` must be'):
-        Clusters(clusters, [0.1, 0.1, 0.15], stat, dimnames=['chan', 'time'],
+        Clusters(stat, clusters, [0.1, 0.1, 0.15], dimnames=['chan', 'time'],
                  dimcoords=[None], info=info)
 
     # _check_description
@@ -781,9 +782,9 @@ def test_cluster_pvals_and_polarity_sorting():
     dimnames = ['freq']
     dimcoords = [np.arange(3, 8)]
 
-    clst_nosrt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+    clst_nosrt = Clusters(stat, clusters, pvals, dimnames=dimnames,
                           dimcoords=dimcoords, sort_pvals=False)
-    clst_srt = Clusters(clusters, pvals, stat, dimnames=dimnames,
+    clst_srt = Clusters(stat, clusters, pvals, dimnames=dimnames,
                         dimcoords=dimcoords, sort_pvals=True)
 
     # make sure polarities are correct:
@@ -813,7 +814,7 @@ def test_chan_freq_clusters():
     info = create_info(data_dict['dimcoords'][0], sfreq=250., ch_types='eeg',
                        montage='easycap-M1')
     clst = Clusters(
-        data_dict['clusters'], data_dict['pvals'], data_dict['stat'],
+        data_dict['stat'], data_dict['clusters'], data_dict['pvals'],
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
         info=info, description=data_dict['description'])
 
@@ -852,7 +853,7 @@ def test_cluster_ignore_dims():
     dimnames = ['chan', 'time']
     data = np.random.random((n_channels, n_times))
     clusters = [np.random.random((n_channels, n_times)) >= 0.5]
-    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
                     dimcoords=[ch_names, times], info=info)
 
     # test that _handle_dims works well
@@ -912,7 +913,7 @@ def test_cluster_ignore_dims():
     dimnames = ['chan', 'freq', 'time']
     data = np.random.random((n_channels, n_freqs, n_times))
     clusters = [np.random.random((n_channels, n_freqs, n_times)) >= 0.5]
-    clst = Clusters(clusters, [0.01], data, dimnames=dimnames,
+    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
                     dimcoords=[None, freqs, times], info=info)
 
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
