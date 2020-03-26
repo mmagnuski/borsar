@@ -4,8 +4,10 @@ from .label import find_clusters, _get_cluster_fun
 from borsar.stats import compute_regression_t
 
 
-# - [ ] within is not implemented - remove
-# - [ ] permute only some predictors
+# - [x] within is not implemented - remove
+# - [x] permute only some predictors
+# - [ ] better support for `cluster_pred`: idx with respect to `preds`,
+#       add intercept
 # - [ ] or pass perm_idx to stat_fun?
 # - [ ] FIXME: consider cluster_pred always adressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
@@ -60,24 +62,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     return_distribution : bool
         Whether to retrun the permutation distribution as an additional, fourth
         output argument.
-    within : None | list | ndarray
-        For within-subject regression you need to pass additional array or list
-        with subject identifiers. For example if rows 1 - 4 of ``data`` belong
-        to subject 1 and rows 5 - 8 to subject 2 you would use
-        ``within=[1, 1, 1, 1, 2, 2, 2, 2]``. This information is used to add
-        subject-specific intercepts and permute the predictor of interest
-        (``cluster_pred``) within subjects.
-        Please note that this option is experimental, and using permutation
-        tests with within-subject regression is not guaranteed to give relevant
-        correction. Permuting the predictors within subjects changes the null
-        hypothesis to "there is no relationship between predictor and data in
-        ANY of the subjects" so it may be possible that having the
-        relationship only in some subjects would be enough to reject the null
-        hypothesis. Instead of within-subject regression you could use a two
-        step analysis, where you calculate maps of t values for the predictor
-        of interest and use a cluster based test against zero on the calculated
-        t value maps (the null hypothesis is then that the data are
-        symmetrically scattered around zero across participants).
     stat_fun : None | callable
         Function to compute regression. The function should take two arguments:
         data (data to predict) and preds (predictors to use) and return a
@@ -98,10 +82,8 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         ``return_distribution`` was set to ``True``.
     '''
     # data has to have observations as 1st dim and channels/vert as last dim
-
-    assert preds.ndim == 1 or (preds.ndim == 2) & (preds.shape[1] == 1), (
-        '`preds` must be 1d array or 2d array where the second dimension is'
-        ' one (only one predictor).')
+    # FIXME: add checks for input types
+    assert preds.ndim < 3 , '`preds` must be 1d or 2d array.'
 
     if stat_threshold is None:
         from scipy.stats import t
@@ -110,13 +92,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
 
     if stat_fun is None:
         stat_fun = compute_regression_t
-
-    # TODO - move progressbar code from DiamSar!
-    #      - then support tqdm pbar as input
-    #      - use autonotebook
-    if progressbar:
-        from tqdm import tqdm
-        pbar = tqdm(total=n_permutations)
 
     use_3d_clustering = data.ndim > 3 and adjacency is not None
 
@@ -130,10 +105,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     neg_dist = np.zeros(n_permutations)
     perm_preds = preds.copy()
 
-    if within is not None:
-        # ...cluster_pred
-        pass
-    elif cluster_pred is None:
+    if cluster_pred is None:
         cluster_pred = 1
 
     # regression on non-permuted data
@@ -168,12 +140,19 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         msg = 'Found {} clusters, computing permutations.'
         print(msg.format(len(clusters)))
 
+    # TODO - move progressbar code from DiamSar!
+    #      - then support tqdm pbar as input
+    #      - use autonotebook?
+    if progressbar:
+        from tqdm import tqdm
+        pbar = tqdm(total=n_permutations)
+
     # compute permutations
     for perm in range(n_permutations):
         # permute predictors
         perm_inds = np.random.permutation(n_obs)
-        this_perm = perm_preds[perm_inds]
-        perm_tvals = stat_fun(data, this_perm)[cluster_pred]
+        perm_preds[:, cluster_pred - 1] = preds[perm_inds, cluster_pred - 1]
+        perm_tvals = stat_fun(data, perm_preds)[cluster_pred]
 
         # cluster
         _, perm_cluster_stats = find_clusters(
@@ -209,8 +188,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     if use_3d_clustering:
         clusters = [clst.transpose(data_dims[1:] - 1) for clst in clusters]
 
+    out = t_values, clusters, cluster_p
     if return_distribution:
         distribution = dict(pos=pos_dist, neg=neg_dist)
-        return t_values, clusters, cluster_p, distribution
-    else:
-        return t_values, clusters, cluster_p
+        out += distribution
+
+    return out
