@@ -43,7 +43,7 @@ class Topo(object):
     '''
 
     def __init__(self, values, info, side=None, **kwargs):
-        from._mne_modified import plot_topomap
+        from._mne_modified import plot_topomap, has_new_mne
 
         self.info = info
         self.values = values
@@ -58,13 +58,18 @@ class Topo(object):
 
         # default outlines='skirt' and extrapolate='head':
         if 'outlines' not in kwargs:
-            kwargs['outlines'] = 'skirt'
+            if not has_new_mne:
+                kwargs['outlines'] = 'skirt'
         if 'extrapolate' not in kwargs:
-            kwargs['extrapolate'] = 'head'
+            if not has_new_mne:
+                kwargs['extrapolate'] = 'head'
 
         self._check_axes(kwargs)
-        part = _infer_topo_part(info)
-        info, kwargs = _construct_topo_part(info, part, kwargs)
+        if not has_new_mne:
+            # TODO - these functions will have to be modified and made
+            # compatible with new mne versions (>= 0.20)
+            part = _infer_topo_part(info)
+            info, kwargs = _construct_topo_part(info, part, kwargs)
 
         kwargs.update({'show': False})
         if 'axes' in kwargs:
@@ -74,9 +79,10 @@ class Topo(object):
         im, lines, chans = list(), list(), list()
 
         for topo_idx in range(self.n_topos):
-            this_im, this_lines, interp, patch = plot_topomap(
+            this_im, this_lines, interp = plot_topomap(
                 self.values[:, topo_idx], info, axes=self.axes[topo_idx],
                 **kwargs)
+
             # get channel objects and channel positions from topo
             this_chans, chan_pos = _extract_topo_channels(this_im.axes)
 
@@ -86,7 +92,7 @@ class Topo(object):
 
         self.chan_pos = chan_pos
         self.interpolator = interp
-        self.mask_patch = patch
+        self.mask_patch = this_im.get_clip_path()
         self.chan = chans if self.multi_axes else chans[0]
         self.img = im if self.multi_axes else im[0]
         self.lines = lines if self.multi_axes else lines[0]
@@ -290,14 +296,12 @@ class Topo(object):
                 # multiple topos and axes were passed, check if axes correct
                 from mne.viz.utils import _validate_if_list_of_axes
                 _validate_if_list_of_axes(axes, obligatory_len=self.n_topos)
-                plt.sca(axes[0])  # FIXME - this may not be needed in future
                 self.axes = axes
             else:
                 # one topo and axes were passed, should check axes
                 if self._squeezed and isinstance(axes, list):
                     axes = axes[0]
                     kwargs['axes'] = axes
-                plt.sca(axes)  # FIXME - this may not be needed in future
                 self.axes = [axes]
         else:
             # no axes passed, create figure and axes
