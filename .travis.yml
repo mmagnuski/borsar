@@ -9,13 +9,19 @@ env:
 matrix:
   include:
     - os: linux
-      env: USE_NUMBA="yes"
+      env: USE_NUMBA="yes" MNE_VERSION="current"
 
     - os: linux
-      env: USE_NUMBA="no"
+      env: USE_NUMBA="no" MNE_VERSION="current"
+
+    - os: linux
+      env: USE_NUMBA="no" MNE_VERSION="0.19"
+
+    - os: linux
+      env: USE_NUMBA="no" MNE_VERSION="0.18"
 
     - os: osx
-      env: USE_NUMBA="no"
+      env: USE_NUMBA="no" MNE_VERSION="current"
 
 before_install:
   - curl -O https://raw.githubusercontent.com/mmagnuski/borsar/master/environment.yml
@@ -37,7 +43,16 @@ install:
       conda install numba;
     fi
   - conda install scikit-image
-  - pip install codecov tqdm mne
+  - pip install codecov tqdm
+  - if [ "${MNE_VERSION}" == "current" ]; then
+      pip install mne;
+    fi
+  - if [ "${MNE_VERSION}" == "0.18" ]; then
+      pip install mne==0.18;
+    fi
+  - if [ "${MNE_VERSION}" == "0.19" ]; then
+      pip install mne==0.19;
+    fi
   - python setup.py develop
 
 script:
