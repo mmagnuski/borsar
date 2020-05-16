@@ -179,9 +179,16 @@ def test_has_numba():
 
 
 def test_silent_mne():
+    from packaging import version
+    has_new_mne = version.parse(mne.__version__) >= version.parse('0.19.0')
     raw = create_fake_raw(n_channels=2, n_samples=10, sfreq=10.)
-    mntg = mne.channels.Montage(np.random.random((2, 3)), ['A', 'B'],
-                                'eeg', 'fake')
+    pos = np.random.random((2, 3))
+
+    if has_new_mne:
+        ch_pos = {'a': pos[0, :], 'b': pos[1, :]}
+        mntg = mne.channels.make_dig_montage(ch_pos=ch_pos)
+    else:
+        mntg = mne.channels.Montage(pos, ['a', 'b'], 'eeg', 'fake')
     raw.set_montage(mntg)
 
     # adding new reference channel without position gives a warning:

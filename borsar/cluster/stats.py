@@ -1,7 +1,7 @@
 import numpy as np
 
 from .label import find_clusters, _get_cluster_fun
-from .stats import compute_regression_t, _handle_preds
+from ..stats import compute_regression_t, _handle_preds
 
 
 # - [x] permute only some predictors
@@ -151,7 +151,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     for perm in range(n_permutations):
         # permute predictors
         perm_inds = np.random.permutation(n_obs)
-        perm_preds[:, cluster_pred - 1] = preds[perm_inds, cluster_pred - 1]
+        perm_preds[:, cluster_pred] = preds[perm_inds, cluster_pred]
         perm_tvals = stat_fun(data, perm_preds)[cluster_pred]
 
         # cluster
@@ -191,6 +191,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     out = t_values, clusters, cluster_p
     if return_distribution:
         distribution = dict(pos=pos_dist, neg=neg_dist)
-        out += distribution
+        out += (distribution,)
 
     return out

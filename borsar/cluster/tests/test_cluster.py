@@ -144,6 +144,7 @@ def test_find_clusters():
 
 
 def test_cluster_based_regression():
+    np.random.seed(23)
     data_dir = _get_test_data_dir()
 
     # TEST 1

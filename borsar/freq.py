@@ -9,11 +9,11 @@ try:
 except ImportError:
     has_epochs_mixin = False
 
-from mne.channels.channels import UpdateChannelsMixin
+from mne.channels.channels import UpdateChannelsMixin, ContainsMixin
 if has_epochs_mixin:
-    mixins = (GetEpochsMixin, UpdateChannelsMixin)
+    mixins = (ContainsMixin, GetEpochsMixin, UpdateChannelsMixin)
 else:
-    mixins = (UpdateChannelsMixin,)
+    mixins = (ContainsMixin, UpdateChannelsMixin,)
 
 from .utils import valid_windows, find_range, find_index
 from .viz import Topo
