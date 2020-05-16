@@ -332,12 +332,6 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
 
-    # aggregate masks if more clusters
-    # CONSIDER - this could be made optional later,
-    # especially with cluster colors
-    if clst_mask is not None:
-        clst_mask = clst_mask.any(axis=0)
-
     return clst_mask, clst_stat, idx
 
 
