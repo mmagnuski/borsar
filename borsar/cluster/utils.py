@@ -288,13 +288,12 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
                              '{}'.format(', '.join(non_exhausted)))
 
     # find indexing
-    # FIXME - what if more clusters?
-    # FIXME - get_index should deal with arrays better
     idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
                          retain_mass=retain_mass, **kwargs)
     sequences = [x for x in range(len(idx))
                  if isinstance(idx[x], (list, np.ndarray))]
     if len(sequences) > 1:
+        # FIXME - separate function
         # we have to use np.ix_ to turn multiple lists/arrays to
         # indexers acceptable by numpy (.oix would be helpful here...)
         seq = [[0]] * len(idx)

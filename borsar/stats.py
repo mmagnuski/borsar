@@ -63,7 +63,7 @@ def format_pvalue(pvalue):
 
 def _handle_preds(preds):
     '''Reshape predictors, add constant term if not present.'''
-    assert preds.ndim < 3 , '`preds` must be 1d or 2d array.'
+    assert preds.ndim < 3, '`preds` must be 1d or 2d array.'
     if preds.ndim == 1:
         preds = np.atleast_2d(preds).T
 

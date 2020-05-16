@@ -171,11 +171,6 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                         **plotfun_kwargs)
             topo.solid_lines()
 
-            # FIXME: temporary hack to make all channels more visible
-            # FIXME: this could be done via .set_... on relevant object
-            # topo.mark_channels(np.arange(len(clst_stat)), markersize=2,
-            #                    markerfacecolor='k', linewidth=0.)
-
             # FIXME: labels axes also when resulting from idx reduction
             _label_topos(topo, dim_kwargs)
 

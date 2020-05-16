@@ -1,7 +1,3 @@
-import warnings
-import numpy as np
-from numbers import Integral
-
 # check mne version number
 import mne
 from packaging import version
