@@ -1,14 +1,12 @@
 import numpy as np
 
 from .label import find_clusters, _get_cluster_fun
-from borsar.stats import compute_regression_t
+from .stats import compute_regression_t, _handle_preds
 
 
-# - [x] within is not implemented - remove
 # - [x] permute only some predictors
-# - [ ] better support for `cluster_pred`: idx with respect to `preds`,
+# - [x] better support for `cluster_pred`: idx with respect to `preds`,
 #       add intercept
-# - [ ] or pass perm_idx to stat_fun?
 # - [ ] FIXME: consider cluster_pred always adressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
@@ -16,7 +14,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
                              cluster_pred=None, backend='auto',
                              progressbar=True, return_distribution=False,
-                             within=None, stat_fun=None):
+                             stat_fun=None):
     '''Compute cluster-based permutation test with regression as the
     statistical function.
 
@@ -51,7 +49,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     cluster_pred : int
         Specify which predictor to use in clustering. Must be an integer: a
         zero-based index for the t values matrix returned by
-        ``compute_regression_t``.
+        ``compute_regression_t``. Use values higher than zero - zero index
+        indicates the intercept, which should be tested using a different
+        permutation scheme than the one used here.
     backend : str
         Clustering backend. The default is 'numpy' but 'numba' can be also
         chosen. 'numba' should be faster for 3d clustering but requires the
@@ -83,12 +83,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     '''
     # data has to have observations as 1st dim and channels/vert as last dim
     # FIXME: add checks for input types
-    assert preds.ndim < 3 , '`preds` must be 1d or 2d array.'
-    if preds.ndim == 1:
-        preds = np.atleast_2d(preds).T
-    # add constant term
-    if not (preds[:, 0] == 1).all():
-        preds = np.concatenate([np.ones((n_obs, 1)), preds], axis=1)
+    preds = _handle_preds(preds)
 
     if stat_threshold is None:
         from scipy.stats import t

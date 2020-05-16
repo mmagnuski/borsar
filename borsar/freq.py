@@ -306,7 +306,7 @@ class PSD(*mixins):
              normalization='length', picks=None, ax=None, color='black',
              xscale='linear', area_mode='std', area_alpha=0.33, dB=True,
              estimate='auto', show=True, n_jobs=1, average=False,
-             line_alpha=None, spatial_colors=True, verbose=None):
+             line_alpha=None, spatial_colors=True, verbose=None, sphere=None):
         from mne.viz.utils import _set_psd_plot_params, _plot_psd, plt_show
 
         # set up default vars
@@ -315,7 +315,7 @@ class PSD(*mixins):
         if has_new_mne:
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list =  _set_psd_plot_params(
-                self.info, proj, picks, ax, area_mode)
+                    self.info, proj, picks, ax, area_mode)
         else:
             fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
                 make_label = _set_psd_plot_params(self.info, proj, picks, ax,
@@ -333,10 +333,19 @@ class PSD(*mixins):
                 this_psd = this_psd.mean(axis=0)
             psd_list.append(this_psd)
 
-        fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                        titles_list, units_list, scalings_list, ax_list,
-                        make_label, color, area_mode, area_alpha, dB, estimate,
-                        average, spatial_colors, xscale, line_alpha)
+        if has_new_mne:
+            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
+                            titles_list, units_list, scalings_list, ax_list,
+                            make_label, color, area_mode, area_alpha, dB,
+                            estimate, average, spatial_colors, xscale,
+                            line_alpha, sphere, xlabels_list)
+        else:
+            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
+                            titles_list, units_list, scalings_list, ax_list,
+                            make_label, color, area_mode, area_alpha, dB,
+                            estimate, average, spatial_colors, xscale,
+                            line_alpha)
+
         plt_show(show)
         return fig
 
