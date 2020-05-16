@@ -186,7 +186,7 @@ def test_silent_mne():
 
     if has_new_mne:
         ch_pos = {'a': pos[0, :], 'b': pos[1, :]}
-        mntg = mne.channels.make_dig_montage(ch_pos=ch_pos)
+        mntg = mne.channels.make_dig_montage(ch_pos=ch_pos, coord_frame='head')
     else:
         mntg = mne.channels.Montage(pos, ['a', 'b'], 'eeg', 'fake')
     raw.set_montage(mntg)

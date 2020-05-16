@@ -311,7 +311,7 @@ class PSD(*mixins):
 
         # set up default vars
         from packaging import version
-        has_new_mne = version.parse(mne.__version__) >= version.parse('0.19.0')
+        has_new_mne = version.parse(mne.__version__) >= version.parse('0.19.1')
         if has_new_mne:
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list =  _set_psd_plot_params(
