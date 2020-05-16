@@ -1,9 +1,17 @@
 [![Build Status](https://travis-ci.org/mmagnuski/borsar.svg?branch=master)](https://travis-ci.org/mmagnuski/borsar)
-[![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)  
-:construction: still work in progress... :construction:  
+[![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)   
 
-Various tools and functions for EEG/MEG data analysis and visualisation. Some functionality that is available here may
+Various tools, objects and functions for EEG/MEG data analysis and visualisation. Some functionality that is available here may
 be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
+
+`borsar` includes:
+* `PSD` object for manipulation of power spectral results
+* `Clusters` object for storage, manipulation and plotting of clutser-based results, both in channel and sourcee space
+* efficient regression for multichannel data (`compute_regression_t`)
+* `cluster_based_regression` to perform regression tests in cluster-based permutation framework
+* numpy and numba implementations of cluster-based permutation tests in 3d space (for example in `channels x frequency x time` space)
+* `Topo` object for topomap plots that retains the topomap state, allows to mark channels, efficiently update data, change contour line width and style for one or multiple topomaps
+
 
 ## Installation
 `borsar` is not yet released on `PPI` so to install you have to download it from Github using pip in the following way:
@@ -21,4 +29,5 @@ python setup.py develop
 both methods require you to have [git](https://git-scm.com/) installed.
 
 ## Documentation
-Go to the [online documentation](https://mmagnuski.github.io/borsar.github.io/index.html) for more information about usage examples or full API docs.
+Go to the [online documentation](https://mmagnuski.github.io/borsar.github.io/index.html) for more information about usage examples or full API docs.  
+:construction: be warned that documentation is under contstruction :construction:
