@@ -577,7 +577,7 @@ def test_clusters():
     correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10),
                                   ignore_dims='vert')
     correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
-                    axis=-1) >= 0.5).any(axis=0)
+                    axis=-1) >= 0.5)
     assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == correct_mask).all()

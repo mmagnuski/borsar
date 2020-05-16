@@ -158,7 +158,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
                            pysurfer=False)
 
-    if len(cluster_idx) > 1 and cluster_colors is None:
+    if (cluster_colors is None and isinstance(idx, list)
+        and clst_mask is not None):
         clst_mask = clst_mask.any(axis=0)
 
     # Viz rules:
@@ -307,7 +308,7 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors):
     else:
         mark_kwargs = dict(markersize=5)
 
-    multi_clusters = clst_mask.ndim > 1 + int(n_topos > 1)
+    multi_clusters = clst_mask.ndim > (1 + int(n_topos > 1))
     if multi_clusters:
         n_clusters = clst_mask.shape[0]
         for clst_idx in range(n_clusters):

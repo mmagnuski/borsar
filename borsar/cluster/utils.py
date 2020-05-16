@@ -332,6 +332,9 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
 
+    if len(cluster_idx) == 1 and not clst_mask is None:
+        clst_mask = clst_mask[0]
+
     return clst_mask, clst_stat, idx
 
 

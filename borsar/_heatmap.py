@@ -100,8 +100,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ext = [*(x_axis[[0, -1]] + [-x_step / 2, x_step / 2]),
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
-
-    mask_ = mask.any(axis=0) if mask.ndim == 3 else mask
+    mask_is_3d = isinstance(mask, np.ndarray) and mask.ndim == 3
+    mask_ = mask.any(axis=0) if mask_is_3d else mask
     out = _masked_image(array, mask=mask_, vmin=vmin, vmax=vmax,
                         cmap=cmap, aspect='auto', extent=ext,
                         interpolation='nearest', origin='lower',
@@ -128,8 +128,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
                 img.axes.plot(x_line, y_line, **this_line_kwargs)
 
     if colorbar:
-        cbar = add_colorbar_to_axis(img.axes, img)
-        # cbar.set_label('t values')
+        cbar = add_colorbar_to_axis(img.axes, img, side='right', size='5%',
+                                    pad=0.15)
         return img.axes, cbar
     else:
         return img.axes
