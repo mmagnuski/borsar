@@ -100,7 +100,9 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ext = [*(x_axis[[0, -1]] + [-x_step / 2, x_step / 2]),
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
-    out = _masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
+
+    mask_ = mask.any(axis=0) if mask.ndim == 3 else mask
+    out = _masked_image(array, mask=mask_, vmin=vmin, vmax=vmax,
                         cmap=cmap, aspect='auto', extent=ext,
                         interpolation='nearest', origin='lower',
                         axis=axis, alpha=alpha, **kwargs)
@@ -111,9 +113,19 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     if outlines:
         if 'color' not in line_kwargs.keys():
             line_kwargs['color'] = 'w'
-        outlines = _create_cluster_contour(mask, extent=ext)
-        for x_line, y_line in outlines:
-            img.axes.plot(x_line, y_line, **line_kwargs)
+
+        mask = mask[np.newaxis, :] if mask.ndim == 2 else mask
+        n_masks = mask.shape[0]
+
+        if not isinstance(line_kwargs['color'], list):
+            line_kwargs['color'] = [line_kwargs['color']] * n_masks
+
+        this_line_kwargs = line_kwargs.copy()
+        for mask_idx in range(n_masks):
+            this_line_kwargs['color'] = line_kwargs['color'][mask_idx]
+            outlines = _create_cluster_contour(mask[mask_idx], extent=ext)
+            for x_line, y_line in outlines:
+                img.axes.plot(x_line, y_line, **this_line_kwargs)
 
     if colorbar:
         cbar = add_colorbar_to_axis(img.axes, img)
