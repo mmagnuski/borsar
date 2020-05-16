@@ -310,9 +310,16 @@ class PSD(*mixins):
         from mne.viz.utils import _set_psd_plot_params, _plot_psd, plt_show
 
         # set up default vars
-        fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
-            make_label = _set_psd_plot_params(self.info, proj, picks, ax,
-                                              area_mode)
+        from packaging import version
+        has_new_mne = version.parse(mne.__version__) >= version.parse('0.19.0')
+        if has_new_mne:
+            fig, picks_list, titles_list, units_list, scalings_list, \
+                ax_list, make_label, xlabels_list =  _set_psd_plot_params(
+                self.info, proj, picks, ax, area_mode)
+        else:
+            fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
+                make_label = _set_psd_plot_params(self.info, proj, picks, ax,
+                                                  area_mode)
         del ax
 
         fmax = self.freqs[-1] if fmax is None else fmax

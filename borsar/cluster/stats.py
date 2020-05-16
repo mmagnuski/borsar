@@ -84,6 +84,11 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     # data has to have observations as 1st dim and channels/vert as last dim
     # FIXME: add checks for input types
     assert preds.ndim < 3 , '`preds` must be 1d or 2d array.'
+    if preds.ndim == 1:
+        preds = np.atleast_2d(preds).T
+    # add constant term
+    if not (preds[:, 0] == 1).all():
+        preds = np.concatenate([np.ones((n_obs, 1)), preds], axis=1)
 
     if stat_threshold is None:
         from scipy.stats import t

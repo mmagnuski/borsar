@@ -5,9 +5,9 @@ from mne.utils import fill_doc, _check_sphere
 from mne.viz.topomap import _plot_topomap
 
 from packaging import version
-has_0_20_4 = version.parse(mne.__version__) > version.parse('0.20.3')
+has_0_20_5 = version.parse(mne.__version__) > version.parse('0.20.4')
 _BORDER_DEFAULT = 'mean'
-_EXTRAPOLATE_DEFAULT = 'head' if has_0_20_4 else 'box'
+_EXTRAPOLATE_DEFAULT = 'head' if has_0_20_5 else 'box'
 
 
 # TODOs:     %(topomap_ch_type)s in docs did not work last time (was not
@@ -98,7 +98,7 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         The fieldlines.
     """
     sphere = _check_sphere(sphere)
-    if has_0_20_4:
+    if has_0_20_5:
         return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
                              names, show_names, mask, mask_params, outlines,
                              contours, image_interp, show, onselect,
