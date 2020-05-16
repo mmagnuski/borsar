@@ -24,11 +24,7 @@ def compute_regression_t(data, preds, return_p=False):
         P values for all predictors for the original data space.
     '''
     n_obs = data.shape[0]
-    if preds.ndim == 1:
-        preds = np.atleast_2d(preds).T
-    # add constant term
-    if not (preds[:, 0] == 1).all():
-        preds = np.concatenate([np.ones((n_obs, 1)), preds], axis=1)
+    preds = _handle_preds(preds)
 
     n_preds = preds.shape[1]
     assert n_obs == preds.shape[0], ('preds must have the same number of rows'
@@ -63,3 +59,17 @@ def format_pvalue(pvalue):
             return 'p < {}'.format(['0.001', '0.0001'][which_power])
         else:
             return 'p < {}'.format(str(powers[which_power]))
+
+
+def _handle_preds(preds):
+    '''Reshape predictors, add constant term if not present.'''
+    assert preds.ndim < 3 , '`preds` must be 1d or 2d array.'
+    if preds.ndim == 1:
+        preds = np.atleast_2d(preds).T
+
+    # add constant term
+    if not (preds[:, 0] == 1).all():
+        n_obs = preds.shape[0]
+        preds = np.concatenate([np.ones((n_obs, 1)), preds], axis=1)
+
+    return preds
