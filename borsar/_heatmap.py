@@ -48,7 +48,7 @@ def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
 # - [ ] multiple masks, multiple outline_colors, multiple alpha?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
-            vmin=None, vmax=None, line_kwargs=dict(), **kwargs):
+            vmin=None, vmax=None, line_kwargs=None, **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -111,12 +111,14 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
     # add outlines if necessary
     if outlines:
-        if 'color' not in line_kwargs.keys():
-            line_kwargs['color'] = 'w'
-
         mask = mask[np.newaxis, :] if mask.ndim == 2 else mask
         n_masks = mask.shape[0]
 
+        # handle line_kwargs
+        if line_kwargs is None:
+            line_kwargs = dict()
+        if 'color' not in line_kwargs.keys():
+            line_kwargs['color'] = 'w'
         if not isinstance(line_kwargs['color'], list):
             line_kwargs['color'] = [line_kwargs['color']] * n_masks
 
