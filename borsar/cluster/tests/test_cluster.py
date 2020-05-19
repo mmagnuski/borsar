@@ -1049,6 +1049,9 @@ def test_multi_cluster_plots():
     clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
               cluster_colors=['red', 'seagreen'])
     clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+
+    # what happens now?:
+    clst.plot(cluster_idx=[0])
     plt.close('all')
 
 
