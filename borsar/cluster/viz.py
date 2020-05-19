@@ -158,8 +158,12 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
                            pysurfer=False)
 
-    if (cluster_colors is None and isinstance(idx, list)
-        and clst_mask is not None):
+    # remove singleton dimensions from clst_mask
+    singletons = np.where(np.array(clst_mask.shape) == 1)[0]
+    if len(singletons) > 0:
+        clst_mask = np.squeeze(clst_mask, axis=tuple(singletons))
+    if (cluster_colors is None and isinstance(cluster_idx, list)
+        and len(cluster_idx) > 1 and clst_mask is not None):
         clst_mask = clst_mask.any(axis=0)
 
     # Viz rules:
@@ -183,7 +187,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             _label_topos(clst, topo, dim_kwargs, idx)
 
             # mark cluster channels
-            _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors)
+            _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
+                                cluster_idx)
 
             return topo
         else:
@@ -296,7 +301,8 @@ def _label_topos(clst, topo, dim_kwargs, idx):
             topo.axes.set_title(ttl, fontsize=12)
 
 
-def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors):
+def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
+                        cluster_idx):
     '''Mark topo channels contributing to clusters.'''
     if clst_mask is None or not clst_mask.any():
         return
@@ -308,7 +314,7 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors):
     else:
         mark_kwargs = dict(markersize=5)
 
-    multi_clusters = clst_mask.ndim > (1 + int(n_topos > 1))
+    multi_clusters = isinstance(cluster_idx, list) and len(cluster_idx) > 1
     if multi_clusters:
         n_clusters = clst_mask.shape[0]
         for clst_idx in range(n_clusters):

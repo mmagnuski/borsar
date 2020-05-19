@@ -290,21 +290,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     # find indexing
     idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
                          retain_mass=retain_mass, **kwargs)
-    sequences = [x for x in range(len(idx))
-                 if isinstance(idx[x], (list, np.ndarray))]
-    if len(sequences) > 1:
-        # FIXME - separate function
-        # we have to use np.ix_ to turn multiple lists/arrays to
-        # indexers acceptable by numpy (.oix would be helpful here...)
-        seq = [[0]] * len(idx)
-        for s_idx in sequences:
-            seq[s_idx] = idx[s_idx]
-
-        seq = np.ix_(*seq)
-        idx = list(idx)
-        for s_idx in sequences:
-            idx[s_idx] = seq[s_idx]
-        idx = tuple(idx)
+    idx = _clean_up_indices(idx)
 
     if do_aggregation:
         reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
@@ -542,3 +528,33 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
             raise TypeError('Keyword arguments has to have tuple of length 2 '
                             'or a list, got {}.'.format(type(sel_ax)))
     return tuple(idx)
+
+
+def _clean_up_indices(idx):
+    '''Turn multiple fancy indexers into what is needed with ``np._ix`` and
+    extract indices from lenth one indexers.'''
+    n_indices = len(idx)
+    sequences = list()
+    for ix in range(n_indices):
+        if isinstance(idx[ix], (list, np.ndarray)):
+            sequences.append(ix)
+
+    if len(sequences) > 1:
+        idx = list(idx)
+
+    if len(sequences) > 1:
+        # we have to use np.ix_ to turn multiple lists/arrays to
+        # indexers acceptable by numpy (.oix would be helpful here...)
+        seq = [[0]] * n_indices
+        for s_idx in sequences:
+            seq[s_idx] = idx[s_idx]
+
+        seq = np.ix_(*seq)
+
+        for s_idx in sequences:
+            idx[s_idx] = seq[s_idx]
+
+    if len(sequences) > 1:
+        idx = tuple(idx)
+
+    return idx
