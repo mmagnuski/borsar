@@ -36,6 +36,38 @@ fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
 fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 
 
+def _create_random_clusters(dims='ch_tm', n_clusters=1):
+    n_channels, n_times = 15, 35
+    mntg = mne.channels.make_standard_montage('standard_1020')
+    ch_names = mntg.ch_names[slice(0, 89, 6)]
+    times = np.linspace(-0.2, 0.5, num=n_times)
+    sfreq = 1 / np.diff(times[:2])[0]
+    try:
+        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                               montage=mntg, verbose=False)
+    except TypeError:
+        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                               verbose=False)
+        info.set_montage(mntg)
+
+    if dims == 'ch_tm':
+        dimnames = ['chan', 'time']
+        dimsizes = (n_channels, n_times)
+        dimcoords = [ch_names, times]
+    elif dims == 'ch_fr_tm':
+        n_freqs = 15
+        freqs = np.arange(5, 20)
+        dimnames = ['chan', 'freq', 'time']
+        dimsizes = (n_channels, n_freqs, n_times)
+        dimcoords = [ch_names, freqs, times]
+
+    data = np.random.random(dimsizes)
+    clusters = [np.random.random(dimsizes) >= 0.5 for ix in range(n_clusters)]
+    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
+                    dimcoords=dimcoords, info=info)
+    return clst
+
+
 def test_contstruct_adjacency():
     T, F = True, False
     ch_names = list('ABCD')
@@ -577,7 +609,7 @@ def test_clusters():
     correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10),
                                   ignore_dims='vert')
     correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
-                    axis=-1) >= 0.5).any(axis=0)
+                    axis=-1) >= 0.5)
     assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
     assert (mask == correct_mask).all()
@@ -812,8 +844,16 @@ def test_chan_freq_clusters():
 
     fname = op.join(data_dir, 'chan_alpha_range.hdf5')
     data_dict = h5io.read_hdf5(fname)
-    info = create_info(data_dict['dimcoords'][0], sfreq=250., ch_types='eeg',
-                       montage='easycap-M1')
+
+    try:
+        info = create_info(data_dict['dimcoords'][0], sfreq=250.,
+                           ch_types='eeg', montage='easycap-M1')
+    except TypeError:
+        info = create_info(data_dict['dimcoords'][0], sfreq=250.,
+                           ch_types='eeg')
+        mntg = mne.channels.make_standard_montage('easycap-M1')
+        info.set_montage(mntg)
+
     clst = Clusters(
         data_dict['stat'], data_dict['clusters'], data_dict['pvals'],
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
@@ -843,19 +883,8 @@ def test_cluster_ignore_dims():
 
     # Evoked-like tests
     # -----------------
-    n_channels, n_times = 15, 35
-    mntg = mne.channels.make_standard_montage('standard_1020')
-    ch_names = mntg.ch_names[slice(0, 89, 6)]
-    times = np.linspace(-0.2, 0.5, num=n_times)
-    sfreq = 1 / np.diff(times[:2])[0]
-    info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
-                           montage=mntg, verbose=False)
-
-    dimnames = ['chan', 'time']
-    data = np.random.random((n_channels, n_times))
-    clusters = [np.random.random((n_channels, n_times)) >= 0.5]
-    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
-                    dimcoords=[ch_names, times], info=info)
+    clst = _create_random_clusters()
+    data = clst.stat.copy()
 
     # test that _handle_dims works well
     assert _handle_dims(clst, 'chan') == [0]
@@ -899,6 +928,7 @@ def test_cluster_ignore_dims():
     assert topo.marks[1][0].get_markeredgecolor() == 'seagreen'
 
     # * check mask reduction - whether channel marks are where they should be
+    times = clst.dimcoords[1]
     t2 = find_index(times, 0.15)
     mask = clst.clusters[0][:, t2]
     mark_pos = np.stack([x.data for x in topo.marks[1][0].get_data()], axis=1)
@@ -909,13 +939,9 @@ def test_cluster_ignore_dims():
 
     # time-frequency test
     # -------------------
-    n_freqs = 15
-    freqs = np.arange(5, 20)
-    dimnames = ['chan', 'freq', 'time']
-    data = np.random.random((n_channels, n_freqs, n_times))
-    clusters = [np.random.random((n_channels, n_freqs, n_times)) >= 0.5]
-    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
-                    dimcoords=[None, freqs, times], info=info)
+    clst = _create_random_clusters(dims='ch_fr_tm')
+    data = clst.stat.copy()
+    clusters = clst.clusters.copy()
 
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
     assert clst_mask is None
@@ -930,6 +956,16 @@ def test_cluster_ignore_dims():
         clst, [None], ignore_dims=['freq'])
     assert clst_mask is None
     assert (clst_stat == data.mean(axis=(0, 2))).all()
+
+    # make sure two lists or two arrays work
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, 0, ignore_dims=['chan'], freq=[8, 9, 10, 11],
+        time=[0.15, 0.17, 0.19])
+
+    freq_idx = np.array([3, 4, 5, 6])[np.newaxis, :, np.newaxis]
+    time_idx = np.array([17, 18, 19])[np.newaxis, np.newaxis, :]
+    assert (clst_mask == clusters[0][:, freq_idx, time_idx]).all()
+    assert (clst_stat == data[:, freq_idx, time_idx]).all()
 
     # test heatmap
     # ------------
@@ -977,6 +1013,7 @@ def test_cluster_ignore_dims():
     coords = _get_dimcoords(clst, 2)
     assert (coords == clst.dimcoords[2]).all()
 
+    n_channels = clst.stat.shape[0]
     coords = _get_dimcoords(clst, 0)
     assert (coords == np.arange(n_channels)).all()
 
@@ -1004,6 +1041,15 @@ def test_cluster_ignore_dims():
                   if isinstance(ch, mpl.patches.Rectangle)]
     assert len(rectangles) > 1
     assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
+
+
+def test_multi_cluster_plots():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11))
+    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
+              cluster_colors=['red', 'seagreen'])
+    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+    plt.close('all')
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

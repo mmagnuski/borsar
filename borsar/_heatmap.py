@@ -48,7 +48,7 @@ def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
 # - [ ] multiple masks, multiple outline_colors, multiple alpha?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
-            vmin=None, vmax=None, line_kwargs=dict(), **kwargs):
+            vmin=None, vmax=None, line_kwargs=None, **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -100,7 +100,9 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ext = [*(x_axis[[0, -1]] + [-x_step / 2, x_step / 2]),
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
-    out = _masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
+    mask_is_3d = isinstance(mask, np.ndarray) and mask.ndim == 3
+    mask_ = mask.any(axis=0) if mask_is_3d else mask
+    out = _masked_image(array, mask=mask_, vmin=vmin, vmax=vmax,
                         cmap=cmap, aspect='auto', extent=ext,
                         interpolation='nearest', origin='lower',
                         axis=axis, alpha=alpha, **kwargs)
@@ -109,15 +111,27 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
     # add outlines if necessary
     if outlines:
+        mask = mask[np.newaxis, :] if mask.ndim == 2 else mask
+        n_masks = mask.shape[0]
+
+        # handle line_kwargs
+        if line_kwargs is None:
+            line_kwargs = dict()
         if 'color' not in line_kwargs.keys():
             line_kwargs['color'] = 'w'
-        outlines = _create_cluster_contour(mask, extent=ext)
-        for x_line, y_line in outlines:
-            img.axes.plot(x_line, y_line, **line_kwargs)
+        if not isinstance(line_kwargs['color'], list):
+            line_kwargs['color'] = [line_kwargs['color']] * n_masks
+
+        this_line_kwargs = line_kwargs.copy()
+        for mask_idx in range(n_masks):
+            this_line_kwargs['color'] = line_kwargs['color'][mask_idx]
+            outlines = _create_cluster_contour(mask[mask_idx], extent=ext)
+            for x_line, y_line in outlines:
+                img.axes.plot(x_line, y_line, **this_line_kwargs)
 
     if colorbar:
-        cbar = add_colorbar_to_axis(img.axes, img)
-        # cbar.set_label('t values')
+        cbar = add_colorbar_to_axis(img.axes, img, side='right', size='5%',
+                                    pad=0.15)
         return img.axes, cbar
     else:
         return img.axes

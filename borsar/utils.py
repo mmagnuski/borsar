@@ -183,8 +183,13 @@ def read_info(fname):
             mntg = mne.channels.make_dig_montage(ch_pos=ch_pos)
 
     # create info
-    info = mne.create_info(ch_names, data_dict['sfreq'],
-                           ch_types=ch_type, montage=mntg, verbose=False)
+    try:
+        info = mne.create_info(ch_names, data_dict['sfreq'],
+                               ch_types=ch_type, montage=mntg, verbose=False)
+    except TypeError:
+        info = mne.create_info(ch_names, data_dict['sfreq'],
+                               ch_types=ch_type, verbose=False)
+        info.set_montage(mntg)
     return info
 
 

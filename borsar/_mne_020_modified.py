@@ -1,5 +1,3 @@
-import numpy as np
-
 import mne
 from mne.utils import fill_doc, _check_sphere
 from mne.viz.topomap import _plot_topomap
@@ -108,6 +106,5 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
         head_pos = None
         return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
                              names, show_names, mask, mask_params, outlines,
-                             contours, image_interp, show,
-                             head_pos, onselect, extrapolate,
-                             sphere=sphere, border=border)
+                             contours, image_interp, show, head_pos, onselect,
+                             extrapolate, sphere=sphere, border=border)

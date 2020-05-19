@@ -159,7 +159,7 @@ def test_outlines():
     for c1, c2 in zip(cntr, correct_cntr):
         np.testing.assert_equal(c1, c2)
 
-    # add test for outlines with extent
+    # TODO - add test for outlines with extent
     cntr = _create_cluster_contour(data, extent=(0, 10, 5.25, 7.75))
 
 
@@ -184,6 +184,23 @@ def test_heatmap():
 
     plt.imshow(data)
     _add_image_mask(msk)
+    plt.close('all')
+
+    msk = np.stack([data < 0.25, data > 0.75], axis=0)
+    heatmap(data, x_axis=x, y_axis=y, mask=msk, outlines=True)
+
+    img = heatmap(data, mask=msk, outlines=True, colorbar=False,
+                  line_kwargs={'color': ['w', 'r']})
+
+    # assert that line colors have both white and red colors
+    chldr = img.axes.get_children()
+    lines = [chld for chld in chldr if 'Line2D' in str(chld)]
+    line_colors = [l.get_color() for l in lines]
+    if msk[0].any():
+        assert 'w' in line_colors
+    if msk[1].any():
+        assert 'r' in line_colors
+
     plt.close('all')
 
 
