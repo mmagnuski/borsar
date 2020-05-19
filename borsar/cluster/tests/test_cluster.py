@@ -1058,7 +1058,7 @@ def test_multi_cluster_plots():
     assert len(topo) == 1
 
     topo2 = clst.plot(cluster_idx=0)
-    assert (topo.img == topo2.img).all()
+    assert (topo.img.get_array() == topo2.img.get_array()).all()
 
     plt.close('all')
 
