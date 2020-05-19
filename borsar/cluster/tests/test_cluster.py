@@ -1049,9 +1049,17 @@ def test_multi_cluster_plots():
     clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
               cluster_colors=['red', 'seagreen'])
     clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10],
+              cluster_colors=['red', 'seagreen'])
 
-    # what happens now?:
-    clst.plot(cluster_idx=[0])
+    # one cluster in list:
+    topo = clst.plot(cluster_idx=[0])
+    assert isinstance(topo, borsar.viz.Topo)
+    assert len(topo) == 1
+
+    topo2 = clst.plot(cluster_idx=0)
+    assert (topo.img == topo2.img).all()
+
     plt.close('all')
 
 
