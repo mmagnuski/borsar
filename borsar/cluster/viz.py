@@ -159,12 +159,13 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                            pysurfer=False)
 
     # remove singleton dimensions from clst_mask
-    singletons = np.where(np.array(clst_mask.shape) == 1)[0]
-    if len(singletons) > 0:
-        clst_mask = np.squeeze(clst_mask, axis=tuple(singletons))
-    if (cluster_colors is None and isinstance(cluster_idx, list)
-        and len(cluster_idx) > 1 and clst_mask is not None):
-        clst_mask = clst_mask.any(axis=0)
+    if clst_mask is not None:
+        singletons = np.where(np.array(clst_mask.shape) == 1)[0]
+        if len(singletons) > 0:
+            clst_mask = np.squeeze(clst_mask, axis=tuple(singletons))
+        if (cluster_colors is None and isinstance(cluster_idx, list)
+            and len(cluster_idx) > 1):
+            clst_mask = clst_mask.any(axis=0)
 
     # Viz rules:
     # ----------
@@ -314,7 +315,8 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
     else:
         mark_kwargs = dict(markersize=5)
 
-    multi_clusters = isinstance(cluster_idx, list) and len(cluster_idx) > 1
+    multi_clusters = (isinstance(cluster_idx, list) and len(cluster_idx) > 1
+                      and cluster_colors is not None)
     if multi_clusters:
         n_clusters = clst_mask.shape[0]
         for clst_idx in range(n_clusters):

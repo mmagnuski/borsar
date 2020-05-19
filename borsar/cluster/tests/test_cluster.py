@@ -957,6 +957,16 @@ def test_cluster_ignore_dims():
     assert clst_mask is None
     assert (clst_stat == data.mean(axis=(0, 2))).all()
 
+    # make sure two lists or two arrays work
+    clst_mask, clst_stat, _ = _aggregate_cluster(
+        clst, 0, ignore_dims=['chan'], freq=[8, 9, 10, 11],
+        time=[0.15, 0.17, 0.19])
+
+    freq_idx = np.array([3, 4, 5, 6])[np.newaxis, :, np.newaxis]
+    time_idx = np.array([17, 18, 19])[np.newaxis, np.newaxis, :]
+    assert (clst_mask == clusters[0][:, freq_idx, time_idx]).all()
+    assert (clst_stat == data[:, freq_idx, time_idx]).all()
+
     # test heatmap
     # ------------
     clst.clusters[0] = np.zeros(clst.stat.shape, dtype='bool')
@@ -1031,6 +1041,15 @@ def test_cluster_ignore_dims():
                   if isinstance(ch, mpl.patches.Rectangle)]
     assert len(rectangles) > 1
     assert np.any([isinstance(ch, mpl.lines.Line2D) for ch in chld])
+
+
+def test_multi_cluster_plots():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11))
+    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
+              cluster_colors=['red', 'seagreen'])
+    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+    plt.close('all')
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
