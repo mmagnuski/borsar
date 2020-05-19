@@ -72,7 +72,7 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
 # FIXME - allow for channel sorting (by region and y position)
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       mark_clst_prop=0.65, mark_kwargs=None,
-                      cluster_colors=None,**kwargs):
+                      cluster_colors=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters

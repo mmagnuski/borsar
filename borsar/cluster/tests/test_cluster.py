@@ -846,8 +846,8 @@ def test_chan_freq_clusters():
     data_dict = h5io.read_hdf5(fname)
 
     try:
-        info = create_info(data_dict['dimcoords'][0], sfreq=250., ch_types='eeg',
-                           montage='easycap-M1')
+        info = create_info(data_dict['dimcoords'][0], sfreq=250.,
+                           ch_types='eeg', montage='easycap-M1')
     except TypeError:
         info = create_info(data_dict['dimcoords'][0], sfreq=250.,
                            ch_types='eeg')
