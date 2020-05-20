@@ -66,6 +66,7 @@ def test_psd_class():
     assert avg_psd_arr.ndim == 1
     assert avg_psd_arr.shape[0] == len(raw.ch_names)
 
+    psd_orig = psd.copy()
     psd2 = psd.average()
     assert (psd.data == psd2.data).all()
 
@@ -77,6 +78,16 @@ def test_psd_class():
     psd2 = psd.copy()
     psd2.data[0, 0] = 23
     assert not (psd._data[0, 0] == 23)
+
+    # test to_evoked
+    psd2 = psd_orig.copy().average()
+    evoked = psd_orig.to_evoked()
+    assert isinstance(evoked, mne.Evoked)
+    assert (evoked.data == psd2.data).all()
+
+    # test plot_joint()
+    psd_orig.plot_joint(show=False)
+    plt.close('all')
 
     # psd with Epochs
     # ---------------
