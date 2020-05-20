@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 import mne
+from packaging import version
 
 from borsar.utils import (create_fake_raw, download_test_data,
                           _get_test_data_dir)
@@ -33,6 +34,7 @@ def test_compute_rest_psd():
 
 
 def test_psd_class():
+    mne_version = version.parse(mne.__version__)
     # get data
     data_dir = _get_test_data_dir()
     download_test_data()
@@ -48,8 +50,12 @@ def test_psd_class():
                       step=0.5, events=events, event_id=[11])
 
     # make sure plotting does not error
-    psd.plot(dB=False, fmax=40, show=False)
-    psd.plot(fmax=40, average=True, show=False)
+    if mne_version > version.parse('0.18'):
+        psd.plot(dB=False, fmax=40, show=False)
+        psd.plot(fmax=40, average=True, show=False)
+    else:
+        pytest.raises(ImportError):
+            psd.plot(dB=False, fmax=40, show=False)
 
     topo = psd.plot_topomap(fmin=10, fmax=12, show=False)
     assert isinstance(topo.axes, plt.Axes)
@@ -100,7 +106,9 @@ def test_psd_class():
     psd_epo = compute_psd(epochs, tmin=0.5, tmax=20.5, winlen=2.,
                           step=0.5, events=events, event_id=[11])
 
-    psd_epo.plot(show=False)
+    if mne_version > version.parse('0.18'):
+        psd_epo.plot(show=False)
+
     psd_avg = psd_epo.copy().average()
     assert psd_epo.data.ndim == 3
     assert psd_avg.data.ndim == 2
