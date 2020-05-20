@@ -54,7 +54,7 @@ def test_psd_class():
         psd.plot(dB=False, fmax=40, show=False)
         psd.plot(fmax=40, average=True, show=False)
     else:
-        pytest.raises(ImportError):
+        with pytest.raises(ImportError):
             psd.plot(dB=False, fmax=40, show=False)
 
     topo = psd.plot_topomap(fmin=10, fmax=12, show=False)
