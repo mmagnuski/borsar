@@ -17,6 +17,9 @@ matrix:
     - os: linux
       env: USE_NUMBA="no" MNE_VERSION="0.19"
 
+    - os: linux
+      env: USE_NUMBA="no" MNE_VERSION="0.18"
+
     - os: osx
       env: USE_NUMBA="no" MNE_VERSION="current"
 
@@ -46,6 +49,9 @@ install:
     fi
   - if [ "${MNE_VERSION}" == "0.19" ]; then
       pip install mne==0.19;
+    fi
+  - if [ "${MNE_VERSION}" == "0.18" ]; then
+      pip install mne==0.18;
     fi
   - python setup.py develop
 

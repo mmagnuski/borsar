@@ -38,7 +38,14 @@ fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 
 def _create_random_clusters(dims='ch_tm', n_clusters=1):
     n_channels, n_times = 15, 35
-    mntg = mne.channels.make_standard_montage('standard_1020')
+
+    try:
+        # mne > 0.18
+        mntg = mne.channels.make_standard_montage('standard_1020')
+    except AttributeError:
+        # mne 0.18 and below
+        mntg = mne.channels.read_montage('standard_1020')
+
     ch_names = mntg.ch_names[slice(0, 89, 6)]
     times = np.linspace(-0.2, 0.5, num=n_times)
     sfreq = 1 / np.diff(times[:2])[0]
@@ -1049,6 +1056,17 @@ def test_multi_cluster_plots():
     clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
               cluster_colors=['red', 'seagreen'])
     clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10],
+              cluster_colors=['red', 'seagreen'])
+
+    # one cluster in list:
+    topo = clst.plot(cluster_idx=[0])
+    assert isinstance(topo, borsar.viz.Topo)
+    assert len(topo) == 1
+
+    topo2 = clst.plot(cluster_idx=0)
+    assert (topo.img.get_array() == topo2.img.get_array()).all()
+
     plt.close('all')
 
 

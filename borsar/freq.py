@@ -356,10 +356,11 @@ class PSD(*mixins):
         sfreq = 1 / freq_diff
         info = self.info.copy()
         info['sfreq'] = sfreq
-        psd_evkd = mne.EvokedArray(self.data, info, tmin=self.freqs[0])
+        data = self.copy().average().data if self._has_epochs else self.data
+        psd_evkd = mne.EvokedArray(data, info, tmin=self.freqs[0])
         return psd_evkd
 
-    def plot_joint(self, freqs=None, fmin=None, fmax=None):
+    def plot_joint(self, freqs=None, fmin=None, fmax=None, **args):
         '''The same as plot_joint for Evokeds but for PSDS.
 
         Parameters
@@ -376,7 +377,7 @@ class PSD(*mixins):
             psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
 
         freqs = 'peaks' if freqs is None else freqs
-        fig = psd_evkd.plot_joint(times=freqs)
+        fig = psd_evkd.plot_joint(times=freqs, **args)
 
         # set up labels
         axs = fig.axes
@@ -430,6 +431,8 @@ class PSD(*mixins):
                     outlines=outlines, show=show, vmin=vmin, vmax=vmax)
 
     # - [ ] consider: always 2d array if fmin and fmax are a list?
+    # - [ ] consider removing averaging frequency range - simplifies API
+    #       it can be easily done with crop(fmin, fmax).data.mean()
     def average(self, fmin=None, fmax=None, epochs=True):
         '''Average epochs and/or frequency ranges. If frequency ranges are
         averaged over (``fmin`` and ``fmax`` are given) then a new data array
