@@ -57,6 +57,10 @@ def test_psd_class():
     topo = psd.plot_topomap(fmin=[5, 11], fmax=[7, 13], show=False)
     assert len(topo.axes) == 2
 
+    topo = psd.plot_topomap(freqs=[8, 10, 12], show=False)
+    assert len(topo.axes) == 3
+    plt.close('all')
+
     # data shape checks
     assert len(psd.ch_names) == len(raw.ch_names)
     assert psd.data.shape[-1] == len(psd.freqs)
