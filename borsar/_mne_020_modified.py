@@ -3,7 +3,7 @@ from mne.utils import fill_doc, _check_sphere
 from mne.viz.topomap import _plot_topomap
 
 from packaging import version
-has_0_21 = version.parse(mne.__version__) > version.parse('0.20.5')
+has_0_21 = version.parse(mne.__version__) >= version.parse('0.21.0')
 _BORDER_DEFAULT = 'mean'
 _EXTRAPOLATE_DEFAULT = 'head' if has_0_21 else 'box'
 
