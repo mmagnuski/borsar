@@ -4,29 +4,45 @@ from scipy import sparse
 from ..utils import has_numba
 
 
-def cluster_3d(data, adjacency):
+# TODO:
+# - [ ] compare speed against mne clustering
+# - [x] add min_adj_ch (minimum adjacent channels)
+# - [ ] wait with relabeling till the end (less computationally expensive)
+def cluster_3d(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
 
     Parameters
     ----------
     data : numpy array
-        Matrix of shape ``(channels, dim2, dim3)``
+        Matrix boolean array of shape ``(channels, dim2, dim3)``.
     adjacency : numpy array
-        2d boolean matrix with information about channel adjacency.
-        If ``chann_conn[i, j]`` is True that means channel i and j are
-        adjacent.
+        Twodimensional boolean matrix with information about channel/vertex
+        adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
+        and ``j`` are adjacent.
+    min_adj_ch : int
+        Number of minimum adjacent channels/vertices for given point to be
+        included in a cluster.
 
     Returns
     -------
     clusters : array of int
         3d integer matrix with cluster labels.
     '''
+    if min_adj_ch > 0:
+        data = _cross_channel_adjacency(data, adjacency, min_adj_ch=min_adj_ch)
+
+    clusters = _per_channel_adjacency(data, adjacency)
+    clusters = _cross_channel_adjacency(clusters, adjacency)
+
+    return clusters
+
+
+def _per_channel_adjacency(data, adjacency):
+    from skimage.measure import label
+
     # data has to be bool
     assert data.dtype == np.bool
-
-    # nested import
-    from skimage.measure import label
 
     # label each channel separately
     clusters = np.zeros(data.shape, dtype='int')
@@ -42,28 +58,49 @@ def cluster_3d(data, adjacency):
             clusters[ch, clusters[ch, :] > 0] += max_cluster_id
         max_cluster_id += num_clusters
 
+    return clusters
+
+
+def _cross_channel_adjacency(clusters, adjacency, min_adj_ch=0):
+    n_chan = clusters.shape[0]
     # unrolled views into clusters for ease of channel comparison:
     unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
+
+    if min_adj_ch > 0:
+        adj_ch = np.zeros((len(unrolled), len(unrolled[0])), dtype='int')
+
     # check channel neighbours and merge clusters across channels
-    for ch in range(n_chan - 1):  # last chan will be already checked
-        ch1 = unrolled[ch]
-        ch1_ind = np.where(ch1)[0]
-        if len(ch1_ind) == 0:
+    for ch1_idx in range(n_chan - 1):  # last chan will be already checked
+        ch1_val = unrolled[ch1_idx]
+        ch1_whereidx = np.where(ch1_val)[0]
+        if len(ch1_whereidx) == 0:
             continue  # no clusters, no fun...
 
         # get unchecked neighbours
-        neighbours = np.where(adjacency[ch + 1:, ch])[0]
+        neighbours = np.where(adjacency[ch1_idx + 1:, ch1_idx])[0]
         if len(neighbours) > 0:
-            neighbours += ch + 1
+            neighbours += ch1_idx + 1
 
-            for ngb in neighbours:
-                ch2 = unrolled[ngb]
-                for ind in ch1_ind:
-                    # relabel clusters if adjacent and not the same id
-                    if ch2[ind] and not (ch1[ind] == ch2[ind]):
-                        c1 = min(ch1[ind], ch2[ind])
-                        c2 = max(ch1[ind], ch2[ind])
-                        clusters[clusters == c2] = c1
+            for ngb_idx in neighbours:
+                ch2_val = unrolled[ngb_idx]
+                for ind in ch1_whereidx:
+                    if ch2_val[ind]:
+                        # count number of adjacent channels for each point
+                        if min_adj_ch > 0:
+                            adj_ch[ch1_idx, ind] += 1
+                            adj_ch[ngb_idx, ind] += 1
+
+                        # relabel clusters if adjacent and not the same id
+                        elif not (ch1_val[ind] == ch2_val[ind]):
+                            c1, c2 = np.sort([ch1_val[ind], ch2_val[ind]])
+                            clusters[clusters == c2] = c1
+
+    # filter by min_adj_ch
+    if min_adj_ch > 0:
+        adj_ch = adj_ch.reshape(clusters.shape)
+        mask = adj_ch < min_adj_ch
+        clusters[mask] = 0
+
     return clusters
 
 

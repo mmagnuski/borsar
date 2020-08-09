@@ -182,6 +182,57 @@ def test_find_clusters():
     assert (clst[0] == correct_clst).all()
 
 
+def test_3d_clustering_with_min_adj_ch():
+    # test data
+    data = [[[0, 1, 1, 0, 0],
+             [1, 1, 1, 1, 0],
+             [1, 1, 1, 1, 0],
+             [0, 1, 1, 0, 0],
+             [0, 0, 0, 0, 0]],
+            [[0, 0, 0, 0, 0],
+             [0, 1, 1, 0, 0],
+             [0, 1, 1, 0, 0],
+             [0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0]],
+            [[0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0],
+             [0, 0, 1, 0, 0],
+             [0, 0, 1, 0, 0],
+             [0, 0, 1, 1, 0]],
+            [[0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0],
+             [0, 0, 0, 1, 1],
+             [0, 0, 0, 1, 1]],
+            [[0, 0, 0, 0, 0],
+             [0, 0, 1, 1, 0],
+             [0, 0, 1, 1, 0],
+             [0, 0, 0, 1, 1],
+             [0, 0, 0, 1, 1]]]
+
+    data = np.array(data).astype('bool')
+
+    # first case - lattice adjacency:
+    adjacency = [[0, 1, 0, 0, 0], [1, 0, 1, 0, 0], [0, 1, 0, 1, 0],
+                 [0, 0, 1, 0, 1], [0, 0, 0, 1, 0]]
+    adjacency = np.array(adjacency).astype('bool')
+
+    # standard clustering
+    clusters = cluster_3d(data, adjacency)
+    assert ((clusters == clusters.max()) == data).all()
+
+    # clustering with min_adj_ch=1 will give two clusters instead of one
+    clusters = cluster_3d(data, adjacency, min_adj_ch=1)
+    assert len(np.unique(clusters)) == 3  # 3 because we include 0 (background)
+
+    # with higher min_adj_ch only two points remain - all others have < 2
+    # adjacent elements in channel dimension
+    clusters = cluster_3d(data, adjacency, min_adj_ch=2)
+    cluster_ids = np.unique(clusters)[1:]
+    for clst_id in cluster_ids:
+        assert (clusters == clst_id).sum() == 1
+
+
 def test_cluster_based_regression():
     np.random.seed(23)
     data_dir = _get_test_data_dir()
