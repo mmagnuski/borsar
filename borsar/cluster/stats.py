@@ -97,7 +97,11 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
 
     n_obs = data.shape[0]
     if adjacency is not None and not use_3d_clustering:
-        from mne.stats.cluster_level import _setup_connectivity
+        try:
+            from mne.stats.cluster_level import _setup_connectivity
+        except ImportError:
+            from mne.stats.cluster_level import (_setup_adjacency
+                                                 as _setup_connectivity)
         adjacency = _setup_connectivity(adjacency, np.prod(data.shape[1:]),
                                         data.shape[1])
 

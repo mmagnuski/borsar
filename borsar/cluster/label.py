@@ -167,7 +167,15 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         # mne clustering
         # --------------
         from mne.stats.cluster_level import (
-            _find_clusters, _cluster_indices_to_mask, _setup_connectivity)
+            _find_clusters, _cluster_indices_to_mask)
+
+        try:
+            from mne.stats.cluster_level import _setup_connectivity
+            argname = 'connectivity'
+        except ImportError:
+            from mne.stats.cluster_level import (_setup_adjacency
+                                                 as _setup_connectivity)
+            argname = 'adjacency'
 
         # FIXME more checks for adjacency and data when using mne!
         if adjacency is not None and isinstance(adjacency, np.ndarray):
@@ -178,9 +186,10 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                                                 data.shape[0])
 
         orig_data_shape = data.shape
+        kwargs = {argname: adjacency}
         data = (data.ravel() if adjacency is not None else data)
         clusters, cluster_stats = _find_clusters(
-            data, threshold=threshold, tail=0, connectivity=adjacency)
+            data, threshold=threshold, tail=0, **kwargs)
 
         if mne_reshape_clusters:
             if adjacency is not None:
