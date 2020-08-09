@@ -53,10 +53,15 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     cluster_idx = 0 if cluster_idx is None else cluster_idx
     _check_stc(clst)
 
+    if figure_size is None:
+        figure_size = 800
+
     # get and aggregate cluster mask and cluster stat
     # TODO - first idx then aggregation
     clst_mask, clst_stat, idx = _aggregate_cluster(
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65, **kwargs)
+    if clst_mask is not None:
+        clst_mask = clst_mask.any(axis=0)
 
     # create label from cluster
     if clst_mask is not None:

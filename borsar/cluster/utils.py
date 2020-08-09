@@ -164,7 +164,8 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
     if vmin is None and vmax is None:
         vmax = np.abs([data.min(), data.max()]).max()
         vmax_round = np.round(vmax)
-        if np.abs(np.abs(vmax_round - vmax) - 0.5) < 0.25:
+        distance_to_half = np.abs(np.abs(vmax_round - vmax) - 0.5)
+        if distance_to_half < 0.25:
             vmax_round += 0.5 * np.sign(vmax - vmax_round)
         vmin, vmax = -vmax_round, vmax_round
     elif vmin is None:
@@ -293,6 +294,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
                             if not (isinstance(idx[ix], (list, np.ndarray))
                             or ix in dim_idx))
+
         # reduce spatial if present, not in dim_idx and list / array
         if (0 not in reduce_axes and clst.dimnames[0] in ['chan', 'vert']
             and 0 not in dim_idx and isinstance(idx[0], (list, np.ndarray))):
@@ -514,24 +516,48 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
 
     idx = list()
     for dname, dcoord in zip(dimnames, dimcoords):
+        # ignore dimensions that were not mentioned
         if dname not in kwargs:
             idx.append(slice(None))
             continue
-        sel_ax = kwargs.pop(dname)
-        if isinstance(sel_ax, tuple) and len(sel_ax) == 2:
-            idx.append(find_range(dcoord, sel_ax))
-        elif isinstance(sel_ax, list) or (isinstance(sel_ax, np.ndarray)
-                                          and sel_ax.ndim == 1):
-            idx.append(find_index(dcoord, sel_ax))
+        selection = kwargs.pop(dname)
+
+        # find range or specific point-indices
+        if isinstance(selection, tuple) and len(selection) == 2:
+            idx.append(find_range(dcoord, selection))
+        elif isinstance(selection, list) or (isinstance(selection, np.ndarray)
+                                             and selection.ndim == 1):
+            # special-case spatial dim
+            if dname in ['chan', 'vert']:
+                # find dtype of list/array
+                from numbers import Integral
+                is_int = isinstance(selection[0], Integral)
+
+                if is_int:
+                    # 1) channel indices
+                    idx.append(selection)
+                else:
+                    # 2) channel names? (labels?)
+                    if (dname == 'chan' and isinstance(selection, list)
+                        and isinstance(selection[0], str)):
+                        # find channel indices
+                        raise NotImplementedError('Sorry, not yet.')
+                    else:
+                        raise ValueError('Spatial dimension indexer has to '
+                                         'be either a list/array or int or '
+                                         'a list of channel names.')
+
+            else:
+                idx.append(find_index(dcoord, selection))
         else:
+            sel_type = type(selection)
             raise TypeError('Keyword arguments has to have tuple of length 2 '
-                            'list or 1d array, got {}.'.format(type(sel_ax)))
+                            'list or 1d array, got {}.'.format(sel_type))
     return tuple(idx)
 
 
 def _clean_up_indices(idx):
-    '''Turn multiple fancy indexers into what is needed with ``np._ix`` and
-    extract indices from lenth one indexers.'''
+    '''Turn multiple fancy indexers into what is needed with ``np._ix``.'''
     n_indices = len(idx)
     sequences = list()
     for ix in range(n_indices):
