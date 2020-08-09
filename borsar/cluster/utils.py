@@ -195,10 +195,6 @@ def _handle_dims(clst, dims):
 
 
 # TODO:
-# - [x] _aggregate_cluster aggregates by default everything except the spatial
-#       dimension. This would be problematic for spaces like [freq, time]
-#       consider adding ``dim`` argument. Then ``ignore_space`` could be
-#       removed.
 # - [~] make sure dimensions are sorted according to ``ignore_dims``
 #       (this is done elsewhere - in plotting now, here it might not matter)
 # - [ ] beware of changing dimension order for some complex "facny index"
@@ -252,7 +248,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         Indexers for the aggregated dimensions.
         See ``borsar.Cluster.get_index``
     '''
-    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list)
+    listlikes = (list, np.ndarray)
+    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, listlikes)
                    else cluster_idx)
     n_clusters = len(cluster_idx)
 
@@ -318,6 +315,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
 
+    # if only one cluster_idx - remove cluster dimension
     if len(cluster_idx) == 1 and clst_mask is not None:
         clst_mask = clst_mask[0]
 
@@ -522,11 +520,12 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
         sel_ax = kwargs.pop(dname)
         if isinstance(sel_ax, tuple) and len(sel_ax) == 2:
             idx.append(find_range(dcoord, sel_ax))
-        elif isinstance(sel_ax, list):
+        elif isinstance(sel_ax, list) or (isinstance(sel_ax, np.ndarray)
+                                          and sel_ax.ndim == 1):
             idx.append(find_index(dcoord, sel_ax))
         else:
             raise TypeError('Keyword arguments has to have tuple of length 2 '
-                            'or a list, got {}.'.format(type(sel_ax)))
+                            'list or 1d array, got {}.'.format(type(sel_ax)))
     return tuple(idx)
 
 

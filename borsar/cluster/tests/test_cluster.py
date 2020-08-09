@@ -1070,6 +1070,21 @@ def test_multi_cluster_plots():
     plt.close('all')
 
 
+def test_clst_with_arrays():
+    '''Test that using array indexing in .plot() .get_index() and
+    .find_range() works as expected.'''
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+
+    # see if plots work without errors:
+    clst.plot(0, freq=np.array([6, 7, 8]))
+    clst.plot(np.array([0, 1]), time=(0.1, 0.2), freq=np.array([10, 11]))
+    clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]))
+    clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]),
+              cluster_colors=['red', 'green'])
+
+    plt.close('all')
+
+
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
     # mayavi import adapted from mne:

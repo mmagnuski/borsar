@@ -161,9 +161,13 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     # remove singleton dimensions from clst_mask
     if clst_mask is not None:
         singletons = np.where(np.array(clst_mask.shape) == 1)[0]
+        listlikes = (list, np.ndarray)
         if len(singletons) > 0:
             clst_mask = np.squeeze(clst_mask, axis=tuple(singletons))
-        if (cluster_colors is None and isinstance(cluster_idx, list)
+            stat_singletons = (singletons - 1)[singletons > 0]
+            if len(stat_singletons) > 0:
+                clst_stat = np.squeeze(clst_stat, axis=tuple(stat_singletons))
+        if (cluster_colors is None and isinstance(cluster_idx, listlikes)
             and len(cluster_idx) > 1):
             clst_mask = clst_mask.any(axis=0)
 
@@ -266,6 +270,8 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
             ax.set_yticks([])
 
 
+# - [ ] improve by combining both n_kwargs branches so that it works for all
+#       dims; dims could be listed separated by commas or newlines...
 def _label_topos(clst, topo, dim_kwargs, idx):
     '''Label cluster topoplots with relevant units.'''
 
@@ -315,8 +321,8 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
     else:
         mark_kwargs = dict(markersize=5)
 
-    multi_clusters = (isinstance(cluster_idx, list) and len(cluster_idx) > 1
-                      and cluster_colors is not None)
+    multi_clusters = (isinstance(cluster_idx, (list, np.ndarray))
+                      and len(cluster_idx) > 1 and cluster_colors is not None)
     if multi_clusters:
         n_clusters = clst_mask.shape[0]
         for clst_idx in range(n_clusters):
