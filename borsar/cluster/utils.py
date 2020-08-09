@@ -201,7 +201,8 @@ def _handle_dims(clst, dims):
 # - [ ] beware of changing dimension order for some complex "facny index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
-                       mask_proportion=0.5, retain_mass=0.65, **kwargs):
+                       mask_proportion=0.5, retain_mass=0.65, mask_sum=False,
+                       **kwargs):
     '''Aggregate cluster mask and cluster stat map.
 
     Parameters
@@ -223,6 +224,9 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         ``**kwargs`` - define range to aggregate over by retaining at least
         ``retain_mass`` proportion of cluster mass along that dimension.
         FIXME - add note about "see also".
+    mask_sum : bool
+        Instead of boolean mask of cluster membership return sum (useful for
+        ``plot_contribution``).
     **kwargs : additional arguments
         Additional arguments used in aggregation, defining the points to
         select (if argument value is a list of float) or the range to
@@ -305,9 +309,12 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         if cluster_idx[0] is not None:
             clst_idx = (slice(None),) + idx
             reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
-            clst_mask = (clst.clusters[cluster_idx][clst_idx].mean(
-                         axis=reduce_mask_axes) >= mask_proportion
-                         if cluster_idx[0] is not None else None)
+            clst_sel = clst.clusters[cluster_idx][clst_idx]
+            if mask_sum:
+                clst_mask = clst_sel.sum(axis=reduce_mask_axes)
+            else:
+                clst_mask = (clst_sel.mean(axis=reduce_mask_axes)
+                             >= mask_proportion)
         else:
             clst_mask = None
     else:
@@ -316,10 +323,6 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         clst_stat = clst.stat.copy()
         clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
                      else None)
-
-    # if only one cluster_idx - remove cluster dimension
-    if len(cluster_idx) == 1 and clst_mask is not None:
-        clst_mask = clst_mask[0]
 
     return clst_mask, clst_stat, idx
 

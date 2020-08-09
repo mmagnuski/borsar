@@ -570,13 +570,13 @@ class Clusters(object):
         return idx
 
     # maybe rename to `plot mass`?
-    def plot_contribution(self, dimname, axis=None):
+    def plot_contribution(self, dims=None, picks=None, axis=None):
         '''
         Plot contribution of clusters along specified dimension.
 
         Parameters
         ----------
-        dimension : str | int
+        dims : str | int
             Dimension along which to calculate contribution.
         picks : list-like | None, optional
             Cluster indices whose contributions should be shown.
@@ -589,7 +589,7 @@ class Clusters(object):
             Axes with the plot.
         '''
 
-        return plot_cluster_contribution(self, dimname, axis=axis)
+        return plot_cluster_contribution(self, dims, picks=picks, axis=axis)
 
     def plot(self, cluster_idx=None, dims=None, set_light=True, vmin=None,
              vmax=None, mark_kwargs=None, figure_size=None, **kwargs):

@@ -6,14 +6,15 @@ from .utils import (_get_full_dimname, _get_units, _get_clim, _handle_dims,
                     _full_dimname)
 
 
-# TODO - add special case for dimension='vert' and 'chan'
-def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
+# - [x] use **args passed to clst.plot()
+# - [ ] add intensity label to line/topo/heatmap plot
+def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     '''
     Plot contribution of clusters along specified dimension.
 
     Parameters
     ----------
-    dimension : str | int
+    dims: str | list of str
         Dimension along which to calculate contribution.
     picks : list-like | None, optional
         Cluster indices whose contributions should be shown.
@@ -27,52 +28,61 @@ def plot_cluster_contribution(clst, dimension, picks=None, axis=None):
     '''
     import matplotlib.pyplot as plt
 
-    # check dimname and return index
-    idx = _check_dimname_arg(clst, dimension)
-
     # check if any clusters
     n_clusters = len(clst)
     if n_clusters == 0:
         raise ValueError('No clusters present in Clusters object.')
 
+    # select full range for unspecified dimensions
+    specified_dims = dims if isinstance(dims, list) else [dims]
+    dim_idx = _check_dimname_arg(clst, specified_dims[0])
+    unspecified_dims = [dim for dim in clst.dimnames
+                        if dim not in specified_dims
+                        or dim not in kwargs]
+    if len(unspecified_dims) > 0:
+        for unspec in unspecified_dims:
+            dim_idx = _check_dimname_arg(clst, unspec)
+            if unspec in ['chan', 'vert']:
+                all = np.arange(clst.stat.shape[dim_idx])
+            else:
+                frm, to = clst.dimcoords[dim_idx][[0, -1]]
+                all = (frm, to)
+            kwargs[unspec] = all
+
     picks = list(range(n_clusters)) if picks is None else picks
+    fig = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+                            retain_mass=1., axis=axis, cmap='viridis',
+                            **kwargs)
 
-    # create freq coords and label
-    if clst.dimcoords is None:
-        dimcoords = np.arange(clst.stat.shape[idx])
-        dimlabel = '{} bins'.format(_get_full_dimname(dimension))
-    else:
-        dimcoords = clst.dimcoords[idx]
-        if dimcoords is None:
-            dimcoords = np.arange(clst.stat.shape[idx])
-        dimlabel = '{} ({})'.format(_get_full_dimname(dimension),
-                                    _get_units(dimension))
+    # CONSIDER: create intensity label? (for example "number of channels" or
+    #                                    "number of time-frequency bins")
 
-    # make sure we have an axes to plot to
-    if axis is None:
-        axis = plt.gca()
+    # # make sure we have an axes to plot to
+    # if axis is None:
+    #     axis = plt.gca()
 
-    # plot cluster contribution
-    for idx in picks:
-        label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
-        contrib = clst.get_contribution(idx, along=dimension, norm=False)
-        axis.plot(dimcoords, contrib, label=label)
-
-    axis.legend(loc='best')
-    axis.set_xlabel(dimlabel)
-
-    # TODO - reduced dimnames could be: channel-frequency bins
-    elements_name = ({'vert': 'vertices', 'chan': 'channels'}
-                     [clst.dimnames[0]] if clst.dimcoords is not None
-                     else 'elements')
-    axis.set_ylabel('Number of ' + elements_name)
-    return axis
+    # # plot cluster contribution
+    # for idx in picks:
+    #     label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
+    #     contrib = clst.get_contribution(idx, along=dimension, norm=False)
+    #     axis.plot(dimcoords, contrib, label=label)
+    #
+    # axis.legend(loc='best')
+    # axis.set_xlabel(dimlabel)
+    #
+    # # TODO - reduced dimnames could be: channel-frequency bins
+    # elements_name = ({'vert': 'vertices', 'chan': 'channels'}
+    #                  [clst.dimnames[0]] if clst.dimcoords is not None
+    #                  else 'elements')
+    # axis.set_ylabel('Number of ' + elements_name)
+    return fig
 
 
 # FIXME - allow for channel sorting (by region and y position)
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
-                      mark_clst_prop=0.65, mark_kwargs=None,
-                      cluster_colors=None, **kwargs):
+                      mark_clst_prop=0.5, mark_kwargs=None,
+                      cluster_colors=None, plot_contribution=False,
+                      retain_mass=0.65, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
@@ -101,6 +111,13 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
         ``None`` defaults to ``{'markersize: 5'}``.
     cluster_colors : list | None, optional
         List of cluster colors if plotting multiple clusters.
+    plot_contribution : bool
+        Whether to plot cluster contribution instead of statistical map.
+    retain_mass : float
+        How to define ranges for dimensions that are not specified in kwargs.
+        Limits for these dimensions are automatically selected to contain at
+        least ``retain_mass`` proportion of cluster volume. Defaults to
+        ``0.65``.
     **kwargs : additional arguments
         Additional arguments used in aggregation, defining the points to
         select (if argument value is a list of float) or the range to
@@ -133,7 +150,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     > clst.plot(cluster_idx=0, dims=['freq', 'time'])
     '''
     # TODO - if cluster_idx is not None and there is no such cluster - error
-    #      - if no clusters and None - plot without highlighting
+    #      - if None - plot without highlighting
+    #      - if auto' (default) : autoselect cluster
     cluster_idx = 0 if cluster_idx is None else cluster_idx
 
     # split kwargs into plotfun_kwargs and dim_kwargs
@@ -150,15 +168,13 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
 
     # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
-    # CONSIDER ? add retain_mass and mask_proportion to args?
+    # CONSIDER ? add retain_mass to args?
     clst_mask, clst_stat, idx = _aggregate_cluster(
         clst, cluster_idx, ignore_dims=dims, mask_proportion=mark_clst_prop,
-        retain_mass=0.65, **dim_kwargs)
-    n_elements = clst_stat.shape[1] if clst_stat.ndim > len(dim_idx) else 1
-    vmin, vmax = _get_clim(clst_stat, vmin=vmin, vmax=vmax,
-                           pysurfer=False)
+        retain_mass=retain_mass, mask_sum=plot_contribution, **dim_kwargs)
 
-    # remove singleton dimensions from clst_mask
+    # remove singleton dimensions from clst_mask, merge clusters
+    multi_clusters = False
     if clst_mask is not None:
         singletons = np.where(np.array(clst_mask.shape) == 1)[0]
         listlikes = (list, np.ndarray)
@@ -167,9 +183,19 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             stat_singletons = (singletons - 1)[singletons > 0]
             if len(stat_singletons) > 0:
                 clst_stat = np.squeeze(clst_stat, axis=tuple(stat_singletons))
+
+        # merge clusters if necessary
         if (cluster_colors is None and isinstance(cluster_idx, listlikes)
             and len(cluster_idx) > 1):
-            clst_mask = clst_mask.any(axis=0)
+            if not plot_contribution:
+                clst_mask = clst_mask.any(axis=0)
+            else:
+                multi_clusters = True
+
+    show = clst_mask if plot_contribution else clst_stat
+    vmin, vmax = _get_clim(show, vmin=vmin, vmax=vmax,
+                           pysurfer=False)
+    vmin = 0 if plot_contribution else vmin
 
     # Viz rules:
     # ----------
@@ -182,18 +208,29 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             # topographical plot
             # ------------------
 
+            # make sure 'axis' kwarg is also accepted
+            if 'axis' in plotfun_kwargs:
+                ax = plotfun_kwargs.pop('axis')
+                plotfun_kwargs['axes'] = ax
+
+            # for plotting contribution of multiple clusters we currently
+            # just sum up the individual cluster contributions
+            if multi_clusters:
+                show = clst_mask.sum(axis=0)
+
             # create Topo object
             from borsar.viz import Topo
-            topo = Topo(clst_stat, clst.info, vmin=vmin, vmax=vmax, show=False,
+            topo = Topo(show, clst.info, vmin=vmin, vmax=vmax, show=False,
                         **plotfun_kwargs)
             topo.solid_lines()
 
+            # mark cluster channels
+            if not plot_contribution:
+                _mark_topo_channels(topo, clst_mask, mark_kwargs,
+                                    cluster_colors, cluster_idx)
+
             # FIXME: labels axes also when resulting from idx reduction
             _label_topos(clst, topo, dim_kwargs, idx)
-
-            # mark cluster channels
-            _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
-                                cluster_idx)
 
             return topo
         else:
@@ -203,22 +240,32 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             # show a line plot of the effect
             import matplotlib.pyplot as plt
             x_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
-            fig, ax = plt.subplots()
-            ax.plot(x_axis, clst_stat, **plotfun_kwargs)
+
+            # FIXME: temporary plot_contribution compatibility
+            if 'cmap' in plotfun_kwargs:
+                plotfun_kwargs.pop('cmap')
+
+            # FIXME: temporary plot_contribution compatibility
+            if 'axis' in plotfun_kwargs:
+                ax = plotfun_kwargs.pop('axis')
+                if ax is None:
+                    fig, ax = plt.subplots()
+            else:
+                fig, ax = plt.subplots()
+
+            if multi_clusters:
+                show = show.T
+
+            ax.plot(x_axis, show, **plotfun_kwargs)
             _label_axis(ax, clst, dim_idx[0], ax_dim='x')
-            _mark_cluster_range(clst_mask, x_axis, ax)
+            if not plot_contribution:
+                _mark_cluster_range(clst_mask, x_axis, ax)
             return ax
     elif len(dim_idx) == 2:
         # heatmap
         # -------
 
         from ..viz import heatmap
-        outlines = True
-        if clst_mask is None:
-            clst_mask = np.zeros(clst_stat.shape, dtype='bool')
-
-        if not clst_mask.any():
-            outlines = False
 
         # make sure the dimension order is correct
         if not (np.sort(dim_idx) == dim_idx).all():
@@ -226,17 +273,34 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             if clst_mask is not None:
                 clst_mask = clst_mask.transpose(clst_mask.ndim - 1,
                                                 clst_mask.ndim - 2)
+            show = clst_mask if plot_contribution else clst_stat
+
+        if plot_contribution:
+            outlines = False
+            if multi_clusters:
+                show = clst_mask.sum(axis=0)
+            clst_mask = None
+        else:
+            outlines = True
+            if clst_mask is None:
+                clst_mask = np.zeros(clst_stat.shape, dtype='bool')
+
+            # CHECK/FIX: this should not be needed, heatmap should be smart
+            # enough to not draw outlines then
+            if not clst_mask.any():
+                outlines = False
 
         # get dimension coords
         x_axis = _get_dimcoords(clst, dim_idx[1], idx[dim_idx[1]])
         y_axis = _get_dimcoords(clst, dim_idx[0], idx[dim_idx[0]])
 
-        if clst_mask.ndim > 2 and outlines and cluster_colors is not None:
+        if (clst_mask is not None and clst_mask.ndim > 2 and outlines
+            and cluster_colors is not None):
             line_kwargs = plotfun_kwargs.get('line_kwargs', dict())
             line_kwargs['color'] = cluster_colors
             plotfun_kwargs['line_kwargs'] = line_kwargs
 
-        axs = heatmap(clst_stat, mask=clst_mask, outlines=outlines,
+        axs = heatmap(show, mask=clst_mask, outlines=outlines,
                       x_axis=x_axis, y_axis=y_axis, vmin=vmin, vmax=vmax,
                       **plotfun_kwargs)
 
