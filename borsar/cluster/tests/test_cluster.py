@@ -20,7 +20,8 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _prepare_cluster_description, _handle_dims,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
-                                  _format_cluster_pvalues, _index_from_dim)
+                                  _format_cluster_pvalues, _index_from_dim,
+                                  _get_full_dimname)
 from borsar.cluster.viz import _label_axis
 
 # setup
@@ -137,6 +138,13 @@ def test_cluster_limits():
 
     lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
+
+
+# TODO: move more utils to this test function
+def test_cluster_utils():
+    # clst = _create_random_clusters(dims='ch_tm', n_clusters=1)
+    assert _get_full_dimname('freq') == 'frequency'
+    assert _get_full_dimname('chan') == 'channels'
 
 
 def test_clusters():
@@ -276,6 +284,20 @@ def test_clusters():
 
     with pytest.raises(ValueError, match='No clusters present'):
         clst_no.plot_contribution('freq')
+
+    # heatmap contribution with tfr clusters
+    clst_tfr = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+    axes = clst_tfr.plot_contribution(dims=['freq', 'time'])
+    assert len(axes[0].images) > 0
+    img = axes[0].images[0]
+    contrib = clst_tfr.clusters.sum(axis=(0, 1))
+    assert (data == contrib).all()
+
+    # passing in 'axis'
+    fig, ax = plt.subplots(ncols=2)
+    clst.plot_contribution(dims='chan', axis=ax[0], picks=0)
+    clst.plot_contribution(dims='freq', axis=ax[1], picks=0)
+    plt.close('all')
 
     # get index and limits
     # --------------------
@@ -850,6 +872,8 @@ def test_clst_with_arrays():
               cluster_colors=['red', 'green'])
 
     plt.close('all')
+
+    # FIXME - add .get_index() and .find_range()
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
