@@ -296,8 +296,8 @@ def test_clusters():
 
     # passing in 'axis'
     fig, ax = plt.subplots(ncols=2)
-    clst.plot_contribution(dims='chan', axis=ax[0], picks=0)
-    clst.plot_contribution(dims='freq', axis=ax[1], picks=0)
+    clst_tfr.plot_contribution(dims='chan', axis=ax[0], picks=0)
+    clst_tfr.plot_contribution(dims='freq', axis=ax[1], picks=0)
     plt.close('all')
 
     # get index and limits
