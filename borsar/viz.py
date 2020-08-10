@@ -288,7 +288,7 @@ class Topo(object):
         else:
             self.n_topos = 1
 
-        has_axis = 'axes' in kwargs.keys()
+        has_axis = 'axes' in kwargs.keys() and kwargs['axes'] is not None
         if has_axis:
             # axis was passed, check if valid
             axes = kwargs['axes']
@@ -369,13 +369,19 @@ def _infer_topo_part(info):
     ch_pos = get_ch_pos(info)
     all_x_above_0 = (ch_pos[:, 0] >= 0.).all()
     all_y_above_0 = (ch_pos[:, 1] >= 0.).all()
+
+    # additional checks...
+    y_limits = ch_pos[:, 1].min(), ch_pos[:, 1].max()
+    y_range = y_limits[1] - y_limits[0]
+    all_y_sufficiently_high = y_limits[0] > y_range * -0.3
+
     side = ''
     if all_x_above_0:
         side += 'right'
     elif (ch_pos[:, 0] <= 0.).all():
         side += 'left'
 
-    if all_y_above_0:
+    if all_y_above_0 or all_y_sufficiently_high:
         side = 'frontal' if len(side) == 0 else '_'.join([side, 'frontal'])
 
     side = None if len(side) == 0 else side

@@ -7,18 +7,12 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from scipy import sparse
-from scipy.io import loadmat
-from skimage.filters import gaussian
 import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import (download_test_data, _get_test_data_dir, has_numba,
-                          find_index)
-from borsar.cluster import (Clusters, cluster_3d, find_clusters,
-                            construct_adjacency_matrix, read_cluster,
-                            cluster_based_regression)
+from borsar.utils import download_test_data, _get_test_data_dir, find_index
+from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
                                    _check_dimnames_kwargs)
@@ -26,7 +20,8 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _prepare_cluster_description, _handle_dims,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
-                                  _format_cluster_pvalues, _index_from_dim)
+                                  _format_cluster_pvalues, _index_from_dim,
+                                  _get_full_dimname)
 from borsar.cluster.viz import _label_axis
 
 # setup
@@ -73,233 +68,6 @@ def _create_random_clusters(dims='ch_tm', n_clusters=1):
     clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
                     dimcoords=dimcoords, info=info)
     return clst
-
-
-def test_contstruct_adjacency():
-    T, F = True, False
-    ch_names = list('ABCD')
-    adj_correct = np.array([[F, T, T, F],
-                            [T, F, T, F],
-                            [T, T, F, T],
-                            [F, F, T, F]])
-
-    # contruct neighbourhood
-    dtypes = [('label', 'O'), ('neighblabel', 'O')]
-    arr = np.array([(ch_names[idx], np.array(ch_names)[adj_correct[idx]])
-                    for idx in range(adj_correct.shape[0])], dtype=dtypes)
-
-    # test 1, general use case
-    adj = construct_adjacency_matrix(arr)
-    assert (adj_correct == adj).all()
-
-    # test 2, selected channels
-    idx = np.ix_([0, 1, 3], [0, 1, 3])
-    adj = construct_adjacency_matrix(arr, ch_names=list('ABD'))
-    assert (adj_correct[idx] == adj).all()
-
-    # test 3, as_sparse
-    adj = construct_adjacency_matrix(arr, ch_names=list('ABC'), as_sparse=True)
-    assert (adj_correct[:3, :3] == adj.toarray()).all()
-
-    # test 4, ch_names must be a list
-    with pytest.raises(AssertionError):
-        construct_adjacency_matrix(arr, ch_names='abc')
-
-    # test 5, ch_names must contain string
-    with pytest.raises(AssertionError):
-        construct_adjacency_matrix(arr, ch_names=['A', 23, 'C'])
-
-    # test 6, channel not found in neighbours
-    with pytest.raises(ValueError):
-        construct_adjacency_matrix(arr, ch_names=['A', 'Bi', 'C'])
-
-    # test 7, multiple channels with the same name found in neighbours
-    arr = np.array([(ch_names[idx], np.array(ch_names)[adj_correct[idx]])
-                    for idx in range(adj_correct.shape[0])]
-                   + [(ch_names[0], np.array(ch_names)[adj_correct[0]])],
-                   dtype=dtypes)
-    with pytest.raises(ValueError):
-        construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
-
-
-def test_numba_clustering():
-    if has_numba():
-        from borsar.cluster.label_numba import cluster_3d_numba
-        data = np.load(op.join(data_dir, 'test_clustering.npy'))
-
-        # smooth each 'channel' independently
-        for idx in range(data.shape[0]):
-            data[idx] = gaussian(data[idx])
-
-        mask_test = data > (data.mean() + data.std())
-
-        # adjacency
-        T, F = True, False
-        adj = np.array([[F, T, T, F, F],
-                        [T, F, T, F, T],
-                        [T, T, F, F, F],
-                        [F, F, F, F, T],
-                        [F, T, F, T, F]])
-
-        clst1 = cluster_3d(mask_test, adj)
-        clst2 = cluster_3d_numba(mask_test, adj)
-
-        assert (clst1 == clst2).all()
-
-
-def test_find_clusters():
-    threshold = 2.
-    T, F = True, False
-    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
-    data = np.array([[[2.1, 2., 2.3], [1.2, -2.1, -2.3], [2.5, -2.05, 1.3]],
-                     [[2.5, 2.4, 2.2], [0.3, -2.4, 0.7], [2.3, -2.1, 0.7]],
-                     [[2.2, 1.7, 1.4], [2.3, 1.4, 1.9], [2.1, 1., 0.5]]])
-    correct_clst = [data > threshold, data < - threshold]
-    backends = ['auto', 'numpy']
-    if has_numba():
-        backends.append('numba')
-
-    for backend in backends:
-        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                   backend=backend)
-        assert (clst[0] == correct_clst[0]).all()
-        assert (clst[1] == correct_clst[1]).all()
-        assert data[correct_clst[0]].sum() == stat[0]
-        assert data[correct_clst[1]].sum() == stat[1]
-
-    # check using mne backend
-    adjacency = np.array([[F, T, F], [T, F, T], [F, T, F]])
-    data = np.array([[1., 1.5, 2.1, 2.3, 1.8], [1., 1.4, 1.9, 2.3, 2.2],
-                     [0.1, 0.8, 1.5, 1.9, 2.1]])
-    correct_clst = data.T > threshold
-
-    with pytest.raises(ValueError, match='of the correct size'):
-        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                   backend='mne')
-
-    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
-                               backend='mne')
-    assert (clst[0] == correct_clst).all()
-
-
-def test_cluster_based_regression():
-    np.random.seed(23)
-    data_dir = _get_test_data_dir()
-
-    # TEST 1
-    # ======
-
-    # read data and fieldtrip's stat results
-    stat = loadmat(
-        op.join(data_dir, 'ft_stat_test_01.mat'), squeeze_me=True)['stat']
-    all_data = loadmat(
-        op.join(data_dir, 'cluster_regr_test_01.mat'), squeeze_me=True)
-
-    data = all_data['data']
-    pred = all_data['pred']
-
-    t_values, clusters, cluster_p, distrib = cluster_based_regression(
-        data, pred, return_distribution=True, progressbar=False)
-
-    # cluster p values should be very similar
-    # ---------------------------------------
-    cluster_p_ft = np.concatenate([stat['posclusters'].item()['prob'],
-                                  [stat['negclusters'].item()['prob'].item()]]
-                                  ).astype('float')
-
-    # for small p-values the differences should be smaller,
-    # for large they could reach up to 0.095
-    assert (np.abs(cluster_p_ft - cluster_p) < [0.01, 0.095, 0.11]).all()
-
-    # distributions should be very similar
-    # ------------------------------------
-    distrib_ft = {prefix: stat['{}distribution'.format(prefix)].item()
-                  for prefix in ['pos', 'neg']}
-
-    vals = np.array([5., 15, 30, 50, 100])
-    max_perc_error = np.array([7, 7, 5, 5, 4.5]) / 100.
-
-    for fun, prefix, vls in zip([np.less, np.greater],
-                                ['pos', 'neg'], [vals, vals * -1]):
-        ft = np.array([fun(distrib_ft[prefix], v).mean() for v in vls])
-        brsr = np.array([fun(distrib[prefix], v).mean() for v in vls])
-        assert (np.abs(ft - brsr) < max_perc_error).all()
-
-    # masks should be the same
-    # ------------------------
-    posmat = stat['posclusterslabelmat'].item()
-    negmat = stat['negclusterslabelmat'].item()
-    assert ((posmat == 1) == clusters[0]).all()
-    assert ((posmat == 2) == clusters[1]).all()
-    assert ((negmat == 1) == clusters[2]).all()
-
-    # t values should be almost the same
-    # ----------------------------------
-    np.testing.assert_allclose(stat['stat'].item(), t_values, rtol=1e-10)
-
-    # TEST 2
-    # ======
-    # smoke test for running cluster_based_regression with adjacency
-    data = np.random.random((15, 4, 4))
-    preds = np.random.random(15)
-
-    T, F = True, False
-    adjacency = sparse.coo_matrix([[F, T, T, F], [T, F, T, F], [T, T, F, T],
-                                   [F, F, T, F]])
-
-    tvals, clst, clst_p = cluster_based_regression(data, preds,
-                                                   adjacency=adjacency)
-
-
-def test_cluster_based_regression_3d_simulated():
-    np.random.seed(23)
-    T, F = True, False
-
-    # ground truth - cluster locations
-    data = np.random.normal(size=(10, 3, 5, 5))
-    adjacency = np.array([[F, T, T], [T, F, T], [T, T, F]])
-    pos_clst = [[0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
-                [1, 1, 2, 0, 0, 1, 2, 2, 0, 1, 2, 3],
-                [1, 2, 2, 0, 1, 1, 2, 3, 0, 0, 3, 3]]
-    neg_clst = [[0, 0, 0, 0, 2, 2, 2],
-                [3, 4, 4, 4, 3, 4, 4],
-                [4, 2, 3, 4, 1, 1, 2]]
-    pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
-
-    # create pos cluster
-    wght = 1.9
-    pos_idx = tuple([slice(None)] + pos_clst)
-    wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
-    data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
-
-    # create neg cluster
-    wght = -1.5
-    neg_idx = tuple([slice(None)] + neg_clst)
-    wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
-    data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
-
-    # prepare data and run cluster_based_regression
-    reg_data = data.copy().swapaxes(1, -1)
-    stat, clst, pvals = cluster_based_regression(
-        reg_data, pred, adjacency=adjacency, stat_threshold=2.,
-        progressbar=False)
-
-    # swapaxes back to orig size
-    stat = stat.swapaxes(0, -1)
-    clst = [c.swapaxes(0, -1) for c in clst]
-
-    # find index of positive and negative clusters
-    clst_stat = np.array([stat[c].sum() for c in clst])
-    pos_clst_idx = (pvals[clst_stat > 0].argmin()
-                    + np.where(clst_stat > 0)[0][0])
-    neg_clst_idx = (pvals[clst_stat < 0].argmin()
-                    + np.where(clst_stat < 0)[0][0])
-
-    # assert that clusters are similar to locations of original effects
-    assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
-    assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.29
-    assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.75
-    assert clst[neg_clst_idx][pos_idx[1:]].mean() < 0.29
 
 
 def test_get_mass_range():
@@ -370,6 +138,13 @@ def test_cluster_limits():
 
     lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
+
+
+# TODO: move more utils to this test function
+def test_cluster_utils():
+    # clst = _create_random_clusters(dims='ch_tm', n_clusters=1)
+    assert _get_full_dimname('freq') == 'frequency'
+    assert _get_full_dimname('chan') == 'channels'
 
 
 def test_clusters():
@@ -490,11 +265,11 @@ def test_clusters():
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
 
-    clst2.dimcoords, dcoords = None, clst2.dimcoords
-    ax = clst2.plot_contribution('freq')
-    xlab = ax.get_xlabel()
-    assert xlab == 'frequency bins'
-    clst2.dimcoords = dcoords
+    # clst2.dimcoords, dcoords = None, clst2.dimcoords
+    # ax = clst2.plot_contribution('freq')
+    # xlab = ax.get_xlabel()
+    # assert xlab == 'frequency bins'
+    # clst2.dimcoords = dcoords
 
     match = 'Clusters has to have `dimnames` attribute'
     with pytest.raises(TypeError, match=match):
@@ -509,6 +284,21 @@ def test_clusters():
 
     with pytest.raises(ValueError, match='No clusters present'):
         clst_no.plot_contribution('freq')
+
+    # heatmap contribution with tfr clusters
+    clst_tfr = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+    axes = clst_tfr.plot_contribution(dims=['freq', 'time'])
+    assert len(axes[0].images) > 0
+    img = axes[0].images[0]
+    data = img.get_array()
+    contrib = clst_tfr.clusters.sum(axis=(0, 1))
+    assert (data == contrib).all()
+
+    # passing in 'axis'
+    fig, ax = plt.subplots(ncols=2)
+    clst_tfr.plot_contribution(dims='chan', axis=ax[0], picks=0)
+    clst_tfr.plot_contribution(dims='freq', axis=ax[1], picks=0)
+    plt.close('all')
 
     # get index and limits
     # --------------------
@@ -1083,6 +873,8 @@ def test_clst_with_arrays():
               cluster_colors=['red', 'green'])
 
     plt.close('all')
+
+    # FIXME - add .get_index() and .find_range()
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
