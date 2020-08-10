@@ -290,6 +290,7 @@ def test_clusters():
     axes = clst_tfr.plot_contribution(dims=['freq', 'time'])
     assert len(axes[0].images) > 0
     img = axes[0].images[0]
+    data = img.get_array()
     contrib = clst_tfr.clusters.sum(axis=(0, 1))
     assert (data == contrib).all()
 
