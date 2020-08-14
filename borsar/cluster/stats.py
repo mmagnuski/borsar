@@ -7,6 +7,7 @@ from ..stats import compute_regression_t, _handle_preds
 # - [x] permute only some predictors
 # - [x] better support for `cluster_pred`: idx with respect to `preds`,
 #       add intercept
+# - [ ] add min_adj_ch parameter passed to find_clusters
 # - [ ] FIXME: consider cluster_pred always adressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
@@ -146,7 +147,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
 
     # TODO - move progressbar code from DiamSar!
     #      - then support tqdm pbar as input
-    #      - use autonotebook?
     if progressbar:
         from tqdm import tqdm
         pbar = tqdm(total=n_permutations)

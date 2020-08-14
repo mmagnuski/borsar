@@ -1,9 +1,9 @@
 import numpy as np
 
 from .checks import _check_dimname_arg
-from .utils import (_get_full_dimname, _get_units, _get_clim, _handle_dims,
-                    _aggregate_cluster, _get_dimcoords, _mark_cluster_range,
-                    _full_dimname)
+from .utils import (_get_units, _get_clim, _handle_dims, _aggregate_cluster,
+                    _get_dimcoords, _mark_cluster_range, _full_dimname)
+from ..viz import Topo
 
 
 # - [x] use **args passed to clst.plot()
@@ -34,6 +34,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
         raise ValueError('No clusters present in Clusters object.')
 
     # select full range for unspecified dimensions
+    # --------------------------------------------
     specified_dims = dims if isinstance(dims, list) else [dims]
     dim_idx = _check_dimname_arg(clst, specified_dims[0])
     unspecified_dims = [dim for dim in clst.dimnames
@@ -49,6 +50,8 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
                 all = (frm, to)
             kwargs[unspec] = all
 
+    # plot
+    # ----
     picks = list(range(n_clusters)) if picks is None else picks
     fig = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
                             retain_mass=1., axis=axis, cmap='viridis',
@@ -79,6 +82,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
 
 
 # FIXME - allow for channel sorting (by region and y position)
+# FIXME - change mark_clst_prop to mask_proportion, mark_proportion, mark_cluster?
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       mark_clst_prop=0.5, mark_kwargs=None,
                       cluster_colors=None, plot_contribution=False,
@@ -103,7 +107,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
         For example if 4 frequency bins are reduced using ``freq=(8, 12)``
         then if ``mark_clst_prop`` is ``0.5`` only channels contributing
         at least 2 frequency bins (4 bins * 0.5 proportion) in this range
-        will be marked in the topomap.
+        will be marked in the topomap. Defaults to ``0.5``.
     mark_kwargs : dict | None, optional
         Keyword arguments for ``Topo.mark_channels`` used to mark channels
         participating in selected cluster. For example:
@@ -305,8 +309,9 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       **plotfun_kwargs)
 
         # add dimension labels
-        _label_axis(axs[0], clst, dim_idx[1], ax_dim='x')
-        _label_axis(axs[0], clst, dim_idx[0], ax_dim='y')
+        heatmap_ax = axs[0] if isinstance(axs, (list, tuple)) else axs
+        _label_axis(heatmap_ax, clst, dim_idx[1], ax_dim='x')
+        _label_axis(heatmap_ax, clst, dim_idx[0], ax_dim='y')
 
         return axs
     else:
