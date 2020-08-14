@@ -53,32 +53,33 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     # plot
     # ----
     picks = list(range(n_clusters)) if picks is None else picks
-    fig = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+    ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
                             retain_mass=1., axis=axis, cmap='viridis',
                             **kwargs)
 
-    # CONSIDER: create intensity label? (for example "number of channels" or
-    #                                    "number of time-frequency bins")
+    # create "intensity" label
+    # ------------------------
+    nonreduced_dims = [dim for dim in clst.dimnames if dim not in dims]
+    dimnames = [_full_dimname(dim, singular=True) for dim in nonreduced_dims]
+    binlabel = 'Number of {} bins'.format('-'.join(dimnames))
+    if isinstance(ax, tuple):
+        # heatmap with colorbar
+        cbar = ax[1]
+        cbar.set_label(binlabel)
+    elif isinstance(ax, Topo):
+        # only if contains colorbar - which will be added to Topo in some time
+        pass
+    elif isinstance(dims, str) or (isinstance(dims, list) and len(dims) == 1):
+        # line plot - label y axis
+        ax.set_ylabel(binlabel)
 
-    # # make sure we have an axes to plot to
-    # if axis is None:
-    #     axis = plt.gca()
+        # make sure y axis min is 0
+        ylims = ax.get_ylim()
+        if not ylims[0] == 0:
+            ylims[0] = 0
+            ax.set_ylim(ylims)
 
-    # # plot cluster contribution
-    # for idx in picks:
-    #     label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
-    #     contrib = clst.get_contribution(idx, along=dimension, norm=False)
-    #     axis.plot(dimcoords, contrib, label=label)
-    #
-    # axis.legend(loc='best')
-    # axis.set_xlabel(dimlabel)
-    #
-    # # TODO - reduced dimnames could be: channel-frequency bins
-    # elements_name = ({'vert': 'vertices', 'chan': 'channels'}
-    #                  [clst.dimnames[0]] if clst.dimcoords is not None
-    #                  else 'elements')
-    # axis.set_ylabel('Number of ' + elements_name)
-    return fig
+    return ax
 
 
 # FIXME - allow for channel sorting (by region and y position)
