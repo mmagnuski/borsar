@@ -237,6 +237,11 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             # FIXME: labels axes also when resulting from idx reduction
             _label_topos(clst, topo, dim_kwargs, idx)
 
+            if 'axes' not in plotfun_kwargs:
+                # we created the axes so we can reposition them for better
+                # topo titles visibility
+                _move_axes_to(topo.axes, y=0.05)
+
             return topo
         else:
             # line plot
@@ -345,37 +350,47 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
 def _label_topos(clst, topo, dim_kwargs, idx):
     '''Label cluster topoplots with relevant units.'''
 
-    n_kwargs = len(dim_kwargs)
-    if n_kwargs == 1:
-        # currently works only for one selected dimension
-        dim = list(dim_kwargs.keys())[0]
+    ndims = len(idx)
+    multi_point_idx = [ix for ix in range(ndims)
+                       if isinstance(idx[ix], (list, np.ndarray))
+                       and len(idx[ix]) > 0]
+
+    label_parts = list()
+    for ix in range(1, ndims):
+        sel = idx[ix]
+        if ix in multi_point_idx or sel == slice(None):
+            continue
+
+        dim = clst.dimnames[ix]
         unit = _get_units(dim)
-        values = dim_kwargs[dim]
-        labels = [str(v) for v in values]
+        values = clst.dimcoords[ix][sel]
 
-        if isinstance(values, (list, np.ndarray)):
-            assert len(topo) == len(values)
-            for tp, lb in zip(topo, labels):
-                tp.axes.set_title(lb + ' ' + unit, fontsize=12)
-
-        elif isinstance(values, tuple) and len(values) == 2:
+        if isinstance(values, np.ndarray):
             # range
-            ttl = '{} - {} {}'.format(*labels, unit)
-            topo.axes.set_title(ttl, fontsize=12)
-    elif n_kwargs == 0:
-        # if idx for non-spatial dimensions is not (None, None, None)
-        good_idx = [isinstance(ix, slice) and not ix == slice(None)
-                    for ix in idx]
-        good_idx = np.where(good_idx)[0]
-        good_idx = good_idx[good_idx > 0]
-        if len(good_idx) > 0:
-            range = idx[good_idx[0]]
-            dim = clst.dimnames[good_idx[0]]
-            unit = _get_units(dim)
-            values = clst.dimcoords[good_idx[0]][range]
-            labels = [str(v) for v in values[[0, -1]]]
-            ttl = '{} - {} {}'.format(*labels, unit)
-            topo.axes.set_title(ttl, fontsize=12)
+            edges = [str(v) for v in values[[0, -1]]]
+            label = '{} - {} {}'.format(*edges, unit)
+        else:
+            label = '{} {}'.format(values, unit)
+        label_parts.append(label)
+    label = '\n'.join(label_parts)
+
+    if len(multi_point_idx) == 1:
+        multi_dim = multi_point_idx[0]
+        multi_idx = idx[multi_dim]
+        assert len(topo) == len(multi_idx)
+
+        dimname = clst.dimnames[multi_dim]
+        dimunit = _get_units(dimname)
+        multi_values = clst.dimcoords[multi_dim][multi_idx]
+
+        for tp, val in zip(topo, multi_values):
+            multi_label = '{} {}'.format(str(val), dimunit)
+            if len(label) > 0:
+                multi_label += '\n' + label
+            tp.axes.set_title(multi_label, fontsize=12)
+
+    elif len(multi_point_idx) == 0:
+        topo.axes.set_title(label, fontsize=12)
 
 
 def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
@@ -409,3 +424,20 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
         else:
             for idx, tp in enumerate(topo):
                 tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+
+
+def _move_axes_to(axes, x=None, y=None):
+    # maybe .ravel() ndarray axes
+    axes = axes if isinstance(axes, (list, np.ndarray)) else [axes]
+    if x is None and y is None:
+        return axes
+
+    for ax in axes:
+        pos = list(ax.get_position().bounds)
+        if x is not None:
+            pos[0] = x
+        if y is not None:
+            pos[1] = y
+
+        ax.set_position(pos)
+    return axes
