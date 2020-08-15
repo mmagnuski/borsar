@@ -353,7 +353,8 @@ def _label_topos(clst, topo, dim_kwargs, idx):
     ndims = len(idx)
     multi_point_idx = [ix for ix in range(ndims)
                        if isinstance(idx[ix], (list, np.ndarray))
-                       and len(idx[ix]) > 0]
+                       and len(idx[ix]) > 0
+                       and clst.dimnames[ix] not in ['chan', 'vert']]
 
     label_parts = list()
     for ix in range(1, ndims):

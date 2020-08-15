@@ -735,6 +735,12 @@ def test_cluster_ignore_dims():
     # check whether topography is correct:
     assert (topo.values[:, 1] == clst.stat[:, t2]).all()
 
+    # make sure topography titles are correct
+    for tp, tm in zip(topo, [0.05, 0.15, 0.25, 0.35]):
+        closest_idx = find_index(clst.dimcoords[-1], tm)
+        actual_time = clst.dimcoords[-1][closest_idx]
+        assert tp.axes.get_title() == str(actual_time) + ' s'
+
     # time-frequency test
     # -------------------
     clst = _create_random_clusters(dims='ch_fr_tm')
@@ -870,12 +876,32 @@ def test_clst_with_arrays():
     clst.plot(0, freq=np.array([6, 7, 8]))
     clst.plot(np.array([0, 1]), time=(0.1, 0.2), freq=np.array([10, 11]))
     clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]))
-    clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]),
-              cluster_colors=['red', 'green'])
+    clst.plot(np.array([0, 1]), time=np.array([0.1, 0.12, 0.15]),
+              freq=np.array([10]), cluster_colors=['red', 'green'])
 
     plt.close('all')
 
     # FIXME - add .get_index() and .find_range()
+
+
+def test_cluster_topo_title_labels():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+
+    # I. two ranges
+    trng, frng = (0.1, 0.2), (9, 11)
+    topo = clst.plot(0, time=trng, freq=frng)
+
+    fslc = find_range(clst.dimcoords[1], frng)
+    fedges = clst.dimcoords[1][fslc][[0, -1]]
+    label = '{} - {} Hz'.format(*fedges)
+    tslc = find_range(clst.dimcoords[-1], trng)
+    tedges = clst.dimcoords[-1][tslc][[0, -1]]
+    label += '\n{} - {} s'.format(*tedges)
+    assert topo.axes.get_title() == label
+
+    # II. point and range
+    # III. point and point
+    # IV. ...
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
