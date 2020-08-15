@@ -11,7 +11,8 @@ import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir, find_index
+from borsar.utils import (download_test_data, _get_test_data_dir, find_index,
+                          find_range)
 from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
@@ -21,8 +22,8 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
-                                  _get_full_dimname)
-from borsar.cluster.viz import _label_axis
+                                  _full_dimname, _human_readable_dimlabel)
+from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
 download_test_data()
@@ -143,8 +144,26 @@ def test_cluster_limits():
 # TODO: move more utils to this test function
 def test_cluster_utils():
     # clst = _create_random_clusters(dims='ch_tm', n_clusters=1)
-    assert _get_full_dimname('freq') == 'frequency'
-    assert _get_full_dimname('chan') == 'channels'
+
+    # _full_dimname
+    # -------------
+    assert _full_dimname('freq') == 'frequency'
+    assert _full_dimname('chan') == 'channels'
+    assert _full_dimname('chan', singular=True) == 'channel'
+    assert _full_dimname('vert', singular=True) == 'vertex'
+
+    # _move_axes_to
+    # -------------
+    fig, ax = plt.subplots(ncols=2)
+    pos1 = ax[0].get_position().bounds
+    _move_axes_to(ax[0], y=0.01)
+    pos2 = ax[0].get_position().bounds
+    assert not (pos1[1] == pos2[1])
+    assert pos2[1] == 0.01
+
+    _move_axes_to(ax, x=0.123)
+    assert ax[0].get_position().bounds[0] == 0.123
+    assert ax[1].get_position().bounds[0] == 0.123
 
 
 def test_clusters():
@@ -734,6 +753,13 @@ def test_cluster_ignore_dims():
     # check whether topography is correct:
     assert (topo.values[:, 1] == clst.stat[:, t2]).all()
 
+    # make sure topography titles are correct
+    for tp, tm in zip(topo, [0.05, 0.15, 0.25, 0.35]):
+        closest_idx = find_index(clst.dimcoords[-1], tm)
+        actual_time = clst.dimcoords[-1][closest_idx]
+        label = _human_readable_dimlabel(actual_time, 1, times, 's')
+        assert tp.axes.get_title() == label
+
     # time-frequency test
     # -------------------
     clst = _create_random_clusters(dims='ch_fr_tm')
@@ -869,12 +895,75 @@ def test_clst_with_arrays():
     clst.plot(0, freq=np.array([6, 7, 8]))
     clst.plot(np.array([0, 1]), time=(0.1, 0.2), freq=np.array([10, 11]))
     clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]))
-    clst.plot(np.array([0, 1]), time=[0.1, 0.12, 0.15], freq=np.array([10]),
-              cluster_colors=['red', 'green'])
+    clst.plot(np.array([0, 1]), time=np.array([0.1, 0.12, 0.15]),
+              freq=np.array([10]), cluster_colors=['red', 'green'])
 
     plt.close('all')
 
     # FIXME - add .get_index() and .find_range()
+
+
+def test_cluster_topo_title_labels():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+
+    # I. two ranges
+    trng, frng = (0.1, 0.2), (9, 11)
+    topo = clst.plot(0, time=trng, freq=frng)
+
+    fslc = find_range(clst.dimcoords[1], frng)
+    fedges = clst.dimcoords[1][fslc][[0, -1]]
+    label = _human_readable_dimlabel(fedges, slice(1, 2), clst.dimcoords[1],
+                                     'Hz')
+    tslc = find_range(clst.dimcoords[-1], trng)
+    tedges = clst.dimcoords[-1][tslc][[0, -1]]
+    label += '\n' + _human_readable_dimlabel(tedges, slice(1, 2),
+                                             clst.dimcoords[-1], 's')
+    assert topo.axes.get_title() == label
+    plt.close(topo.fig)
+
+    # II. point and range
+    tpnt, frng = [0.25], (8, 10.5)
+    topo = clst.plot(0, time=tpnt, freq=frng)
+
+    tslc = find_index(clst.dimcoords[-1], tpnt[0])
+    tval = clst.dimcoords[-1][tslc]
+    fslc = find_range(clst.dimcoords[1], frng)
+    fedges = clst.dimcoords[1][fslc][[0, -1]]
+    label = _human_readable_dimlabel(fedges, slice(1, 2), clst.dimcoords[1],
+                                     'Hz')
+    label += '\n' + _human_readable_dimlabel(tval, tpnt,
+                                             clst.dimcoords[-1], 's')
+    assert topo.axes.get_title() == label
+
+    # III. point and point
+    tpnt, fpnt = [0.25], [9]
+    topo = clst.plot(0, time=tpnt, freq=fpnt)
+
+    fslc = find_index(clst.dimcoords[1], fpnt[0])
+    fval = clst.dimcoords[1][fslc]
+    label1 = _human_readable_dimlabel(fval, fpnt, clst.dimcoords[1], 'Hz')
+    label2 = _human_readable_dimlabel(tval, tpnt, clst.dimcoords[-1], 's')
+    label = label1 + '\n' + label2
+    assert topo.axes.get_title() == label
+    plt.close(topo.fig)
+
+    # IV. multipoint and range
+    trng, fpnts = (0.15, 0.25), [9, 10, 11, 12]
+    topo = clst.plot(0, time=trng, freq=fpnts)
+
+    tslc = find_range(clst.dimcoords[-1], trng)
+    fslc = find_index(clst.dimcoords[1], fpnts)
+    tvals = clst.dimcoords[-1][tslc]
+    fvals = clst.dimcoords[1][fslc]
+    label1 = _human_readable_dimlabel(fvals, fslc, clst.dimcoords[1], 'Hz')
+    label2 = _human_readable_dimlabel(tvals, tslc, clst.dimcoords[-1], 's')
+
+    print(label1)
+    assert len(topo) == len(label1)
+    for tp, lb in zip(topo, label1):
+        label = lb + '\n' + label2
+        assert tp.axes.get_title() == label
+    plt.close(topo.fig)
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

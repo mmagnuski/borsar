@@ -1,9 +1,10 @@
 import numpy as np
 
 from .checks import _check_dimname_arg
-from .utils import (_get_full_dimname, _get_units, _get_clim, _handle_dims,
-                    _aggregate_cluster, _get_dimcoords, _mark_cluster_range,
-                    _full_dimname)
+from .utils import (_get_units, _get_clim, _handle_dims, _aggregate_cluster,
+                    _get_dimcoords, _mark_cluster_range, _full_dimname,
+                    _human_readable_dimlabel)
+from ..viz import Topo
 
 
 # - [x] use **args passed to clst.plot()
@@ -34,6 +35,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
         raise ValueError('No clusters present in Clusters object.')
 
     # select full range for unspecified dimensions
+    # --------------------------------------------
     specified_dims = dims if isinstance(dims, list) else [dims]
     dim_idx = _check_dimname_arg(clst, specified_dims[0])
     unspecified_dims = [dim for dim in clst.dimnames
@@ -49,36 +51,41 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
                 all = (frm, to)
             kwargs[unspec] = all
 
+    # plot
+    # ----
     picks = list(range(n_clusters)) if picks is None else picks
-    fig = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+    ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
                             retain_mass=1., axis=axis, cmap='viridis',
                             **kwargs)
 
-    # CONSIDER: create intensity label? (for example "number of channels" or
-    #                                    "number of time-frequency bins")
+    # create "intensity" label
+    # ------------------------
+    nonreduced_dims = [dim for dim in clst.dimnames if dim not in dims]
+    dimnames = [_full_dimname(dim, singular=True) for dim in nonreduced_dims]
+    binlabel = 'Number of {} bins'.format('-'.join(dimnames))
+    if isinstance(ax, tuple):
+        # heatmap with colorbar
+        cbar = ax[1]
+        cbar.set_label(binlabel)
+    elif isinstance(ax, Topo):
+        # only if contains colorbar - which will be added to Topo in some time
+        pass
+    elif isinstance(dims, str) or (isinstance(dims, list) and len(dims) == 1):
+        # line plot - label y axis
+        ax.set_ylabel(binlabel)
 
-    # # make sure we have an axes to plot to
-    # if axis is None:
-    #     axis = plt.gca()
+        # make sure y axis min is 0
+        ylims = list(ax.get_ylim())
+        if not ylims[0] == 0:
+            ylims[0] = 0
+            ax.set_ylim(ylims)
 
-    # # plot cluster contribution
-    # for idx in picks:
-    #     label = 'idx={}, p={:.3f}'.format(idx, clst.pvals[idx])
-    #     contrib = clst.get_contribution(idx, along=dimension, norm=False)
-    #     axis.plot(dimcoords, contrib, label=label)
-    #
-    # axis.legend(loc='best')
-    # axis.set_xlabel(dimlabel)
-    #
-    # # TODO - reduced dimnames could be: channel-frequency bins
-    # elements_name = ({'vert': 'vertices', 'chan': 'channels'}
-    #                  [clst.dimnames[0]] if clst.dimcoords is not None
-    #                  else 'elements')
-    # axis.set_ylabel('Number of ' + elements_name)
-    return fig
+    return ax
 
 
 # FIXME - allow for channel sorting (by region and y position)
+# FIXME - change mark_clst_prop to mask_proportion, mark_proportion,
+#         mark_cluster?
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       mark_clst_prop=0.5, mark_kwargs=None,
                       cluster_colors=None, plot_contribution=False,
@@ -103,7 +110,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
         For example if 4 frequency bins are reduced using ``freq=(8, 12)``
         then if ``mark_clst_prop`` is ``0.5`` only channels contributing
         at least 2 frequency bins (4 bins * 0.5 proportion) in this range
-        will be marked in the topomap.
+        will be marked in the topomap. Defaults to ``0.5``.
     mark_kwargs : dict | None, optional
         Keyword arguments for ``Topo.mark_channels`` used to mark channels
         participating in selected cluster. For example:
@@ -232,6 +239,11 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             # FIXME: labels axes also when resulting from idx reduction
             _label_topos(clst, topo, dim_kwargs, idx)
 
+            if 'axes' not in plotfun_kwargs:
+                # we created the axes so we can reposition them for better
+                # topo titles visibility
+                _move_axes_to(topo.axes, y=0.05)
+
             return topo
         else:
             # line plot
@@ -305,8 +317,9 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       **plotfun_kwargs)
 
         # add dimension labels
-        _label_axis(axs[0], clst, dim_idx[1], ax_dim='x')
-        _label_axis(axs[0], clst, dim_idx[0], ax_dim='y')
+        heatmap_ax = axs[0] if isinstance(axs, (list, tuple)) else axs
+        _label_axis(heatmap_ax, clst, dim_idx[1], ax_dim='x')
+        _label_axis(heatmap_ax, clst, dim_idx[0], ax_dim='y')
 
         return axs
     else:
@@ -339,37 +352,50 @@ def _label_axis(ax, clst, dim_idx, ax_dim):
 def _label_topos(clst, topo, dim_kwargs, idx):
     '''Label cluster topoplots with relevant units.'''
 
-    n_kwargs = len(dim_kwargs)
-    if n_kwargs == 1:
-        # currently works only for one selected dimension
-        dim = list(dim_kwargs.keys())[0]
+    ndims = len(idx)
+    idx = [np.squeeze(ix) + 0 if isinstance(ix, np.ndarray) else ix
+           for ix in idx]
+    multi_point_idx = [ix for ix in range(ndims)
+                       if isinstance(idx[ix], (list, np.ndarray))
+                       and len(idx[ix]) > 1
+                       and clst.dimnames[ix] not in ['chan', 'vert']]
+
+    label_parts = list()
+    for ix in range(1, ndims):
+        sel = idx[ix]
+        if ix in multi_point_idx or (isinstance(sel, slice)
+                                     and sel == slice(None)):
+            # FIXME - later if all times or frequencies are selected, this
+            #         may be noted in the dimlabel
+            continue
+
+        dim = clst.dimnames[ix]
         unit = _get_units(dim)
-        values = dim_kwargs[dim]
-        labels = [str(v) for v in values]
+        coords = clst.dimcoords[ix]
+        values = coords[sel]
 
-        if isinstance(values, (list, np.ndarray)):
-            assert len(topo) == len(values)
-            for tp, lb in zip(topo, labels):
-                tp.axes.set_title(lb + ' ' + unit, fontsize=12)
+        label = _human_readable_dimlabel(values, idx[ix], coords, unit)
+        label_parts.append(label)
+    label = '\n'.join(label_parts)
 
-        elif isinstance(values, tuple) and len(values) == 2:
-            # range
-            ttl = '{} - {} {}'.format(*labels, unit)
-            topo.axes.set_title(ttl, fontsize=12)
-    elif n_kwargs == 0:
-        # if idx for non-spatial dimensions is not (None, None, None)
-        good_idx = [isinstance(ix, slice) and not ix == slice(None)
-                    for ix in idx]
-        good_idx = np.where(good_idx)[0]
-        good_idx = good_idx[good_idx > 0]
-        if len(good_idx) > 0:
-            range = idx[good_idx[0]]
-            dim = clst.dimnames[good_idx[0]]
-            unit = _get_units(dim)
-            values = clst.dimcoords[good_idx[0]][range]
-            labels = [str(v) for v in values[[0, -1]]]
-            ttl = '{} - {} {}'.format(*labels, unit)
-            topo.axes.set_title(ttl, fontsize=12)
+    if len(multi_point_idx) == 1:
+        multi_dim = multi_point_idx[0]
+        multi_idx = idx[multi_dim]
+        assert len(topo) == len(multi_idx)
+
+        dimname = clst.dimnames[multi_dim]
+        unit = _get_units(dimname)
+        coords = clst.dimcoords[multi_dim]
+        values = coords[multi_idx]
+        multi_label = _human_readable_dimlabel(values, multi_idx, coords, unit)
+
+        for tp, lbl in zip(topo, multi_label):
+            if len(label) > 0:
+                lbl += '\n' + label
+            tp.axes.set_title(lbl, fontsize=12)
+
+    elif len(multi_point_idx) == 0:
+        topo.axes.set_title(label, fontsize=12)
 
 
 def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
@@ -403,3 +429,20 @@ def _mark_topo_channels(topo, clst_mask, mark_kwargs, cluster_colors,
         else:
             for idx, tp in enumerate(topo):
                 tp.mark_channels(clst_mask[:, idx], **mark_kwargs)
+
+
+def _move_axes_to(axes, x=None, y=None):
+    # maybe .ravel() ndarray axes
+    axes = axes if isinstance(axes, (list, np.ndarray)) else [axes]
+    if x is None and y is None:
+        return axes
+
+    for ax in axes:
+        pos = list(ax.get_position().bounds)
+        if x is not None:
+            pos[0] = x
+        if y is not None:
+            pos[1] = y
+
+        ax.set_position(pos)
+    return axes
