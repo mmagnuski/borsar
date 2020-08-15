@@ -380,13 +380,6 @@ def _format_cluster_pvalues(clst, idx):
     return pval
 
 
-def _get_full_dimname(dimname):
-    '''Return full dimension name.'''
-    dct = {'freq': 'frequency', 'time': 'time', 'vert': 'vertices',
-           'chan': 'channels'}
-    return dct[dimname] if dimname in dct else dimname
-
-
 def _get_mass_range(contrib, mass, adjacent=True):
     '''Find range that retains given mass (sum) of the contributions vector.
 

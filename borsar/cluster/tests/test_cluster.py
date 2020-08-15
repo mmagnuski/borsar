@@ -11,7 +11,8 @@ import mne
 
 import borsar
 from borsar.stats import format_pvalue
-from borsar.utils import download_test_data, _get_test_data_dir, find_index
+from borsar.utils import (download_test_data, _get_test_data_dir, find_index,
+                          find_range)
 from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
@@ -21,7 +22,7 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
-                                  _get_full_dimname)
+                                  _full_dimname)
 from borsar.cluster.viz import _label_axis
 
 # setup
@@ -143,8 +144,8 @@ def test_cluster_limits():
 # TODO: move more utils to this test function
 def test_cluster_utils():
     # clst = _create_random_clusters(dims='ch_tm', n_clusters=1)
-    assert _get_full_dimname('freq') == 'frequency'
-    assert _get_full_dimname('chan') == 'channels'
+    assert _full_dimname('freq') == 'frequency'
+    assert _full_dimname('chan') == 'channels'
 
 
 def test_clusters():
