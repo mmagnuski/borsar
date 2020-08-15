@@ -74,7 +74,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
         ax.set_ylabel(binlabel)
 
         # make sure y axis min is 0
-        ylims = ax.get_ylim()
+        ylims = list(ax.get_ylim())
         if not ylims[0] == 0:
             ylims[0] = 0
             ax.set_ylim(ylims)
