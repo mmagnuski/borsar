@@ -105,6 +105,7 @@ def _full_dimname(dimname, singular=False):
 
 
 def _get_dimcoords(clst, dim_idx, idx=None):
+    '''Return dimension coordinates of a cluster.'''
     if idx is None:
         idx = slice(None)
 
@@ -603,8 +604,8 @@ def _human_readable_dimlabel(val, idx, coords, dimunit):
     format_str = '{' + ':.{}f'.format(prec) + '}'
     if isinstance(val, (list, np.ndarray)):
         if isinstance(idx, slice):
-            label = (_nice_format(val[0], format_str) + ' - ' +
-                     _nice_format(val[-1], format_str) + ' ' + dimunit)
+            label = (_nice_format(val[0], format_str) + ' - '
+                     + _nice_format(val[-1], format_str) + ' ' + dimunit)
         else:
             label = [_nice_format(v, format_str) + ' ' + dimunit for v in val]
     else:
@@ -613,6 +614,7 @@ def _human_readable_dimlabel(val, idx, coords, dimunit):
 
 
 def _nice_format(val, format_str):
+    '''Format with given format string, but removing trailing zeros.'''
     label = format_str.format(val)
     if '.' in label:
         label = label.rstrip('0')

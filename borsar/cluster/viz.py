@@ -84,7 +84,8 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
 
 
 # FIXME - allow for channel sorting (by region and y position)
-# FIXME - change mark_clst_prop to mask_proportion, mark_proportion, mark_cluster?
+# FIXME - change mark_clst_prop to mask_proportion, mark_proportion,
+#         mark_cluster?
 def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       mark_clst_prop=0.5, mark_kwargs=None,
                       cluster_colors=None, plot_contribution=False,
@@ -373,17 +374,7 @@ def _label_topos(clst, topo, dim_kwargs, idx):
         coords = clst.dimcoords[ix]
         values = coords[sel]
 
-        if isinstance(values, np.ndarray):
-            if len(values) > 1:
-                # range
-                label = _human_readable_dimlabel(values, idx[ix], coords, unit)
-            elif (np.array(values.shape) == 1).all():
-                # single point in array
-                getval = tuple([0 for _ in range(values.ndim)])
-                values = values[getval]
-                label = _human_readable_dimlabel(values, idx[ix], coords, unit)
-        else:
-            label = _human_readable_dimlabel(values, idx[ix], coords, unit)
+        label = _human_readable_dimlabel(values, idx[ix], coords, unit)
         label_parts.append(label)
     label = '\n'.join(label_parts)
 

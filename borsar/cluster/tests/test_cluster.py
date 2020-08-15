@@ -23,7 +23,7 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
                                   _full_dimname, _human_readable_dimlabel)
-from borsar.cluster.viz import _label_axis
+from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
 download_test_data()
@@ -144,8 +144,26 @@ def test_cluster_limits():
 # TODO: move more utils to this test function
 def test_cluster_utils():
     # clst = _create_random_clusters(dims='ch_tm', n_clusters=1)
+
+    # _full_dimname
+    # -------------
     assert _full_dimname('freq') == 'frequency'
     assert _full_dimname('chan') == 'channels'
+    assert _full_dimname('chan', singular=True) == 'channel'
+    assert _full_dimname('vert', singular=True) == 'vertex'
+
+    # _move_axes_to
+    # -------------
+    fig, ax = plt.subplots(ncols=2)
+    pos1 = ax[0].get_position().bounds
+    _move_axes_to(ax[0], y=0.01)
+    pos2 = ax[0].get_position().bounds
+    assert not (pos1[1] == pos2[1])
+    assert pos2[1] == 0.01
+
+    _move_axes_to(ax, x=0.123)
+    assert ax[0].get_position().bounds[0] == 0.123
+    assert ax[1].get_position().bounds[0] == 0.123
 
 
 def test_clusters():
@@ -930,6 +948,22 @@ def test_cluster_topo_title_labels():
     plt.close(topo.fig)
 
     # IV. multipoint and range
+    trng, fpnts = (0.15, 0.25), [9, 10, 11, 12]
+    topo = clst.plot(0, time=trng, freq=fpnts)
+
+    tslc = find_range(clst.dimcoords[-1], trng)
+    fslc = find_index(clst.dimcoords[1], fpnts)
+    tvals = clst.dimcoords[-1][tslc]
+    fvals = clst.dimcoords[1][fslc]
+    label1 = _human_readable_dimlabel(fvals, fslc, clst.dimcoords[1], 'Hz')
+    label2 = _human_readable_dimlabel(tvals, tslc, clst.dimcoords[-1], 's')
+
+    print(label1)
+    assert len(topo) == len(label1)
+    for tp, lb in zip(topo, label1):
+        label = lb + '\n' + label2
+        assert tp.axes.get_title() == label
+    plt.close(topo.fig)
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
