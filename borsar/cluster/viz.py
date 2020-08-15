@@ -2,7 +2,8 @@ import numpy as np
 
 from .checks import _check_dimname_arg
 from .utils import (_get_units, _get_clim, _handle_dims, _aggregate_cluster,
-                    _get_dimcoords, _mark_cluster_range, _full_dimname)
+                    _get_dimcoords, _mark_cluster_range, _full_dimname,
+                    _human_readable_dimlabel)
 from ..viz import Topo
 
 
@@ -351,27 +352,38 @@ def _label_topos(clst, topo, dim_kwargs, idx):
     '''Label cluster topoplots with relevant units.'''
 
     ndims = len(idx)
+    idx = [np.squeeze(ix) + 0 if isinstance(ix, np.ndarray) else ix
+           for ix in idx]
     multi_point_idx = [ix for ix in range(ndims)
                        if isinstance(idx[ix], (list, np.ndarray))
-                       and len(idx[ix]) > 0
+                       and len(idx[ix]) > 1
                        and clst.dimnames[ix] not in ['chan', 'vert']]
 
     label_parts = list()
     for ix in range(1, ndims):
         sel = idx[ix]
-        if ix in multi_point_idx or sel == slice(None):
+        if ix in multi_point_idx or (isinstance(sel, slice)
+                                     and sel == slice(None)):
+            # FIXME - later if all times or frequencies are selected, this
+            #         may be noted in the dimlabel
             continue
 
         dim = clst.dimnames[ix]
         unit = _get_units(dim)
-        values = clst.dimcoords[ix][sel]
+        coords = clst.dimcoords[ix]
+        values = coords[sel]
 
         if isinstance(values, np.ndarray):
-            # range
-            edges = [str(v) for v in values[[0, -1]]]
-            label = '{} - {} {}'.format(*edges, unit)
+            if len(values) > 1:
+                # range
+                label = _human_readable_dimlabel(values, idx[ix], coords, unit)
+            elif (np.array(values.shape) == 1).all():
+                # single point in array
+                getval = tuple([0 for _ in range(values.ndim)])
+                values = values[getval]
+                label = _human_readable_dimlabel(values, idx[ix], coords, unit)
         else:
-            label = '{} {}'.format(values, unit)
+            label = _human_readable_dimlabel(values, idx[ix], coords, unit)
         label_parts.append(label)
     label = '\n'.join(label_parts)
 
@@ -381,14 +393,15 @@ def _label_topos(clst, topo, dim_kwargs, idx):
         assert len(topo) == len(multi_idx)
 
         dimname = clst.dimnames[multi_dim]
-        dimunit = _get_units(dimname)
-        multi_values = clst.dimcoords[multi_dim][multi_idx]
+        unit = _get_units(dimname)
+        coords = clst.dimcoords[multi_dim]
+        values = coords[multi_idx]
+        multi_label = _human_readable_dimlabel(values, multi_idx, coords, unit)
 
-        for tp, val in zip(topo, multi_values):
-            multi_label = '{} {}'.format(str(val), dimunit)
+        for tp, lbl in zip(topo, multi_label):
             if len(label) > 0:
-                multi_label += '\n' + label
-            tp.axes.set_title(multi_label, fontsize=12)
+                lbl += '\n' + label
+            tp.axes.set_title(lbl, fontsize=12)
 
     elif len(multi_point_idx) == 0:
         topo.axes.set_title(label, fontsize=12)

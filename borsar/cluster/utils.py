@@ -582,3 +582,40 @@ def _clean_up_indices(idx):
         idx = tuple(idx)
 
     return idx
+
+
+def _human_readable_dimlabel(val, idx, coords, dimunit):
+    '''Create human readable dimension label.
+
+    val : values to turn to labels
+    idx : dimension indexer
+    coords : ndarray, cluster dimension coordinates
+    dimunit : str, cluster dimension unit
+    '''
+    precision = np.diff(coords).min()
+    precision_thresholds = [1., 0.1, 0.01, 0.001, 0.0001, 0.00001]
+    which_precision = np.where(precision < precision_thresholds)[0]
+    if len(which_precision) > 0:
+        prec = which_precision[-1] + 1
+    else:
+        prec = 0
+
+    format_str = '{' + ':.{}f'.format(prec) + '}'
+    if isinstance(val, (list, np.ndarray)):
+        if isinstance(idx, slice):
+            label = (_nice_format(val[0], format_str) + ' - ' +
+                     _nice_format(val[-1], format_str) + ' ' + dimunit)
+        else:
+            label = [_nice_format(v, format_str) + ' ' + dimunit for v in val]
+    else:
+        label = _nice_format(val, format_str) + ' ' + dimunit
+    return label
+
+
+def _nice_format(val, format_str):
+    label = format_str.format(val)
+    if '.' in label:
+        label = label.rstrip('0')
+        if label[-1] == '.':
+            label = label[:-1]
+    return label

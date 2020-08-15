@@ -22,7 +22,7 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
-                                  _full_dimname)
+                                  _full_dimname, _human_readable_dimlabel)
 from borsar.cluster.viz import _label_axis
 
 # setup
@@ -739,7 +739,8 @@ def test_cluster_ignore_dims():
     for tp, tm in zip(topo, [0.05, 0.15, 0.25, 0.35]):
         closest_idx = find_index(clst.dimcoords[-1], tm)
         actual_time = clst.dimcoords[-1][closest_idx]
-        assert tp.axes.get_title() == str(actual_time) + ' s'
+        label = _human_readable_dimlabel(actual_time, 1, times, 's')
+        assert tp.axes.get_title() == label
 
     # time-frequency test
     # -------------------
@@ -893,15 +894,42 @@ def test_cluster_topo_title_labels():
 
     fslc = find_range(clst.dimcoords[1], frng)
     fedges = clst.dimcoords[1][fslc][[0, -1]]
-    label = '{} - {} Hz'.format(*fedges)
+    label = _human_readable_dimlabel(fedges, slice(1, 2), clst.dimcoords[1],
+                                     'Hz')
     tslc = find_range(clst.dimcoords[-1], trng)
     tedges = clst.dimcoords[-1][tslc][[0, -1]]
-    label += '\n{} - {} s'.format(*tedges)
+    label += '\n' + _human_readable_dimlabel(tedges, slice(1, 2),
+                                             clst.dimcoords[-1], 's')
     assert topo.axes.get_title() == label
+    plt.close(topo.fig)
 
     # II. point and range
+    tpnt, frng = [0.25], (8, 10.5)
+    topo = clst.plot(0, time=tpnt, freq=frng)
+
+    tslc = find_index(clst.dimcoords[-1], tpnt[0])
+    tval = clst.dimcoords[-1][tslc]
+    fslc = find_range(clst.dimcoords[1], frng)
+    fedges = clst.dimcoords[1][fslc][[0, -1]]
+    label = _human_readable_dimlabel(fedges, slice(1, 2), clst.dimcoords[1],
+                                     'Hz')
+    label += '\n' + _human_readable_dimlabel(tval, tpnt,
+                                             clst.dimcoords[-1], 's')
+    assert topo.axes.get_title() == label
+
     # III. point and point
-    # IV. ...
+    tpnt, fpnt = [0.25], [9]
+    topo = clst.plot(0, time=tpnt, freq=fpnt)
+
+    fslc = find_index(clst.dimcoords[1], fpnt[0])
+    fval = clst.dimcoords[1][fslc]
+    label1 = _human_readable_dimlabel(fval, fpnt, clst.dimcoords[1], 'Hz')
+    label2 = _human_readable_dimlabel(tval, tpnt, clst.dimcoords[-1], 's')
+    label = label1 + '\n' + label2
+    assert topo.axes.get_title() == label
+    plt.close(topo.fig)
+
+    # IV. multipoint and range
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")
