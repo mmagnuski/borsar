@@ -104,18 +104,22 @@ def _cross_channel_adjacency(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
-def _get_cluster_fun(data, adjacency=None, backend='numpy'):
+def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
     has_adjacency = adjacency is not None
     if data.ndim == 3 and has_adjacency:
         if backend in ['numba', 'auto']:
-            if has_numba():
+            hasnb = has_numba()
+            if hasnb and min_adj_ch == 0:
                 from .label_numba import cluster_3d_numba
                 return cluster_3d_numba
-            elif backend == 'numba':
+            elif backend == 'numba' and not hasnb:
                 raise ValueError('You need numba package to use the "numba" '
                                  'backend.')
+            elif backend == 'numba' and min_adj_ch > 0:
+                raise ValueError('Numba backend does allow for `min_adj_ch` '
+                                 '> 0.')
             else:
                 return cluster_3d
         else:
@@ -124,7 +128,7 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy'):
 
 # TODO : add tail=0 to control for tail selection
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
-                  backend='auto', mne_reshape_clusters=True):
+                  backend='auto', mne_reshape_clusters=True, min_adj_ch=0):
     """Find clusters in data array given cluster membership threshold and
     optionally adjacency matrix.
 
@@ -150,6 +154,8 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.
+    min_adj_ch
+        FIXME
 
     Returns
     -------
@@ -162,8 +168,14 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     """
     if cluster_fun is None and backend == 'auto':
         backend = 'mne' if data.ndim < 3 else 'auto'
+    if data.ndim < 3 and min_adj_ch > 0:
+        raise ValueError('currently ``min_adj_ch`` is implemented only for'
+                         ' 3d clustering.')
 
     if backend == 'mne':
+        if min_adj_ch > 0:
+            raise ValueError('mne backend does not supprot ``min_adj_ch`` '
+                             'filtering')
         # mne clustering
         # --------------
         from mne.stats.cluster_level import (
@@ -201,10 +213,12 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         # -----------------
         if cluster_fun is None:
             cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
+                                           min_adj_ch=min_adj_ch,
                                            backend=backend)
         # positive clusters
         # -----------------
-        pos_clusters = cluster_fun(data > threshold, adjacency=adjacency)
+        pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
+                                   min_adj_ch=min_adj_ch)
 
         # TODO - consider numba optimization of this part too:
         cluster_id = np.unique(pos_clusters)[1:]
@@ -213,7 +227,8 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 
         # negative clusters
         # -----------------
-        neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency)
+        neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency,
+                                   min_adj_ch=min_adj_ch)
 
         # TODO - consider numba optimization of this part too:
         cluster_id = np.unique(neg_clusters)[1:]
