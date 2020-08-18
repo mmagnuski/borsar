@@ -127,6 +127,8 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
 
 
 # TODO : add tail=0 to control for tail selection
+# TODO: split lower level stuff to _find_clusters which would be called by
+#       higher-order clustering functions (circumventing all the checks etc.)
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True, min_adj_ch=0):
     """Find clusters in data array given cluster membership threshold and
@@ -166,6 +168,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     cluster_stats : numpy array
         Array with cluster statistics - usually sum of cluster members' values.
     """
+    # FIXME - these lines should be put in _get_cluster_fun
     if cluster_fun is None and backend == 'auto':
         backend = 'mne' if data.ndim < 3 else 'auto'
     if data.ndim < 3 and min_adj_ch > 0:
@@ -189,7 +192,6 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                                                  as _setup_connectivity)
             argname = 'adjacency'
 
-        # FIXME more checks for adjacency and data when using mne!
         if adjacency is not None and isinstance(adjacency, np.ndarray):
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
