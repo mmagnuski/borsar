@@ -556,67 +556,6 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     return tuple(idx)
 
 
-# TODO: add _is_spatial_dim
-# TODO: add errors
-def _prepare_dimindex_plan(dimnames, **kwargs):
-    n_dims = len(dimnames)
-    specified = [dim in kwargs for dim in dimnames]
-    plan =(None,) * n_dims
-    if not any(specified):
-        return plan, kwargs
-
-    for idx in np.where(specified)[0]:
-        dimindex = kwargs[dimnames[idx]]
-
-        if isinstance(dimindex, tuple):
-            if len(dimindex) == 2:
-                plan[idx] = 'range'
-            else:
-                msg = 'TEMP!'
-                raise ValueError(msg)
-        elif isinstance(dimindex, Integral):
-            plan[idx] = 'singular'
-        elif isinstance(dimindex, (list, np.ndarray)):
-            # squeeze array?
-            numel = len(dimindex)
-            if numel == 0:
-                # TODO - what do we do with empty list?
-                msg = 'TEMP!'
-                raise ValueError(msg)
-            elif numel == 1:
-                plan[idx] = 'singular'
-                kwargs[dimnames[idx]] = dimindex[0]
-            else:
-                plan[idx] = 'multi'
-        elif isinstance(dimindex, str):
-            pat = r'[0-9]{1,3}(\.[0-9]*)?%( vol)?'
-            match = re.fullmatch(pat, dimindex)
-            if match is not None:
-                plan[idx] = 'volume'
-                value = float(dimindex.replace('vol', '').replace(' ', '')
-                              .replace('%', ''))
-                if value > 100. or value < 0.:
-                    raise ValueError('The percentage value has to be >= '
-                                     '0 and <= 100.')
-                kwargs[dimnames[idx]] = value
-            else:
-                # TODO: could be a channel name
-                if _is_spatial_dim(dimnames[idx]):
-                    plan[idx] = 'spatial name'
-        elif isinstance(dimindex, slice):
-            if dimindex == slice(None):
-                # "take everyting"
-                plan[idx] = 'full'
-            else:
-                # first it will be ValueError
-                msg = 'TEMP!'
-                raise ValueError(msg)
-        else:
-            msg = 'TEMP!'
-            raise TypeError(msg)
-
-        # LATER: check multi for channel/vertex indices or names
-
 def _clean_up_indices(idx):
     '''Turn multiple fancy indexers into what is needed with ``np._ix``.'''
     n_indices = len(idx)
