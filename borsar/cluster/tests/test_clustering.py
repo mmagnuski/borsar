@@ -164,15 +164,33 @@ def test_3d_clustering_with_min_adj_ch():
     assert ((clusters == clusters.max()) == data).all()
 
     # clustering with min_adj_ch=1 will give two clusters instead of one
-    clusters = cluster_3d(data, adjacency, min_adj_ch=1)
-    assert len(np.unique(clusters)) == 3  # 3 because we include 0 (background)
+    data_copy = data.copy()
+    clusters1 = cluster_3d(data_copy, adjacency, min_adj_ch=1)
+    assert len(np.unique(clusters1)) == 3  # 3 because we include 0 (background)
+
+    # make sure data were modified in-place
+    # (this is not ideal but is ok for find_clusters which passes copies
+    #  data > threshold)
+    assert not (data == data_copy).all()
 
     # with higher min_adj_ch only two points remain - all others have < 2
     # adjacent elements in channel dimension
-    clusters = cluster_3d(data, adjacency, min_adj_ch=2)
+    clusters = cluster_3d(data.copy(), adjacency, min_adj_ch=2)
     cluster_ids = np.unique(clusters)[1:]
     for clst_id in cluster_ids:
         assert (clusters == clst_id).sum() == 1
+
+    # numba min_adj_ch > 0
+    if has_numba():
+        from borsar.cluster.label_numba import cluster_3d_numba
+        clusters1_numba = cluster_3d_numba(data.copy(), adjacency,
+                                           min_adj_ch=2)
+        assert len(np.unique(clusters1)) == 3
+
+        masks = [clusters1 == idx for idx in range(1, 3)]
+        masks_numba = [clusters1_numba == idx for idx in range(1, 3)]
+        assert any([(masks_numba[0] == m).all() for m in masks])
+        assert any([(masks_numba[1] == m).all() for m in masks])
 
 
 def test_cluster_based_regression():
