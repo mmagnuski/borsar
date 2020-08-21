@@ -185,7 +185,7 @@ def test_3d_clustering_with_min_adj_ch():
     if has_numba():
         from borsar.cluster.label_numba import cluster_3d_numba
         clusters1_numba = cluster_3d_numba(data.copy(), adjacency,
-                                           min_adj_ch=2)
+                                           min_adj_ch=1)
         assert len(np.unique(clusters1)) == 3
 
         masks = [clusters1 == idx for idx in range(1, 3)]
