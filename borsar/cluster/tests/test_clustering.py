@@ -115,13 +115,31 @@ def test_find_clusters():
                      [0.1, 0.8, 1.5, 1.9, 2.1]])
     correct_clst = data.T > threshold
 
+    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
+                               backend='mne')
+    assert (clst[0] == correct_clst).all()
+
+    # warnings
+    # --------
+
+    # data has to match the shape of adjacency
     with pytest.raises(ValueError, match='of the correct size'):
         clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                    backend='mne')
 
-    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
-                               backend='mne')
-    assert (clst[0] == correct_clst).all()
+    # mne does not support min_adj_ch
+    data = np.random.random((5, 5, 3))
+    mssg = 'mne backend does not supprot ``min_adj_ch``'
+    with pytest.raises(ValueError, match=mssg):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='mne', min_adj_ch=1)
+
+    # min_adj_ch > 0 is currently available only for 3d data
+    data = np.random.random((3, 5))
+    with pytest.raises(ValueError, match='for 3d clustering.'):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='auto', min_adj_ch=1)
+
 
 
 def test_3d_clustering_with_min_adj_ch():
