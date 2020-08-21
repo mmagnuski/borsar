@@ -166,7 +166,8 @@ def test_3d_clustering_with_min_adj_ch():
     # clustering with min_adj_ch=1 will give two clusters instead of one
     data_copy = data.copy()
     clusters1 = cluster_3d(data_copy, adjacency, min_adj_ch=1)
-    assert len(np.unique(clusters1)) == 3  # 3 because we include 0 (background)
+    # we test with 3 because we include 0 (background)
+    assert len(np.unique(clusters1)) == 3
 
     # make sure data were modified in-place
     # (this is not ideal but is ok for find_clusters which passes copies

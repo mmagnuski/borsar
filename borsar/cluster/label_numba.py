@@ -2,6 +2,8 @@ import numpy as np
 import numba
 from numba import jit
 
+from .label import _per_channel_adjacency
+
 
 def cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     """Cluster data using numba-optimized functions.
@@ -33,29 +35,12 @@ def cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     # data has to be bool
     assert data.dtype == np.bool
 
-    # nested import
-    from skimage.measure import label
-
     if min_adj_ch > 0:
         adj_ch = _check_adj_ch(data, adjacency)
         msk = adj_ch < min_adj_ch
         data[msk] = False  # warning, in-place modification
 
-    # label each channel separately
-    # TODO - consider writing this loop in numba - it will be useful anyway
-    clusters = np.zeros(data.shape, dtype='int')
-    max_cluster_id = 0
-    n_chan = data.shape[0]
-    for ch in range(n_chan):
-        clusters[ch, :, :] = label(
-            data[ch, :, :], connectivity=1, background=False)
-
-        # relabel so that layers do not have same cluster ids
-        num_clusters = clusters[ch, :, :].max()
-        if ch > 0:
-            clusters[ch, clusters[ch] > 0] += max_cluster_id
-        max_cluster_id += num_clusters
-
+    clusters = _per_channel_adjacency(data, adjacency)
     return _relabel_clusters(clusters, adjacency)
 
 
@@ -106,7 +91,7 @@ def _check_adj_ch(clusters, chan_conn):
         # get unchecked neighbours
         neighbours = np.where(chan_conn[ch + 1:, ch])[0]
         if neighbours.shape[0] > 0:
-            neighbours += ch + 1
+            neighbours = neighbours + ch + 1
             for idx1 in range(n_x):
                 for idx2 in range(n_y):
                     val1 = clusters[ch, idx1, idx2]
@@ -116,4 +101,6 @@ def _check_adj_ch(clusters, chan_conn):
                             if val2:
                                 adj_ch[ch, idx1, idx2] = (
                                     adj_ch[ch, idx1, idx2] + 1)
+                                adj_ch[ngb, idx1, idx2] = (
+                                    adj_ch[ngb, idx1, idx2] + 1)
     return adj_ch

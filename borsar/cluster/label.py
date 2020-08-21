@@ -36,6 +36,9 @@ def cluster_3d(data, adjacency, min_adj_ch=0):
     clusters : array of int
         3d integer matrix with cluster labels.
     '''
+    # data has to be bool
+    assert data.dtype == np.bool
+
     if min_adj_ch > 0:
         data = _cross_channel_adjacency(data, adjacency, min_adj_ch=min_adj_ch)
 
@@ -48,9 +51,6 @@ def cluster_3d(data, adjacency, min_adj_ch=0):
 def _per_channel_adjacency(data, adjacency):
     '''Identify clusters within channels.'''
     from skimage.measure import label
-
-    # data has to be bool
-    assert data.dtype == np.bool
 
     # label each channel separately
     clusters = np.zeros(data.shape, dtype='int')
@@ -173,7 +173,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     cluster_stats : numpy array
         Array with cluster statistics - usually sum of cluster members' values.
     """
-    findfunc, adjacency, addarg,  = _prepare_clustering(
+    findfunc, adjacency, addarg = _prepare_clustering(
         data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
     clusters, cluster_stats = findfunc(data, threshold, adjacency, addarg,
                                        min_adj_ch=min_adj_ch, full=True)
