@@ -115,13 +115,31 @@ def test_find_clusters():
                      [0.1, 0.8, 1.5, 1.9, 2.1]])
     correct_clst = data.T > threshold
 
+    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
+                               backend='mne')
+    assert (clst[0] == correct_clst).all()
+
+    # warnings
+    # --------
+
+    # data has to match the shape of adjacency
     with pytest.raises(ValueError, match='of the correct size'):
         clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                    backend='mne')
 
-    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
-                               backend='mne')
-    assert (clst[0] == correct_clst).all()
+    # mne does not support min_adj_ch
+    data = np.random.random((5, 5, 3))
+    mssg = 'mne backend does not supprot ``min_adj_ch``'
+    with pytest.raises(ValueError, match=mssg):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='mne', min_adj_ch=1)
+
+    # min_adj_ch > 0 is currently available only for 3d data
+    data = np.random.random((3, 5))
+    with pytest.raises(ValueError, match='for 3d clustering.'):
+        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                   backend='auto', min_adj_ch=1)
+
 
 
 def test_3d_clustering_with_min_adj_ch():
@@ -164,15 +182,34 @@ def test_3d_clustering_with_min_adj_ch():
     assert ((clusters == clusters.max()) == data).all()
 
     # clustering with min_adj_ch=1 will give two clusters instead of one
-    clusters = cluster_3d(data, adjacency, min_adj_ch=1)
-    assert len(np.unique(clusters)) == 3  # 3 because we include 0 (background)
+    data_copy = data.copy()
+    clusters1 = cluster_3d(data_copy, adjacency, min_adj_ch=1)
+    # we test with 3 because we include 0 (background)
+    assert len(np.unique(clusters1)) == 3
+
+    # make sure data were modified in-place
+    # (this is not ideal but is ok for find_clusters which passes copies
+    #  data > threshold)
+    assert not (data == data_copy).all()
 
     # with higher min_adj_ch only two points remain - all others have < 2
     # adjacent elements in channel dimension
-    clusters = cluster_3d(data, adjacency, min_adj_ch=2)
+    clusters = cluster_3d(data.copy(), adjacency, min_adj_ch=2)
     cluster_ids = np.unique(clusters)[1:]
     for clst_id in cluster_ids:
         assert (clusters == clst_id).sum() == 1
+
+    # numba min_adj_ch > 0
+    if has_numba():
+        from borsar.cluster.label_numba import cluster_3d_numba
+        clusters1_numba = cluster_3d_numba(data.copy(), adjacency,
+                                           min_adj_ch=1)
+        assert len(np.unique(clusters1)) == 3
+
+        masks = [clusters1 == idx for idx in range(1, 3)]
+        masks_numba = [clusters1_numba == idx for idx in range(1, 3)]
+        assert any([(masks_numba[0] == m).all() for m in masks])
+        assert any([(masks_numba[1] == m).all() for m in masks])
 
 
 def test_cluster_based_regression():

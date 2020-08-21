@@ -484,9 +484,7 @@ class Clusters(object):
                 limits.append(slice(None))
         return tuple(limits)
 
-    # TODO - make sure that when one dim is specified with coords and other
-    #        with mass to retain, the mass is taken only from the part
-    #        specified? (this is done in get_limits with `idx` variable)
+    # TODO - do not use get_index() for limit calculations - division of labor!
     def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
                   **kwargs):
         '''

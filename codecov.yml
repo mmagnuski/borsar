@@ -19,3 +19,4 @@ ignore:
   - "borsar/cluster/_viz3d.py"
   - "borsar/cluster/label_numba.py"
   - "borsar/tests"
+  - "borsar/cluster/tests"
