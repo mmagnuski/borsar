@@ -9,8 +9,8 @@ be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
 * `Clusters` object for storage, manipulation and plotting of clutser-based results, both in channel and sourcee space
 * efficient regression for multichannel data (`compute_regression_t`)
 * `cluster_based_regression` to perform regression tests in cluster-based permutation framework
-* numpy and numba implementations of cluster-based permutation tests in 3d space (for example in `channels x frequency x time` space)
-* `Topo` object for topomap plots that retains the topomap state, allows to mark channels, efficiently update data, change contour line width and style for one or multiple topomaps
+* numpy and numba implementations of cluster-based permutation tests in 3d space (for example in `channels x frequency x time` space) with optional filtering by minimum number of adjacent channels (`min_adj_ch`, equivalent of `minnbchan` in fieldtrip).
+* `Topo` object for topomap plots that retains the topomap state, allows to mark channels, efficiently update data, change contour line width and style for one or multiple topomaps.
 
 
 ## Installation
