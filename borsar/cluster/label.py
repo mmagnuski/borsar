@@ -40,15 +40,15 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     assert data.dtype == np.bool
 
     if min_adj_ch > 0:
-        data = _cross_channel_adjacency(data, adjacency, min_adj_ch=min_adj_ch)
+        data = _cross_channel_adjacency_3d(data, adjacency, min_adj_ch=min_adj_ch)
 
-    clusters = _per_channel_adjacency(data, adjacency)
-    clusters = _cross_channel_adjacency(clusters, adjacency)
+    clusters = _per_channel_adjacency_3d(data)
+    clusters = _cross_channel_adjacency_3d(clusters, adjacency)
 
     return clusters
 
 
-def _per_channel_adjacency(data, adjacency):
+def _per_channel_adjacency_3d(data):
     '''Identify clusters within channels.'''
     from skimage.measure import label
 
@@ -69,7 +69,7 @@ def _per_channel_adjacency(data, adjacency):
     return clusters
 
 
-def _cross_channel_adjacency(clusters, adjacency, min_adj_ch=0):
+def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     '''Connect clusters identified within channels.'''
     n_chan = clusters.shape[0]
     # unrolled views into clusters for ease of channel comparison:

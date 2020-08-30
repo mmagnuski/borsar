@@ -2,7 +2,7 @@ import numpy as np
 import numba
 from numba import jit
 
-from .label import _per_channel_adjacency
+from .label import _per_channel_adjacency_3d
 
 
 def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
@@ -36,12 +36,12 @@ def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     assert data.dtype == np.bool
 
     if min_adj_ch > 0:
-        adj_ch = _check_adj_ch(data, adjacency)
+        adj_ch = _check_adj_ch_3d(data, adjacency)
         msk = adj_ch < min_adj_ch
         data[msk] = False  # warning, in-place modification
 
-    clusters = _per_channel_adjacency(data, adjacency)
-    return _relabel_clusters(clusters, adjacency)
+    clusters = _per_channel_adjacency_3d(data)
+    return _relabel_clusters_3d(clusters, adjacency)
 
 
 @jit(nopython=True)
@@ -60,7 +60,7 @@ def _replace_numba_3d(mat, val1, val2):
 
 
 @jit(nopython=True)
-def _relabel_clusters(clusters, chan_conn):
+def _relabel_clusters_3d(clusters, chan_conn):
     """Check channel neighbours and merge clusters across channels."""
     n_chan, n_x, n_y = clusters.shape
     for ch in range(n_chan - 1):  # last channel will be already checked
@@ -82,7 +82,7 @@ def _relabel_clusters(clusters, chan_conn):
 
 
 @jit(nopython=True)
-def _check_adj_ch(clusters, chan_conn):
+def _check_adj_ch_3d(clusters, chan_conn):
     """Check number of channel neighbours."""
     n_chan, n_x, n_y = clusters.shape
     adj_ch = np.zeros((n_chan, n_x, n_y), dtype=numba.int32)
