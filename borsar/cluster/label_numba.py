@@ -5,7 +5,7 @@ from numba import jit
 from .label import _per_channel_adjacency
 
 
-def cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
+def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     """Cluster data using numba-optimized functions.
 
     WARNING, ``min_adj_ch > 0`` can modify data in-pace! Pass a copy of the

@@ -12,7 +12,7 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
 
-    WARNING, ``min_adj_ch > 0`` can modify data in-pace! Pass a copy of the
+    WARNING, ``min_adj_ch > 0`` can modify data in-place! Pass a copy of the
     data (``data.copy()``) if you don't want that to happen.
     This in-place modification does not happen in ``find_clusters`` function
     which passes ``data > threshold`` to lower-level functions like this one
