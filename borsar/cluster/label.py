@@ -130,6 +130,19 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
                 return _cluster_3d_numpy
         else:
             return _cluster_3d_numpy
+    elif data.ndim == 2 and has_adjacency:
+        if backend in ['numba', 'auto']:
+            hasnb = has_numba()
+            if hasnb:
+                from .label_numba import _cluster_2d_numba
+                return _cluster_2d_numba
+            elif backend == 'numba' and not hasnb:
+                raise ValueError('You need numba package to use the "numba" '
+                                 'backend.')
+            else:
+                raise ValueError('Currently only "numba" backend can handle '
+                                 '2d data.')
+
     else:
         raise ValueError('borsar has specialised clustering functions only'
                          ' for three dimensional data where the first dimen'
@@ -191,13 +204,15 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 
 def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
     '''Prepare clustering - perform checks and create necessary variables.'''
-    # FIXME - these lines should be put in _get_cluster_fun
+    # FIXME - some these lines should be put in _get_cluster_fun
     if cluster_fun is None and backend == 'auto':
-        backend = 'mne' if data.ndim < 3 and min_adj_ch == 0 else 'auto'
+        if data.ndim < 3:
+            backend = 'auto' if has_numba() else 'mne'
 
     if data.ndim < 3 and min_adj_ch > 0:
-        raise ValueError('currently ``min_adj_ch`` is implemented only for'
-                         ' 3d clustering.')
+        if backend not in ['auto', 'numba']:
+            raise ValueError('currently ``min_adj_ch`` is implemented only for'
+                             ' 3d clustering.')
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
