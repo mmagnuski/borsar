@@ -8,8 +8,8 @@ from skimage.filters import gaussian
 
 import mne
 from borsar.utils import has_numba, _get_test_data_dir
-from borsar.cluster import (construct_adjacency_matrix, find_clusters,
-                            cluster_based_regression, cluster_3d)
+from borsar.cluster.label import find_clusters, _cluster_3d_numpy
+from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
 
 
 data_dir = _get_test_data_dir()
@@ -66,7 +66,7 @@ def test_contstruct_adjacency():
 
 def test_numba_clustering():
     if has_numba():
-        from borsar.cluster.label_numba import cluster_3d_numba
+        from borsar.cluster.label_numba import _cluster_3d_numba
         data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
         # smooth each 'channel' independently
@@ -83,8 +83,8 @@ def test_numba_clustering():
                         [F, F, F, F, T],
                         [F, T, F, T, F]])
 
-        clst1 = cluster_3d(mask_test, adj)
-        clst2 = cluster_3d_numba(mask_test, adj)
+        clst1 = _cluster_3d_numpy(mask_test, adj)
+        clst2 = _cluster_3d_numba(mask_test, adj)
 
         assert (clst1 == clst2).all()
 
@@ -135,10 +135,11 @@ def test_find_clusters():
                                    backend='mne', min_adj_ch=1)
 
     # min_adj_ch > 0 is currently available only for 3d data
-    data = np.random.random((3, 5))
-    with pytest.raises(ValueError, match='for 3d clustering.'):
-        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                   backend='auto', min_adj_ch=1)
+    if not has_numba():
+        data = np.random.random((3, 5))
+        with pytest.raises(ValueError, match='for 3d clustering.'):
+            clst, stat = find_clusters(data, threshold, adjacency=adjacency,
+                                       backend='auto', min_adj_ch=1)
 
 
 
@@ -178,12 +179,12 @@ def test_3d_clustering_with_min_adj_ch():
     adjacency = np.array(adjacency).astype('bool')
 
     # standard clustering
-    clusters = cluster_3d(data, adjacency)
+    clusters = _cluster_3d_numpy(data, adjacency)
     assert ((clusters == clusters.max()) == data).all()
 
     # clustering with min_adj_ch=1 will give two clusters instead of one
     data_copy = data.copy()
-    clusters1 = cluster_3d(data_copy, adjacency, min_adj_ch=1)
+    clusters1 = _cluster_3d_numpy(data_copy, adjacency, min_adj_ch=1)
     # we test with 3 because we include 0 (background)
     assert len(np.unique(clusters1)) == 3
 
@@ -194,15 +195,15 @@ def test_3d_clustering_with_min_adj_ch():
 
     # with higher min_adj_ch only two points remain - all others have < 2
     # adjacent elements in channel dimension
-    clusters = cluster_3d(data.copy(), adjacency, min_adj_ch=2)
+    clusters = _cluster_3d_numpy(data.copy(), adjacency, min_adj_ch=2)
     cluster_ids = np.unique(clusters)[1:]
     for clst_id in cluster_ids:
         assert (clusters == clst_id).sum() == 1
 
     # numba min_adj_ch > 0
     if has_numba():
-        from borsar.cluster.label_numba import cluster_3d_numba
-        clusters1_numba = cluster_3d_numba(data.copy(), adjacency,
+        from borsar.cluster.label_numba import _cluster_3d_numba
+        clusters1_numba = _cluster_3d_numba(data.copy(), adjacency,
                                            min_adj_ch=1)
         assert len(np.unique(clusters1)) == 3
 
