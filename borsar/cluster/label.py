@@ -8,7 +8,7 @@ from ..utils import has_numba
 # - [ ] compare speed against mne clustering
 # - [x] add min_adj_ch (minimum adjacent channels)
 # - [x] wait with relabeling till the end (tried that and it was slower)
-def cluster_3d(data, adjacency, min_adj_ch=0):
+def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
 
@@ -121,15 +121,23 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
         if backend in ['numba', 'auto']:
             hasnb = has_numba()
             if hasnb:
-                from .label_numba import cluster_3d_numba
-                return cluster_3d_numba
+                from .label_numba import _cluster_3d_numba
+                return _cluster_3d_numba
             elif backend == 'numba' and not hasnb:
                 raise ValueError('You need numba package to use the "numba" '
                                  'backend.')
             else:
-                return cluster_3d
+                return _cluster_3d_numpy
         else:
-            return cluster_3d
+            return _cluster_3d_numpy
+    else:
+        raise ValueError('borsar has specialised clustering functions only'
+                         ' for three dimensional data where the first dimen'
+                         'sion is spatial (channels or vertices). This spat'
+                         'ial dimension requires adjacency matrix defining '
+                         'adjacency relationships. Your data is either not'
+                         'three-dimensional or you did not provide an adja'
+                         'cency matrix for the spatial dimension')
 
 
 # TODO : add tail=0 to control for tail selection
