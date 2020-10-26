@@ -391,8 +391,8 @@ class PSD(*mixins):
             psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
 
         if dB:
-            vmin = np.percentile(psd_evkd.data, 10)
-            vmax = np.percentile(psd_evkd.data, 90)
+            vmin = np.percentile(psd_evkd.data, 1)
+            vmax = np.percentile(psd_evkd.data, 99)
 
         freqs = 'peaks' if freqs is None else freqs
         fig = psd_evkd.plot_joint(times=freqs, show=False, **args)
@@ -418,45 +418,35 @@ class PSD(*mixins):
 
     # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
-    def plot_topomap(self, freqs=None, fmin=None, fmax=None,
-                     extrapolate='head', outlines='skirt', show=True,
-                     vmin=None, vmax=None):
+    def plot_topomap(self, freqs=None, **args):
         '''Plot topomap of given frequency range (or ranges).
 
         Properties
         ----------
-        fmin : value | list of values | None
-            Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges. By default ``None`` which uses
-            the lowest frequency.
-        fmax : value | list of values
-            Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges. By default ``None`` which uses
-            the highest frequency.
-        extrapolate : str
-            Extrapolate option for ``plot_topomap`` / ``Topo``. By default
-            ``'head'``.
-        outlines : str
-            Outlines option for ``plot_topomap`` / ``Topo``. By default
-            ``'skirt'``.
-        show : bool
-            Show figure if True.
+        freqs : value | list of values
+            Frequencies to plot as topographies.
+
+        additional arguments are passed to the topomap plotting function.
 
         Returns
         -------
         tp : borsar.viz.Topo
             Instance of ``borsar.viz.Topo``.
         '''
-        if freqs is None:
-            psd_array = self.average(fmin=fmin, fmax=fmax)
-        else:
-            # FIXME - later check if fmin and fmax - these could refer to
-            #         around freq averaging
-            idxs = find_index(self.freqs, freqs)
-            psd = self.average().data if self._has_epochs else self.data
-            psd_array = psd[:, idxs]
-        return Topo(psd_array, self.info, extrapolate=extrapolate,
-                    outlines=outlines, show=show, vmin=vmin, vmax=vmax)
+
+        idxs = find_index(self.freqs, freqs)
+        psd_array = (self.copy().average().data
+                     if self._has_epochs else self.data)
+        psd_array = psd_array[:, idxs]
+        topos = Topo(psd_array, self.info, **args)
+
+        # add frequency titles
+        template = '{:.1f} Hz'
+        for idx, tp in zip(idxs, topos):
+            frq = self.freqs[idx]
+            tp.axes.set_title(template.format(frq))
+
+        return topos
 
     def average(self):
         '''Average epochs.'''
@@ -471,7 +461,7 @@ class PSD(*mixins):
 
         Parameters
         ----------
-        fmin : valu | None
+        fmin : value | None
             Lower edge of frequency range. The default is ``None`` which takes
             the lowest frequency.
         fmax : value | None
