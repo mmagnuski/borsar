@@ -174,10 +174,13 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     """
     from mne.time_frequency import psd_welch
 
-    if tmax is not None and tmin is None:
-        tmin = 0.
-    if winlen is None and (tmin is not None and tmax is not None):
+    if tmin is None:
+        tmin = inst.times[0]
+    if tmax is None:
+        tmax = inst.times[-1]
+    if winlen is None:
         winlen = tmax - tmin
+
     # FIXME - maybe check: if one long winlen and at least some bad annotations
     #         there should be some warning in compute_psd_raw if all data is nan
     #         due to annotations
