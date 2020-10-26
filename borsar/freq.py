@@ -122,7 +122,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         # use np.average() with weights to compute wieghted average
         psd = {k: np.average(np.stack(psd_dict[k], axis=0),
                              weights=psd_weights[k], axis=0)
-                             for k in psd_dict.keys()}
+               for k in psd_dict.keys()}
         if len(event_id) == 1 and got_event_id:
             psd = psd[event_id[0]]
 
@@ -133,8 +133,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                          tmin=tmin, tmax=tmax)
 
 
-# - [ ] make the default to be simple fft
-# - [x] default winlen None - to default to tmax - tmin
+# - [x] make the default to be simple fft
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
@@ -182,8 +181,8 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         winlen = tmax - tmin
 
     # FIXME - maybe check: if one long winlen and at least some bad annotations
-    #         there should be some warning in compute_psd_raw if all data is nan
-    #         due to annotations
+    #         there should be some warning in compute_psd_raw if all data is
+    #         nan due to annotations
     step = winlen / 4 if step is None else step
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
