@@ -352,18 +352,23 @@ class PSD(*mixins):
         plt_show(show)
         return fig
 
-    def to_evoked(self):
+    def to_evoked(self, dB=False):
         '''Turn the PSD object to Evoked to use standard mne functions like
         mne.viz.plot_compare_evokeds.'''
         freq_diff = np.diff(self.freqs)[0]
         sfreq = 1 / freq_diff
         info = self.info.copy()
         info['sfreq'] = sfreq
-        data = self.copy().average().data if self._has_epochs else self.data
+        data = (self.copy().average().data if self._has_epochs
+                else self.data.copy())
+        if dB:
+            data = 10 * np.log(data)
         psd_evkd = mne.EvokedArray(data, info, tmin=self.freqs[0])
+        if dB:
+            psd_evkd.comment = 'units=dB'
         return psd_evkd
 
-    def plot_joint(self, freqs=None, fmin=None, fmax=None, **args):
+    def plot_joint(self, freqs=None, fmin=None, fmax=None, dB=False, **args):
         '''The same as plot_joint for Evokeds but for PSDS.
 
         Parameters
@@ -374,22 +379,43 @@ class PSD(*mixins):
             Frequency to start the line plot from.
         fmax : float
             Frequency to end the line plot with.
+        dB : bool
+            Whether to present data in decibels.
+
+        Returns
+        -------
+        fig : matplotlib Figure
+            Figure containing the visualisation.
         '''
-        psd_evkd = self.to_evoked()
+        psd_evkd = self.to_evoked(dB=dB)
         if fmin is not None or fmax is not None:
             psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
 
+        if dB:
+            vmin = np.percentile(psd_evkd.data, 10)
+            vmax = np.percentile(psd_evkd.data, 90)
+
         freqs = 'peaks' if freqs is None else freqs
-        fig = psd_evkd.plot_joint(times=freqs, **args)
+        fig = psd_evkd.plot_joint(times=freqs, show=False, **args)
 
         # set up labels
         axs = fig.axes
+        ylabel = 'Power'
+        ylabel += ' (dB)' if dB else ''
         axs[0].set_xlabel('Frequency (Hz)')
-        axs[0].set_ylabel('Power')
+        axs[0].set_ylabel(ylabel)
 
         for ax in axs[1:-3]:
             ttl = ax.get_title()
-            ax.set_title(ttl.replace(' s', ' Hz'))
+            val = float(ttl.split(' ')[0])
+            txtval = '{:.1f} Hz'.format(val)
+            ax.set_title(txtval)
+
+            if dB:
+                # update color limits
+                ax.images[0].set_clim(vmin=vmin * 1e6, vmax=vmax * 1e6)
+
+        return fig
 
     # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
