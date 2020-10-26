@@ -459,73 +459,13 @@ class PSD(*mixins):
         return Topo(psd_array, self.info, extrapolate=extrapolate,
                     outlines=outlines, show=show, vmin=vmin, vmax=vmax)
 
-    # - [ ] consider: always 2d array if fmin and fmax are a list?
-    # - [ ] consider removing averaging frequency range - simplifies API
-    #       it can be easily done with crop(fmin, fmax).data.mean()
-    def average(self, fmin=None, fmax=None, epochs=True):
-        '''Average epochs and/or frequency ranges. If frequency ranges are
-        averaged over (``fmin`` and ``fmax`` are given) then a new data array
-        is returned. Otherwise, the ``PSD`` object is modified in place.
-
-        Parameters
-        ----------
-        fmin : value | list of values | None
-            Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges. If ``None`` then frequency range
-            is not averaged. Defaults to ``None``.
-        fmax : value | list of values
-            Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges. If ``None`` then frequency range
-            is not averaged. Defaults to ``None``.
-        epochs : bool
-            Whether to average epochs.
-
-        Returns
-        -------
-        psd_array : numpy.ndarray | borsar.freq.PSD
-            Numpy array of (n_channels,) shape if one frequency range or
-            (n_channels, n_ranges) if multiples frequency ranges.
-            If averaging by frequency was not done but averaging by epochs was,
-            the PSD object is modified in place, but also returned for
-            chaining.
-        '''
-        not_range = fmin is None and fmax is None
-        if epochs and self._has_epochs:
+    def average(self):
+        '''Average epochs.'''
+        if self._has_epochs:
             use_data = np.nanmean(self.data, axis=0)
-            if not_range:
-                self._data = use_data
-                self._has_epochs = False
-                return self
-        else:
-            use_data = self.data
-            if not_range:
-                return self
-
-        # frequency range averaging
-        # -------------------------
-        if not isinstance(fmin, list):
-            fmin = [fmin]
-        if not isinstance(fmax, list):
-            fmax = [fmax]
-        assert len(fmin) == len(fmax)
-        n_ranges = len(fmin)
-        franges = [[mn, mx] for mn, mx in zip(fmin, fmax)]
-        ranges = find_range(self.freqs, franges)
-
-        n_channels = len(self.ch_names)
-        if epochs or not self._has_epochs:
-            psd_array = np.zeros((n_channels, n_ranges))
-        else:
-            n_epochs = self.data.shape[0]
-            psd_array = np.zeros((n_epochs, n_channels, n_ranges))
-
-        for idx, rng in enumerate(ranges):
-            psd_array[..., idx] = use_data[..., rng].mean(axis=-1)
-
-        if n_ranges == 1:
-            psd_array = psd_array[..., 0]
-
-        return psd_array
+            self._data = use_data
+            self._has_epochs = False
+        return self
 
     def crop(self, fmin=None, fmax=None):
         """Crop frequency range to ``fmin:fmax`` (inclusive).
