@@ -122,7 +122,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
         # use np.average() with weights to compute wieghted average
         psd = {k: np.average(np.stack(psd_dict[k], axis=0),
                              weights=psd_weights[k], axis=0)
-                             for k in psd_dict.keys()}
+               for k in psd_dict.keys()}
         if len(event_id) == 1 and got_event_id:
             psd = psd[event_id[0]]
 
@@ -133,8 +133,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                          tmin=tmin, tmax=tmax)
 
 
-# - [ ] make the default to be simple fft
-# - [x] default winlen None - to default to tmax - tmin
+# - [x] make the default to be simple fft
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
@@ -174,13 +173,16 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     """
     from mne.time_frequency import psd_welch
 
-    if tmax is not None and tmin is None:
-        tmin = 0.
-    if winlen is None and (tmin is not None and tmax is not None):
+    if tmin is None:
+        tmin = inst.times[0]
+    if tmax is None:
+        tmax = inst.times[-1]
+    if winlen is None:
         winlen = tmax - tmin
+
     # FIXME - maybe check: if one long winlen and at least some bad annotations
-    #         there should be some warning in compute_psd_raw if all data is nan
-    #         due to annotations
+    #         there should be some warning in compute_psd_raw if all data is
+    #         nan due to annotations
     step = winlen / 4 if step is None else step
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
@@ -349,18 +351,23 @@ class PSD(*mixins):
         plt_show(show)
         return fig
 
-    def to_evoked(self):
+    def to_evoked(self, dB=False):
         '''Turn the PSD object to Evoked to use standard mne functions like
         mne.viz.plot_compare_evokeds.'''
         freq_diff = np.diff(self.freqs)[0]
         sfreq = 1 / freq_diff
         info = self.info.copy()
         info['sfreq'] = sfreq
-        data = self.copy().average().data if self._has_epochs else self.data
+        data = (self.copy().average().data if self._has_epochs
+                else self.data.copy())
+        if dB:
+            data = 10 * np.log(data)
         psd_evkd = mne.EvokedArray(data, info, tmin=self.freqs[0])
+        if dB:
+            psd_evkd.comment = 'units=dB'
         return psd_evkd
 
-    def plot_joint(self, freqs=None, fmin=None, fmax=None, **args):
+    def plot_joint(self, freqs=None, fmin=None, fmax=None, dB=False, **args):
         '''The same as plot_joint for Evokeds but for PSDS.
 
         Parameters
@@ -371,139 +378,90 @@ class PSD(*mixins):
             Frequency to start the line plot from.
         fmax : float
             Frequency to end the line plot with.
+        dB : bool
+            Whether to present data in decibels.
+
+        Returns
+        -------
+        fig : matplotlib Figure
+            Figure containing the visualisation.
         '''
-        psd_evkd = self.to_evoked()
+        psd_evkd = self.to_evoked(dB=dB)
         if fmin is not None or fmax is not None:
             psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
 
+        if dB:
+            vmin = np.percentile(psd_evkd.data, 1)
+            vmax = np.percentile(psd_evkd.data, 99)
+
         freqs = 'peaks' if freqs is None else freqs
-        fig = psd_evkd.plot_joint(times=freqs, **args)
+        fig = psd_evkd.plot_joint(times=freqs, show=False, **args)
 
         # set up labels
         axs = fig.axes
+        ylabel = 'Power'
+        ylabel += ' (dB)' if dB else ''
         axs[0].set_xlabel('Frequency (Hz)')
-        axs[0].set_ylabel('Power')
+        axs[0].set_ylabel(ylabel)
 
         for ax in axs[1:-3]:
             ttl = ax.get_title()
-            ax.set_title(ttl.replace(' s', ' Hz'))
+            val = float(ttl.split(' ')[0])
+            txtval = '{:.1f} Hz'.format(val)
+            ax.set_title(txtval)
+
+            if dB:
+                # update color limits
+                ax.images[0].set_clim(vmin=vmin * 1e6, vmax=vmax * 1e6)
+
+        return fig
 
     # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
-    def plot_topomap(self, freqs=None, fmin=None, fmax=None,
-                     extrapolate='head', outlines='skirt', show=True,
-                     vmin=None, vmax=None):
+    def plot_topomap(self, freqs=None, **args):
         '''Plot topomap of given frequency range (or ranges).
 
         Properties
         ----------
-        fmin : value | list of values | None
-            Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges. By default ``None`` which uses
-            the lowest frequency.
-        fmax : value | list of values
-            Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges. By default ``None`` which uses
-            the highest frequency.
-        extrapolate : str
-            Extrapolate option for ``plot_topomap`` / ``Topo``. By default
-            ``'head'``.
-        outlines : str
-            Outlines option for ``plot_topomap`` / ``Topo``. By default
-            ``'skirt'``.
-        show : bool
-            Show figure if True.
+        freqs : value | list of values
+            Frequencies to plot as topographies.
+
+        additional arguments are passed to the topomap plotting function.
 
         Returns
         -------
         tp : borsar.viz.Topo
             Instance of ``borsar.viz.Topo``.
         '''
-        if freqs is None:
-            psd_array = self.average(fmin=fmin, fmax=fmax)
-        else:
-            # FIXME - later check if fmin and fmax - these could refer to
-            #         around freq averaging
-            idxs = find_index(self.freqs, freqs)
-            psd = self.average().data if self._has_epochs else self.data
-            psd_array = psd[:, idxs]
-        return Topo(psd_array, self.info, extrapolate=extrapolate,
-                    outlines=outlines, show=show, vmin=vmin, vmax=vmax)
 
-    # - [ ] consider: always 2d array if fmin and fmax are a list?
-    # - [ ] consider removing averaging frequency range - simplifies API
-    #       it can be easily done with crop(fmin, fmax).data.mean()
-    def average(self, fmin=None, fmax=None, epochs=True):
-        '''Average epochs and/or frequency ranges. If frequency ranges are
-        averaged over (``fmin`` and ``fmax`` are given) then a new data array
-        is returned. Otherwise, the ``PSD`` object is modified in place.
+        idxs = find_index(self.freqs, freqs)
+        psd_array = (self.copy().average().data
+                     if self._has_epochs else self.data)
+        psd_array = psd_array[:, idxs]
+        topos = Topo(psd_array, self.info, **args)
 
-        Parameters
-        ----------
-        fmin : value | list of values | None
-            Lower limit of frequency range. If more than one range ``fmin`` is
-            a list of lower frequency ranges. If ``None`` then frequency range
-            is not averaged. Defaults to ``None``.
-        fmax : value | list of values
-            Upper limit of frequency range. If more than one range ``fmax`` is
-            a list of upper frequency ranges. If ``None`` then frequency range
-            is not averaged. Defaults to ``None``.
-        epochs : bool
-            Whether to average epochs.
+        # add frequency titles
+        template = '{:.1f} Hz'
+        for idx, tp in zip(idxs, topos):
+            frq = self.freqs[idx]
+            tp.axes.set_title(template.format(frq))
 
-        Returns
-        -------
-        psd_array : numpy.ndarray | borsar.freq.PSD
-            Numpy array of (n_channels,) shape if one frequency range or
-            (n_channels, n_ranges) if multiples frequency ranges.
-            If averaging by frequency was not done but averaging by epochs was,
-            the PSD object is modified in place, but also returned for
-            chaining.
-        '''
-        not_range = fmin is None and fmax is None
-        if epochs and self._has_epochs:
+        return topos
+
+    def average(self):
+        '''Average epochs.'''
+        if self._has_epochs:
             use_data = np.nanmean(self.data, axis=0)
-            if not_range:
-                self._data = use_data
-                self._has_epochs = False
-                return self
-        else:
-            use_data = self.data
-            if not_range:
-                return self
-
-        # frequency range averaging
-        # -------------------------
-        if not isinstance(fmin, list):
-            fmin = [fmin]
-        if not isinstance(fmax, list):
-            fmax = [fmax]
-        assert len(fmin) == len(fmax)
-        n_ranges = len(fmin)
-        franges = [[mn, mx] for mn, mx in zip(fmin, fmax)]
-        ranges = find_range(self.freqs, franges)
-
-        n_channels = len(self.ch_names)
-        if epochs or not self._has_epochs:
-            psd_array = np.zeros((n_channels, n_ranges))
-        else:
-            n_epochs = self.data.shape[0]
-            psd_array = np.zeros((n_epochs, n_channels, n_ranges))
-
-        for idx, rng in enumerate(ranges):
-            psd_array[..., idx] = use_data[..., rng].mean(axis=-1)
-
-        if n_ranges == 1:
-            psd_array = psd_array[..., 0]
-
-        return psd_array
+            self._data = use_data
+            self._has_epochs = False
+        return self
 
     def crop(self, fmin=None, fmax=None):
         """Crop frequency range to ``fmin:fmax`` (inclusive).
 
         Parameters
         ----------
-        fmin : valu | None
+        fmin : value | None
             Lower edge of frequency range. The default is ``None`` which takes
             the lowest frequency.
         fmax : value | None
