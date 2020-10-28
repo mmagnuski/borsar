@@ -8,7 +8,6 @@ from packaging import version
 from borsar.utils import (create_fake_raw, download_test_data,
                           _get_test_data_dir)
 from borsar.freq import compute_rest_psd, compute_psd, PSD
-from borsar.channels import select_channels
 
 
 def test_compute_rest_psd():
@@ -22,13 +21,13 @@ def test_compute_rest_psd():
     raw._data[2, 21:25] = zigzag * 2
 
     psd, freqs = compute_rest_psd(raw, events=events, tmin=0., tmax=1.5,
-                                 winlen=1., step=1.)
+                                  winlen=1., step=1.)
     assert psd[1][1, -1] > psd[1][0, -1]
     assert psd[2][2, -1] > psd[2][0, -1]
     assert psd[2][2, -1] > psd[1][1, -1]
 
     psd2, freqs2 = compute_rest_psd(raw, events=events, event_id=1, tmin=0.,
-                                   tmax=1.5, winlen=1., step=1.)
+                                    tmax=1.5, winlen=1., step=1.)
     assert (psd2 == psd[1]).all()
     assert (freqs2 == freqs).all()
 
@@ -72,10 +71,6 @@ def test_psd_class():
     assert psd.data.shape[-1] == len(psd.freqs)
     assert psd.data.shape[-2] == len(raw.ch_names)
 
-    avg_psd_arr = psd.average(fmin=10, fmax=12)
-    assert avg_psd_arr.ndim == 1
-    assert avg_psd_arr.shape[0] == len(raw.ch_names)
-
     psd_orig = psd.copy()
     psd2 = psd.average()
     assert (psd.data == psd2.data).all()
@@ -113,17 +108,9 @@ def test_psd_class():
     assert psd_epo.data.ndim == 3
     assert psd_avg.data.ndim == 2
 
-    avg_psd_arr = psd_epo.copy().average(fmin=10, fmax=12)
-    assert avg_psd_arr.ndim == 1
-    assert avg_psd_arr.shape[0] == len(raw.ch_names)
-
-    avg_psd_arr = psd_epo.copy().average(fmin=10, fmax=12, epochs=False)
-    assert avg_psd_arr.ndim == 2
-    assert avg_psd_arr.shape[0] == len(epochs)
-    assert avg_psd_arr.shape[1] == len(raw.ch_names)
-
+    arr = np.random.randn(23, 48)
     with pytest.raises(TypeError, match='works only with Raw or Epochs'):
-        psd_epo = compute_psd(avg_psd_arr, tmin=0.5, tmax=20.5, winlen=2.,
+        psd_epo = compute_psd(arr, tmin=0.5, tmax=20.5, winlen=2.,
                               step=0.5, events=events, event_id=[11])
 
     # psd construction
