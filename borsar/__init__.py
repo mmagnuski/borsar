@@ -1,1 +1,1 @@
-from borsar import (channels, csd, freq, utils)
+from borsar import (channels, csd, freq, project, stats, utils, cluster, viz)
