@@ -417,7 +417,7 @@ def has_numba():
 
 def _get_test_data_dir():
     '''Get test data directory.'''
-    from borsar import __path__ as borsar_dir
+    from . import __path__ as borsar_dir
     return op.join(borsar_dir[0], 'data')
 
 
