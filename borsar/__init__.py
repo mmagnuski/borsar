@@ -1,1 +1,1 @@
-from borsar import (channels, csd, freq, project, stats, utils, viz)
+from . import (channels, csd, freq, project, stats, utils, viz)

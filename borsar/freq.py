@@ -367,6 +367,8 @@ class PSD(*mixins):
             psd_evkd.comment = 'units=dB'
         return psd_evkd
 
+    # - [ ] plot_joint uses show=False by default and **args
+    #       if show is in **args we will get an error
     def plot_joint(self, freqs=None, fmin=None, fmax=None, dB=False, **args):
         '''The same as plot_joint for Evokeds but for PSDS.
 
