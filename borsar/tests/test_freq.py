@@ -56,10 +56,10 @@ def test_psd_class():
         with pytest.raises(ImportError):
             psd.plot(dB=False, fmax=40, show=False)
 
-    topo = psd.plot_topomap(fmin=10, fmax=12, show=False)
+    topo = psd.plot_topomap(freqs=[11], show=False)
     assert isinstance(topo.axes, plt.Axes)
 
-    topo = psd.plot_topomap(fmin=[5, 11], fmax=[7, 13], show=False)
+    topo = psd.plot_topomap(freqs=[6, 11], show=False)
     assert len(topo.axes) == 2
 
     topo = psd.plot_topomap(freqs=[8, 10, 12], show=False)
@@ -91,7 +91,7 @@ def test_psd_class():
     assert (evoked.data == psd2.data).all()
 
     # test plot_joint()
-    psd_orig.plot_joint(show=False)
+    psd_orig.plot_joint()
     plt.close('all')
 
     # psd with Epochs
