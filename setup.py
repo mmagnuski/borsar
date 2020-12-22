@@ -6,6 +6,7 @@
 
 
 import os
+import os.path as op
 from setuptools import setup
 
 
@@ -17,6 +18,16 @@ URL = 'https://github.com/mmagnuski/borsar'
 LICENSE = 'BSD (3-clause)'
 DOWNLOAD_URL = 'https://github.com/mmagnuski/borsar'
 VERSION = '0.1dev1'
+
+
+def package_tree(pkgroot):
+    """Get the submodule list."""
+    # Adapted from VisPy
+    path = op.dirname(__file__)
+    subdirs = [op.relpath(i[0], path).replace(op.sep, '.')
+               for i in os.walk(op.join(path, pkgroot))
+               if '__init__.py' in i[2]]
+    return sorted(subdirs)
 
 
 if __name__ == "__main__":
@@ -39,5 +50,5 @@ if __name__ == "__main__":
                        'Operating System :: Unix',
                        'Operating System :: MacOS'],
           platforms='any',
-          packages=['borsar'],
+          packages=package_tree('borsar'),
           )
