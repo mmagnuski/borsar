@@ -179,7 +179,7 @@ def test_clusters():
 
     # TODO: deprecate cluster_polarity
     assert (len(clst) == len(clst.pvals) == len(clst.clusters)
-            == len(clst.cluster_polarity)) == len(clst.polarity)
+            == len(clst.cluster_polarity) == len(clst.polarity))
     assert len(clst) == 14
     assert (clst.cluster_polarity == clst.polarity)
 
