@@ -45,9 +45,9 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
 #      - [x] add repr so that Cluster has nice text representation
-#      - [ ] make stat, clusters and pvals keyword
+#      - [x] make clusters and pvals keyword
 #            * clusters=None and pvals=None by default
-#      - [ ] change order to stat, clusters, pvals
+#      - [x] change order to stat, clusters, pvals
 #      - [ ] sometine: make only stat necessary
 #      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
@@ -119,12 +119,10 @@ class Clusters(object):
     description : str | dict, optional
         Optional description of the Clusters - for example analysis parameters
         and some other additional details.
-    sort_pvals : bool
-        Whether to sort clusters by their p-value (ascending). Default: True.
     '''
     def __init__(self, stat, clusters=None, pvals=None, dimnames=None,
                  dimcoords=None, info=None, src=None, subject=None,
-                 subjects_dir=None, description=None, sort_pvals=True,
+                 subjects_dir=None, description=None,
                  safety_checks=True):
 
         if safety_checks:
@@ -146,13 +144,11 @@ class Clusters(object):
             pvals = np.asarray(pvals)
 
             # sort by p values if necessary
-            if sort_pvals:
-                psort = np.argsort(pvals)
-                if not (psort == np.arange(pvals.shape[0])).all():
-                    clusters = clusters[psort]
-                    pvals = pvals[psort]
-                    self.cluster_polarity = [self.cluster_polarity[idx]
-                                             for idx in psort]
+            psort = np.argsort(pvals)
+            if not (psort == np.arange(pvals.shape[0])).all():
+                clusters = clusters[psort]
+                pvals = pvals[psort]
+                self.polarity = [self.polarity[idx] for idx in psort]
 
         # create attributes
         self.subjects_dir = subjects_dir
@@ -174,7 +170,7 @@ class Clusters(object):
 # - [ ] more tests for select (n_points was not working)
 # - [ ] add warning if all clusters removed
 # - [ ] consider select to _not_ work inplace or make sure all methods
-#       work this way
+#       work this way (we'll see about that...)
     def select(self, p_threshold=None, percentage_in=None, n_points_in=None,
                n_points=None, selection=None, **kwargs):
         '''
@@ -287,8 +283,7 @@ class Clusters(object):
         clst = Clusters(self.stat, self.clusters, self.pvals, self.dimnames,
                         self.dimcoords, info=self.info, src=self.src,
                         subject=self.subject, subjects_dir=self.subjects_dir,
-                        description=self.description,
-                        safety_checks=False, sort_pvals=False)
+                        description=self.description, safety_checks=False)
         clst.stc = self.stc if self.stc is None else self.stc.copy()
         clst.cluster_polarity = self.cluster_polarity
         return clst
@@ -314,8 +309,7 @@ class Clusters(object):
                         self.pvals[[self._current]], self.dimnames,
                         self.dimcoords, info=self.info, src=self.src,
                         subject=self.subject, subjects_dir=self.subjects_dir,
-                        description=self.description,
-                        safety_checks=False, sort_pvals=False)
+                        description=self.description, safety_checks=False)
         clst.stc = self.stc  # or .copy()?
         clst.cluster_polarity = [self.cluster_polarity[self._current]]
         self._current += 1

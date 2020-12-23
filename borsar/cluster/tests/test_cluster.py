@@ -631,22 +631,16 @@ def test_cluster_pvals_and_polarity_sorting():
     dimnames = ['freq']
     dimcoords = [np.arange(3, 8)]
 
-    clst_nosrt = Clusters(stat, clusters, pvals, dimnames=dimnames,
-                          dimcoords=dimcoords, sort_pvals=False)
     clst_srt = Clusters(stat, clusters, pvals, dimnames=dimnames,
-                        dimcoords=dimcoords, sort_pvals=True)
+                        dimcoords=dimcoords)
 
-    # make sure polarities are correct:
+    # make sure polarities are correct and well sorted:
     correct_polarity = {1: 'pos', -1: 'neg'}
     assert all(correct_polarity[val] == pol
                for val, pol in zip(stat, clst_nosrt.cluster_polarity))
 
     # make sure pvals are correctly sorted
     assert (clst_srt.pvals == pvals[correct_sorting]).all()
-
-    # make sure polarities are correctly sorted:
-    assert (np.array(clst_srt.cluster_polarity)
-            == np.array(clst_nosrt.cluster_polarity)[correct_sorting]).all()
 
     # make sure clusters are correctly sorted
     assert (correct_sorting == [np.where(c)[0][0] for c in clst_srt.clusters]
