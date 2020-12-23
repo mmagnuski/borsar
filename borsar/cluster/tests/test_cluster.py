@@ -177,9 +177,11 @@ def test_clusters():
     clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
     clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
 
+    # TODO: deprecate cluster_polarity
     assert (len(clst) == len(clst.pvals) == len(clst.clusters)
-            == len(clst.cluster_polarity))
+            == len(clst.cluster_polarity)) == len(clst.polarity)
     assert len(clst) == 14
+    assert (clst.cluster_polarity == clst.polarity)
 
     txt = repr(clst)
     correct_repr = ('<borsar.Clusters  |  14 clusters in '
@@ -637,7 +639,7 @@ def test_cluster_pvals_and_polarity_sorting():
     # make sure polarities are correct and well sorted:
     correct_polarity = {1: 'pos', -1: 'neg'}
     assert all(correct_polarity[val] == pol
-               for val, pol in zip(stat, clst_nosrt.cluster_polarity))
+               for val, pol in zip(stat[correct_sorting], clst_srt.polarity))
 
     # make sure pvals are correctly sorted
     assert (clst_srt.pvals == pvals[correct_sorting]).all()

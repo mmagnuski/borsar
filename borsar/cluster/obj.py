@@ -136,9 +136,9 @@ class Clusters(object):
 
             # check polarity of clusters
             polarity = ['neg', 'pos']
-            self.cluster_polarity = ([polarity[int(stat[cl].mean() > 0)]
-                                      for cl in clusters]
-                                     if pvals is not None else None)
+            self.polarity = ([polarity[int(stat[cl].mean() > 0)]
+                              for cl in clusters]
+                             if pvals is not None else None)
 
         if pvals is not None:
             pvals = np.asarray(pvals)
@@ -285,7 +285,7 @@ class Clusters(object):
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description, safety_checks=False)
         clst.stc = self.stc if self.stc is None else self.stc.copy()
-        clst.cluster_polarity = self.cluster_polarity
+        clst.polarity = self.polarity
         return clst
 
     def __len__(self):
@@ -311,7 +311,7 @@ class Clusters(object):
                         subject=self.subject, subjects_dir=self.subjects_dir,
                         description=self.description, safety_checks=False)
         clst.stc = self.stc  # or .copy()?
-        clst.cluster_polarity = [self.cluster_polarity[self._current]]
+        clst.polarity = [self.polarity[self._current]]
         self._current += 1
         return clst
 
@@ -649,3 +649,8 @@ class Clusters(object):
             return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
                                      vmax=vmax, mark_kwargs=mark_kwargs,
                                      **kwargs)
+
+    @property
+    def cluster_polarity(self):
+        """Just for the deprecation period - returns ploarity of clusters."""
+        return self.polarity
