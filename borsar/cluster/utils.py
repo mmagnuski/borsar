@@ -456,13 +456,12 @@ def _cluster_selection(clst, sel):
 
     if len(sel) > 0:
         # select relevant fields
-        clst.cluster_polarity = [clst.cluster_polarity[idx]
-                                 for idx in sel]
+        clst.polarity = [clst.polarity[idx] for idx in sel]
         clst.clusters = clst.clusters[sel]
         clst.pvals = clst.pvals[sel]
     else:
         # no cluster selected - returning empty Clusters
-        clst.cluster_polarity = []
+        clst.polarity = []
         clst.clusters = None
         clst.pvals = None
     return clst
