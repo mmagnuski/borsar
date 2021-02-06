@@ -2,7 +2,9 @@ import numpy as np
 import scipy
 
 
-# - [ ] add option to return residuals
+# - [x] return residuals
+# - [ ] consider not returning residuals by default and return a dictionary
+#       of additional info if required (for example coefficients and SE)
 def compute_regression_t(data, preds, return_p=False):
     '''Compute regression t values for whole multidimensional data space.
 
@@ -18,8 +20,11 @@ def compute_regression_t(data, preds, return_p=False):
 
     Returns
     -------
-    t_vals : numpy array of shape (predictors, ...)
-        T values for all predictors for the original data space.
+    t_vals : numpy array
+        T values for all predictors for the original data space. The first
+        dimension of the array corresponds to consecutive predictors.
+    residuals : numpy array
+        Array of model residuals. Has the same shape as input data.
     p_vals : numpy array of shape (predictors, ...)
         P values for all predictors for the original data space.
     '''
@@ -36,16 +41,18 @@ def compute_regression_t(data, preds, return_p=False):
     coefs, _, _, _ = np.linalg.lstsq(preds, data, rcond=None)
     prediction = (preds[:, :, np.newaxis] * coefs[np.newaxis, :]
                   ).sum(axis=1)
-    MSE = (((data - prediction) ** 2).sum(axis=0, keepdims=True) / df)
+    residuals = data - prediction
+    MSE = ((residuals ** 2).sum(axis=0, keepdims=True) / df)
     SE = np.sqrt(MSE * np.diag(np.linalg.pinv(preds.T @ preds))[:, np.newaxis])
     t_vals = (coefs / SE).reshape([n_preds, *original_shape[1:]])
 
+    residuals = residuals.reshape(original_shape)
     if return_p:
         from scipy.stats import t
         p_vals = t.cdf(-np.abs(t_vals), df) * 2.
-        return t_vals, p_vals
+        return t_vals, residuals, p_vals
     else:
-        return t_vals
+        return t_vals, residuals
 
 
 def format_pvalue(pvalue):
