@@ -117,6 +117,7 @@ def _relabel_clusters_3d(clusters, chan_conn):
                                 c1 = min(val1, val2)
                                 c2 = max(val1, val2)
                                 clusters = _replace_numba_3d(clusters, c2, c1)
+                                val1 = c1
     return clusters
 
 
