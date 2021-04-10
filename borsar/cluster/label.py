@@ -116,41 +116,40 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
 def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
+    hasnb = False
     has_adjacency = adjacency is not None
-    if data.ndim == 3 and has_adjacency:
-        if backend in ['numba', 'auto']:
-            hasnb = has_numba()
-            if hasnb:
-                from .label_numba import _cluster_3d_numba
-                return _cluster_3d_numba
-            elif backend == 'numba' and not hasnb:
-                raise ValueError('You need numba package to use the "numba" '
-                                 'backend.')
-            else:
-                return _cluster_3d_numpy
+    if not has_adjacency or data.ndim not in [2, 3]:
+        _borsar_clustering_error()
+    if backend in ['numba', 'auto']:
+        hasnb = has_numba()
+    if backend == 'numba' and not hasnb:
+        raise ValueError('You need numba package to use the "numba" '
+                         'backend.')
+    return_numba = backend == 'numba' or (backend == 'auto' and hasnb)
+
+    if data.ndim == 3:
+        if return_numba:
+            from .label_numba import _cluster_3d_numba
+            return _cluster_3d_numba
         else:
             return _cluster_3d_numpy
-    elif data.ndim == 2 and has_adjacency:
-        if backend in ['numba', 'auto']:
-            hasnb = has_numba()
-            if hasnb:
-                from .label_numba import _cluster_2d_numba
-                return _cluster_2d_numba
-            elif backend == 'numba' and not hasnb:
-                raise ValueError('You need numba package to use the "numba" '
-                                 'backend.')
-            else:
-                raise ValueError('Currently only "numba" backend can handle '
-                                 '2d data.')
+    elif data.ndim == 2:
+        if return_numba:
+            from .label_numba import _cluster_2d_numba
+            return _cluster_2d_numba
+        else:
+            raise ValueError('Currently only "numba" backend can handle '
+                             '2d data.')
 
-    else:
-        raise ValueError('borsar has specialised clustering functions only'
-                         ' for three dimensional data where the first dimen'
-                         'sion is spatial (channels or vertices). This spat'
-                         'ial dimension requires adjacency matrix defining '
-                         'adjacency relationships. Your data is either not'
-                         'three-dimensional or you did not provide an adja'
-                         'cency matrix for the spatial dimension')
+
+def _borsar_clustering_error():
+    raise ValueError('borsar has specialised clustering functions only'
+                     ' for three dimensional data where the first dimen'
+                     'sion is spatial (channels or vertices). This spat'
+                     'ial dimension requires adjacency matrix defining '
+                     'adjacency relationships. Your data is either not'
+                     'three-dimensional or you did not provide an adja'
+                     'cency matrix for the spatial dimension.')
 
 
 # TODO : add tail=0 to control for tail selection
@@ -216,6 +215,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
+        # prepare mne clustering, maybe put this in a separate function?
         if min_adj_ch > 0:
             raise ValueError('mne backend does not supprot ``min_adj_ch`` '
                              'filtering')
@@ -266,6 +266,8 @@ def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True):
+    # positive clusters
+    # -----------------
     pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
