@@ -303,22 +303,46 @@ class PSD(*mixins):
 
     # - [ ] check if the way we copy docs from mne makes this so slow when
     #       reloading (autoreload in ipython/spyder/notebook)...
-    def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
-             bandwidth=None, adaptive=False, low_bias=True,
-             normalization='length', picks=None, ax=None, color='black',
-             xscale='linear', area_mode='std', area_alpha=0.33, dB=True,
-             estimate='auto', show=True, n_jobs=1, average=False,
+    def plot(self, fmin=0, fmax=None, proj=False, picks=None, ax=None,
+             color='black', xscale='linear', area_mode='std', area_alpha=0.33,
+             dB=True, estimate='auto', show=True, n_jobs=1, average=False,
              line_alpha=None, spatial_colors=True, verbose=None, sphere=None):
-        from mne.viz.utils import _set_psd_plot_params, _plot_psd, plt_show
+        from mne.viz.utils import _plot_psd, plt_show
 
         # set up default vars
         from packaging import version
-        has_new_mne = version.parse(mne.__version__) >= version.parse('0.20.0')
+        mne_version = version.parse(mne.__version__)
+        has_new_mne = mne_version >= version.parse('0.21.0')
+        has_20_mne = (mne_version >= version.parse('0.20.0')
+                      and mne_version < version.parse('0.21.0'))
         if has_new_mne:
+            from mne.defaults import _handle_default
+            from mne.io.pick import _picks_to_idx
+            from mne.viz._figure import _split_picks_by_type
+
+            if ax is None:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots()
+            else:
+                fig = ax.figure
+            axes = [ax]
+
+            units = _handle_default('units', None)
+            picks = _picks_to_idx(self.info, picks)
+            titles = _handle_default('titles', None)
+            scalings = _handle_default('scalings', None)
+
+            make_label = len(axes) == len(fig.axes)
+            xlabels_list = [False] * (len(axes) - 1) + [True]
+            (picks_list, units_list, scalings_list, titles_list
+             ) = _split_picks_by_type(self, picks, units, scalings, titles)
+        elif has_20_mne:
+            from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
         else:
+            from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
                 make_label = _set_psd_plot_params(self.info, proj, picks, ax,
                                                   area_mode)
@@ -336,6 +360,11 @@ class PSD(*mixins):
             psd_list.append(this_psd)
 
         if has_new_mne:
+            _plot_psd(self, fig, self.freqs, [self.data], picks_list,
+                      titles_list, units_list, scalings_list, axes, make_label,
+                      color, area_mode, area_alpha, dB, estimate, average,
+                      spatial_colors, xscale, line_alpha, sphere, xlabels_list)
+        elif has_20_mne:
             fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
                             titles_list, units_list, scalings_list, ax_list,
                             make_label, color, area_mode, area_alpha, dB,
