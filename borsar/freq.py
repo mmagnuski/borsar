@@ -360,7 +360,7 @@ class PSD(*mixins):
             psd_list.append(this_psd)
 
         if has_new_mne:
-            _plot_psd(self, fig, self.freqs, [self.data], picks_list,
+            _plot_psd(self, fig, self.freqs, psd_list, picks_list,
                       titles_list, units_list, scalings_list, axes, make_label,
                       color, area_mode, area_alpha, dB, estimate, average,
                       spatial_colors, xscale, line_alpha, sphere, xlabels_list)
