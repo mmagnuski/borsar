@@ -41,7 +41,7 @@ def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
         data[msk] = False  # warning, in-place modification
 
     clusters = _per_channel_adjacency_3d(data)
-    return _relabel_clusters_3d(clusters, adjacency)
+    return _cross_channel_adjacency_3d_numba(clusters, adjacency)
 
 
 def _cluster_2d_numba(data, adjacency=None, min_adj_ch=0):
@@ -80,7 +80,7 @@ def _cluster_2d_numba(data, adjacency=None, min_adj_ch=0):
         data[msk] = False  # warning, in-place modification
 
     clusters = _per_channel_adjacency_2d_numba(data)
-    return _relabel_clusters_2d(clusters, adjacency)
+    return _cross_channel_adjacency_2d_numba(clusters, adjacency)
 
 
 @jit(nopython=True)
@@ -99,7 +99,7 @@ def _replace_numba_3d(mat, val1, val2):
 
 
 @jit(nopython=True)
-def _relabel_clusters_3d(clusters, chan_conn):
+def _cross_channel_adjacency_3d_numba(clusters, chan_conn):
     """Check channel neighbours and merge clusters across channels."""
     n_chan, n_x, n_y = clusters.shape
     for ch in range(n_chan - 1):  # last channel will be already checked
@@ -148,6 +148,7 @@ def _check_adj_ch_3d(clusters, chan_conn):
 
 @jit(nopython=True)
 def _label_1d(data, from_idx=0):
+    '''Cluster boolean values on a vector.'''
     n_pnts = len(data)
     clusters = np.zeros(n_pnts)
     is_previous = False
@@ -163,9 +164,8 @@ def _label_1d(data, from_idx=0):
     return clusters, from_idx
 
 
-
 @jit(nopython=True)
-def _relabel_clusters_2d(clusters, adjacency):
+def _cross_channel_adjacency_2d_numba(clusters, adjacency):
     """Check channel neighbours and merge clusters across channels."""
     n_chan, n_x = clusters.shape
     for ch in range(n_chan - 1):  # last channel will be already checked
@@ -182,6 +182,7 @@ def _relabel_clusters_2d(clusters, adjacency):
                             c1 = min(val1, val2)
                             c2 = max(val1, val2)
                             clusters = _replace_numba_2d(clusters, c2, c1)
+                            val1 = c1
     return clusters
 
 
