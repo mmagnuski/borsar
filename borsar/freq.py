@@ -353,7 +353,7 @@ class PSD(*mixins):
                                                   area_mode)
         del ax
 
-        crop_inst = not (fmin == 0 or fmax is None)
+        crop_inst = not (fmin == 0 and fmax is None)
         fmax = self.freqs[-1] if fmax is None else fmax
 
         inst = self.copy()
@@ -367,18 +367,18 @@ class PSD(*mixins):
             psd_list.append(inst.data[picks])
 
         if has_new_mne:
-            _plot_psd(inst, fig, self.freqs, psd_list, picks_list,
+            _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
                       titles_list, units_list, scalings_list, axes, make_label,
                       color, area_mode, area_alpha, dB, estimate, average,
                       spatial_colors, xscale, line_alpha, sphere, xlabels_list)
         elif has_20_mne:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
+            fig = _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
                             titles_list, units_list, scalings_list, ax_list,
                             make_label, color, area_mode, area_alpha, dB,
                             estimate, average, spatial_colors, xscale,
                             line_alpha, sphere, xlabels_list)
         else:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
+            fig = _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
                             titles_list, units_list, scalings_list, ax_list,
                             make_label, color, area_mode, area_alpha, dB,
                             estimate, average, spatial_colors, xscale,
