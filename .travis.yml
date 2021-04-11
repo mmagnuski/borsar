@@ -15,6 +15,12 @@ matrix:
       env: USE_NUMBA="no" MNE_VERSION="current"
 
     - os: linux
+      env: USE_NUMBA="no" MNE_VERSION="0.21"
+
+    - os: linux
+      env: USE_NUMBA="no" MNE_VERSION="0.20"
+
+    - os: linux
       env: USE_NUMBA="no" MNE_VERSION="0.19"
 
     - os: linux
@@ -46,6 +52,12 @@ install:
   - pip install codecov tqdm
   - if [ "${MNE_VERSION}" == "current" ]; then
       pip install mne;
+    fi
+  - if [ "${MNE_VERSION}" == "0.21" ]; then
+      pip install mne==0.21.2;
+    fi
+  - if [ "${MNE_VERSION}" == "0.20" ]; then
+      pip install mne==0.20.8;
     fi
   - if [ "${MNE_VERSION}" == "0.19" ]; then
       pip install mne==0.19;

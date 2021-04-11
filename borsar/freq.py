@@ -218,7 +218,12 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                         'formats, got {}'.format(type(inst)))
 
     # construct PSD object
-    picks_int = mne.selection.pick_types(inst.info, eeg=True, selection=picks)
+    try:
+        from mne.selection import pick_types
+    except ModuleNotFoundError:
+        from mne import pick_types
+
+    picks_int = pick_types(inst.info, eeg=True, selection=picks)
     info = mne.pick_info(inst.info, sel=picks_int)
 
     psd = PSD(psd, freq, info, events=events, event_id=event_id,
@@ -303,51 +308,72 @@ class PSD(*mixins):
 
     # - [ ] check if the way we copy docs from mne makes this so slow when
     #       reloading (autoreload in ipython/spyder/notebook)...
-    def plot(self, fmin=0, fmax=None, tmin=None, tmax=None, proj=False,
-             bandwidth=None, adaptive=False, low_bias=True,
-             normalization='length', picks=None, ax=None, color='black',
-             xscale='linear', area_mode='std', area_alpha=0.33, dB=True,
-             estimate='auto', show=True, n_jobs=1, average=False,
+    def plot(self, fmin=0, fmax=None, proj=False, picks=None, ax=None,
+             color='black', xscale='linear', area_mode='std', area_alpha=0.33,
+             dB=True, estimate='auto', show=True, n_jobs=1, average=False,
              line_alpha=None, spatial_colors=True, verbose=None, sphere=None):
-        from mne.viz.utils import _set_psd_plot_params, _plot_psd, plt_show
+        from mne.viz.utils import _plot_psd, plt_show
 
         # set up default vars
         from packaging import version
-        has_new_mne = version.parse(mne.__version__) >= version.parse('0.20.0')
+        mne_version = version.parse(mne.__version__)
+        has_new_mne = mne_version >= version.parse('0.22.0')
+        has_20_mne = (mne_version >= version.parse('0.20.0')
+                      and mne_version < version.parse('0.22.0'))
         if has_new_mne:
+            from mne.defaults import _handle_default
+            from mne.io.pick import _picks_to_idx
+            from mne.viz._figure import _split_picks_by_type
+
+            if ax is None:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots()
+            else:
+                fig = ax.figure
+            ax_list = [ax]
+
+            units = _handle_default('units', None)
+            picks = _picks_to_idx(self.info, picks)
+            titles = _handle_default('titles', None)
+            scalings = _handle_default('scalings', None)
+
+            make_label = len(ax_list) == len(fig.axes)
+            xlabels_list = [False] * (len(ax_list) - 1) + [True]
+            (picks_list, units_list, scalings_list, titles_list
+             ) = _split_picks_by_type(self, picks, units, scalings, titles)
+        elif has_20_mne:
+            from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
         else:
+            from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
                 make_label = _set_psd_plot_params(self.info, proj, picks, ax,
                                                   area_mode)
         del ax
 
+        crop_inst = not (fmin == 0 and fmax is None)
         fmax = self.freqs[-1] if fmax is None else fmax
-        rng = find_range(self.freqs, [fmin, fmax])
+
+        inst = self.copy()
+        if crop_inst:
+            inst.crop(fmin=fmin, fmax=fmax)
+        inst.average()
 
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-            this_psd = self.data[..., picks, rng]
-            if self._has_epochs:
-                this_psd = this_psd.mean(axis=0)
-            psd_list.append(this_psd)
+            psd_list.append(inst.data[picks])
 
-        if has_new_mne:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha, sphere, xlabels_list)
-        else:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha)
+        args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
+                units_list, scalings_list, ax_list, make_label, color,
+                area_mode, area_alpha, dB, estimate, average, spatial_colors,
+                xscale, line_alpha]
+        if has_20_mne or has_new_mne:
+            args += [sphere, xlabels_list]
 
+        fig = _plot_psd(*args)
         plt_show(show)
         return fig
 
