@@ -262,6 +262,27 @@ def test_3d_clustering_with_min_adj_ch():
         assert any([(masks_numba[1] == m).all() for m in masks])
 
 
+def test_cluster_errors():
+    from borsar.cluster.label import _get_cluster_fun
+
+    data = np.random.random((4, 10)) > 0.75
+    adj = np.zeros((4, 4), dtype='bool')
+    adj[[0, 0, 1, 1, 2, 3], [1, 3, 0, 2, 1, 0]] = True
+
+    expected_msg = 'Currently only "numba" backend can handle '
+    with pytest.raises(ValueError, match=expected_msg):
+        _get_cluster_fun(data, adj, backend='numpy')
+
+    if not has_numba():
+        expected_msg = 'You need numba package to use the "numba"'
+        with pytest.raises(ValueError, match=expected_msg):
+            _get_cluster_fun(data, adj, backend='numba')
+
+    expected_msg = 'only for three- and two-dimensional data'
+    with pytest.raises(ValueError, match=expected_msg):
+        _get_cluster_fun(data, backend='numba')
+
+
 def test_cluster_based_regression():
     np.random.seed(23)
     data_dir = _get_test_data_dir()

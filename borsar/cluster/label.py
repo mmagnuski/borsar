@@ -144,8 +144,8 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
 
 def _borsar_clustering_error():
     raise ValueError('borsar has specialised clustering functions only'
-                     ' for three dimensional data where the first dimen'
-                     'sion is spatial (channels or vertices). This spat'
+                     ' for three- and two-dimensional data where the first '
+                     'dimension is spatial (channels or vertices). This spat'
                      'ial dimension requires adjacency matrix defining '
                      'adjacency relationships. Your data is either not'
                      'three-dimensional or you did not provide an adja'
