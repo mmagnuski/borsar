@@ -367,9 +367,9 @@ class PSD(*mixins):
             psd_list.append(inst.data[picks])
 
         args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
-                units_list, scalings_list, ax_list, make_label, color, area_mode,
-                area_alpha, dB, estimate, average, spatial_colors, xscale,
-                line_alpha]
+                units_list, scalings_list, ax_list, make_label, color,
+                area_mode, area_alpha, dB, estimate, average, spatial_colors,
+                xscale, line_alpha]
         if has_20_mne or has_new_mne:
             args += [sphere, xlabels_list]
 
