@@ -317,9 +317,9 @@ class PSD(*mixins):
         # set up default vars
         from packaging import version
         mne_version = version.parse(mne.__version__)
-        has_new_mne = mne_version >= version.parse('0.21.0')
+        has_new_mne = mne_version >= version.parse('0.22.0')
         has_20_mne = (mne_version >= version.parse('0.20.0')
-                      and mne_version < version.parse('0.21.0'))
+                      and mne_version < version.parse('0.22.0'))
         if has_new_mne:
             from mne.defaults import _handle_default
             from mne.io.pick import _picks_to_idx
