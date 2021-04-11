@@ -218,7 +218,12 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                         'formats, got {}'.format(type(inst)))
 
     # construct PSD object
-    picks_int = mne.selection.pick_types(inst.info, eeg=True, selection=picks)
+    try:
+        from mne.selection import pick_types
+    except ModuleNotFoundError:
+        from mne import pick_types
+
+    picks_int = pick_types(inst.info, eeg=True, selection=picks)
     info = mne.pick_info(inst.info, sel=picks_int)
 
     psd = PSD(psd, freq, info, events=events, event_id=event_id,
@@ -348,19 +353,21 @@ class PSD(*mixins):
                                                   area_mode)
         del ax
 
+        crop_inst = not (fmin == 0 or fmax is None)
         fmax = self.freqs[-1] if fmax is None else fmax
-        rng = find_range(self.freqs, [fmin, fmax])
+
+        inst = self.copy()
+        if crop_inst:
+            inst.crop(fmin=fmin, fmax=fmax)
+        inst.average()
 
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-            this_psd = self.data[..., picks, rng]
-            if self._has_epochs:
-                this_psd = this_psd.mean(axis=0)
-            psd_list.append(this_psd)
+            psd_list.append(inst.data[picks])
 
         if has_new_mne:
-            _plot_psd(self, fig, self.freqs, psd_list, picks_list,
+            _plot_psd(inst, fig, self.freqs, psd_list, picks_list,
                       titles_list, units_list, scalings_list, axes, make_label,
                       color, area_mode, area_alpha, dB, estimate, average,
                       spatial_colors, xscale, line_alpha, sphere, xlabels_list)
