@@ -330,15 +330,15 @@ class PSD(*mixins):
                 fig, ax = plt.subplots()
             else:
                 fig = ax.figure
-            axes = [ax]
+            ax_list = [ax]
 
             units = _handle_default('units', None)
             picks = _picks_to_idx(self.info, picks)
             titles = _handle_default('titles', None)
             scalings = _handle_default('scalings', None)
 
-            make_label = len(axes) == len(fig.axes)
-            xlabels_list = [False] * (len(axes) - 1) + [True]
+            make_label = len(ax_list) == len(fig.axes)
+            xlabels_list = [False] * (len(ax_list) - 1) + [True]
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
         elif has_20_mne:
@@ -366,24 +366,14 @@ class PSD(*mixins):
         for picks in picks_list:
             psd_list.append(inst.data[picks])
 
-        if has_new_mne:
-            _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
-                      titles_list, units_list, scalings_list, axes, make_label,
-                      color, area_mode, area_alpha, dB, estimate, average,
-                      spatial_colors, xscale, line_alpha, sphere, xlabels_list)
-        elif has_20_mne:
-            fig = _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha, sphere, xlabels_list)
-        else:
-            fig = _plot_psd(inst, fig, inst.freqs, psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha)
+        args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
+                units_list, scalings_list, ax_list, make_label, color, area_mode,
+                area_alpha, dB, estimate, average, spatial_colors, xscale,
+                line_alpha]
+        if has_20_mne or has_new_mne:
+            args += [sphere, xlabels_list]
 
+        fig = _plot_psd(*args)
         plt_show(show)
         return fig
 
