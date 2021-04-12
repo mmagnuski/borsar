@@ -262,9 +262,11 @@ def test_3d_clustering_with_min_adj_ch():
         assert any([(masks_numba[1] == m).all() for m in masks])
 
 
-def test_cluster_errors():
+def test_get_cluster_fun():
     from borsar.cluster.label import _get_cluster_fun
 
+    # check expected errors
+    # ---------------------
     data = np.random.random((4, 10)) > 0.75
     adj = np.zeros((4, 4), dtype='bool')
     adj[[0, 0, 1, 1, 2, 3], [1, 3, 0, 2, 1, 0]] = True
@@ -281,6 +283,25 @@ def test_cluster_errors():
     expected_msg = 'only for three- and two-dimensional data'
     with pytest.raises(ValueError, match=expected_msg):
         _get_cluster_fun(data, backend='numba')
+
+    # check correct outputs
+    # ---------------------
+    if has_numba():
+        from borsar.cluster.label_numba import (_cluster_2d_numba,
+                                                _cluster_3d_numba)
+        func = _get_cluster_fun(data, adj, backend='auto')
+        assert func == _cluster_2d_numba
+
+        data = np.random.random((4, 10, 5)) > 0.75
+        func = _get_cluster_fun(data, adj, backend='auto')
+        assert func == _cluster_3d_numba
+
+    if not has_numba():
+        from borsar.cluster.label import _cluster_3d_numpy
+
+        data = np.random.random((4, 10, 5)) > 0.75
+        func = _get_cluster_fun(data, adj, backend='auto')
+        assert func == _cluster_3d_numpy
 
 
 def test_cluster_based_regression():
