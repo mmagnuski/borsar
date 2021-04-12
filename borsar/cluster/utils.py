@@ -36,6 +36,9 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         Constructed adjacency matrix.
     '''
     # checks for ch_names
+    ch_name_key = ('label' if not isinstance(neighbours, dict)
+                   else 'label' if 'label' in neighbours.keys()
+                   else 'ch_names')
     if ch_names is not None:
         ch_names_from_neighb = False
         assert isinstance(ch_names, list), 'ch_names must be a list.'
@@ -43,7 +46,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
             'ch_names must be a list of strings'
     else:
         ch_names_from_neighb = True
-        ch_names = neighbours['label']
+        ch_names = neighbours[ch_name_key]
         if isinstance(ch_names, np.ndarray):
             ch_names = ch_names.tolist()
 
@@ -54,7 +57,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         if ch_names_from_neighb:
             adj = neighbours['adjacency']
         else:
-            ch_idx = [neighbours['label'].index(ch) for ch in ch_names]
+            ch_idx = [neighbours[ch_name_key].index(ch) for ch in ch_names]
             adj = neighbours['adjacency'][ch_idx][:, ch_idx]
     else:
         # fieldtrip adjacency structure

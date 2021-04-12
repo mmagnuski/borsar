@@ -8,11 +8,11 @@ from ..utils import has_numba
 # - [ ] compare speed against mne clustering
 # - [x] add min_adj_ch (minimum adjacent channels)
 # - [x] wait with relabeling till the end (tried that and it was slower)
-def cluster_3d(data, adjacency, min_adj_ch=0):
+def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
 
-    WARNING, ``min_adj_ch > 0`` can modify data in-pace! Pass a copy of the
+    WARNING, ``min_adj_ch > 0`` can modify data in-place! Pass a copy of the
     data (``data.copy()``) if you don't want that to happen.
     This in-place modification does not happen in ``find_clusters`` function
     which passes ``data > threshold`` to lower-level functions like this one
@@ -40,15 +40,15 @@ def cluster_3d(data, adjacency, min_adj_ch=0):
     assert data.dtype == np.bool
 
     if min_adj_ch > 0:
-        data = _cross_channel_adjacency(data, adjacency, min_adj_ch=min_adj_ch)
+        data = _cross_channel_adjacency_3d(data, adjacency, min_adj_ch=min_adj_ch)
 
-    clusters = _per_channel_adjacency(data, adjacency)
-    clusters = _cross_channel_adjacency(clusters, adjacency)
+    clusters = _per_channel_adjacency_3d(data)
+    clusters = _cross_channel_adjacency_3d(clusters, adjacency)
 
     return clusters
 
 
-def _per_channel_adjacency(data, adjacency):
+def _per_channel_adjacency_3d(data):
     '''Identify clusters within channels.'''
     from skimage.measure import label
 
@@ -69,7 +69,7 @@ def _per_channel_adjacency(data, adjacency):
     return clusters
 
 
-def _cross_channel_adjacency(clusters, adjacency, min_adj_ch=0):
+def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     '''Connect clusters identified within channels.'''
     n_chan = clusters.shape[0]
     # unrolled views into clusters for ease of channel comparison:
@@ -116,20 +116,40 @@ def _cross_channel_adjacency(clusters, adjacency, min_adj_ch=0):
 def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
+    hasnb = False
     has_adjacency = adjacency is not None
-    if data.ndim == 3 and has_adjacency:
-        if backend in ['numba', 'auto']:
-            hasnb = has_numba()
-            if hasnb:
-                from .label_numba import cluster_3d_numba
-                return cluster_3d_numba
-            elif backend == 'numba' and not hasnb:
-                raise ValueError('You need numba package to use the "numba" '
-                                 'backend.')
-            else:
-                return cluster_3d
+    if not has_adjacency or data.ndim not in [2, 3]:
+        _borsar_clustering_error()
+    if backend in ['numba', 'auto']:
+        hasnb = has_numba()
+    if backend == 'numba' and not hasnb:
+        raise ValueError('You need numba package to use the "numba" '
+                         'backend.')
+    return_numba = backend == 'numba' or (backend == 'auto' and hasnb)
+
+    if data.ndim == 3:
+        if return_numba:
+            from .label_numba import _cluster_3d_numba
+            return _cluster_3d_numba
         else:
-            return cluster_3d
+            return _cluster_3d_numpy
+    elif data.ndim == 2:
+        if return_numba:
+            from .label_numba import _cluster_2d_numba
+            return _cluster_2d_numba
+        else:
+            raise ValueError('Currently only "numba" backend can handle '
+                             '2d data.')
+
+
+def _borsar_clustering_error():
+    raise ValueError('borsar has specialised clustering functions only'
+                     ' for three- and two-dimensional data where the first '
+                     'dimension is spatial (channels or vertices). This spat'
+                     'ial dimension requires adjacency matrix defining '
+                     'adjacency relationships. Your data is either not'
+                     'three-dimensional or you did not provide an adja'
+                     'cency matrix for the spatial dimension.')
 
 
 # TODO : add tail=0 to control for tail selection
@@ -183,16 +203,19 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 
 def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
     '''Prepare clustering - perform checks and create necessary variables.'''
-    # FIXME - these lines should be put in _get_cluster_fun
+    # FIXME - some these lines should be put in _get_cluster_fun
     if cluster_fun is None and backend == 'auto':
-        backend = 'mne' if data.ndim < 3 and min_adj_ch == 0 else 'auto'
+        if data.ndim < 3:
+            backend = 'auto' if has_numba() else 'mne'
 
     if data.ndim < 3 and min_adj_ch > 0:
-        raise ValueError('currently ``min_adj_ch`` is implemented only for'
-                         ' 3d clustering.')
+        if backend not in ['auto', 'numba']:
+            raise ValueError('currently ``min_adj_ch`` is implemented only for'
+                             ' 3d clustering.')
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
+        # prepare mne clustering, maybe put this in a separate function?
         if min_adj_ch > 0:
             raise ValueError('mne backend does not supprot ``min_adj_ch`` '
                              'filtering')
@@ -243,6 +266,8 @@ def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True):
+    # positive clusters
+    # -----------------
     pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
