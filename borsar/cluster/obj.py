@@ -141,15 +141,15 @@ class Clusters(object):
                               for cl in clusters]
                              if pvals is not None else None)
 
-        if pvals is not None:
-            pvals = np.asarray(pvals)
+            if pvals is not None:
+                pvals = np.asarray(pvals)
 
-            # sort by p values if necessary
-            psort = np.argsort(pvals)
-            if not (psort == np.arange(pvals.shape[0])).all():
-                clusters = clusters[psort]
-                pvals = pvals[psort]
-                self.polarity = [self.polarity[idx] for idx in psort]
+                # sort by p values if necessary
+                psort = np.argsort(pvals)
+                if not (psort == np.arange(pvals.shape[0])).all():
+                    clusters = clusters[psort]
+                    pvals = pvals[psort]
+                    self.polarity = [self.polarity[idx] for idx in psort]
 
         # create attributes
         self.subjects_dir = subjects_dir
