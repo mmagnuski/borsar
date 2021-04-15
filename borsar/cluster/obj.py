@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 
 from .viz import plot_cluster_contribution, plot_cluster_chan
@@ -653,4 +654,7 @@ class Clusters(object):
     @property
     def cluster_polarity(self):
         """Just for the deprecation period - returns ploarity of clusters."""
+        warnings.warn('``Clusters.cluster_polarity`` is now ``Clusters.pola'
+                      'rity``. ``.cluster_polarity`` will be deprecated.',
+                      DeprecationWarning)
         return self.polarity

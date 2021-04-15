@@ -178,10 +178,13 @@ def test_clusters():
     clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
 
     # TODO: deprecate cluster_polarity
+    with pytest.deprecated_call():
+        clst_pol = clst.cluster_polarity
+
     assert (len(clst) == len(clst.pvals) == len(clst.clusters)
-            == len(clst.cluster_polarity) == len(clst.polarity))
+            == len(clst_pol) == len(clst.polarity))
     assert len(clst) == 14
-    assert (clst.cluster_polarity == clst.polarity)
+    assert (clst_pol == clst.polarity)
 
     txt = repr(clst)
     correct_repr = ('<borsar.Clusters  |  14 clusters in '
