@@ -322,7 +322,7 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
     # get and select bad annotations
     annot = raw.annotations
     sel = [idx for idx, desc in enumerate(annot.description)
-           if desc.startswith('BAD')]
+           if desc.lower().startswith('bad')]
     annot = annot[sel]
 
     tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
