@@ -132,7 +132,7 @@ def test_valid_windows():
     # annot coverage (x): ooooxxxxxooooooxxxooooooooooxx
     onset = np.array([0.5, 1.5, 28 / 10])
     duration = np.array([0.5, 3 / 10, 2 / 10])
-    description = ['_BAD'] * 3
+    description = ['BAD segment'] * 3
     annot = mne.Annotations(onset, duration, description)
     try:
         raw.set_annotations(annot)

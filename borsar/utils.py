@@ -319,7 +319,12 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
         Whether the moving widnows overlap with annotations. Consecutive values
         inform whether consecutive windows overlap with any annotation.
     '''
+    # get and select bad annotations
     annot = raw.annotations
+    sel = [idx for idx, desc in enumerate(annot.description)
+           if desc.lower().startswith('bad')]
+    annot = annot[sel]
+
     tmin, tmax, sfreq = _check_tmin_tmax(raw, tmin, tmax)
     step = int(round(step * sfreq))
     winlen = int(round(winlen * sfreq))
