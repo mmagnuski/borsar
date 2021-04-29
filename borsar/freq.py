@@ -352,6 +352,8 @@ class PSD(*mixins):
                 make_label = _set_psd_plot_params(self.info, proj, picks, ax,
                                                   area_mode)
         del ax
+        # TypeError: _plot_psd() missing 2 required positional arguments:
+        # 'sphere' and 'xlabels_list'
 
         crop_inst = not (fmin == 0 and fmax is None)
         fmax = self.freqs[-1] if fmax is None else fmax
