@@ -200,7 +200,12 @@ def test_silent_mne():
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
 
-    assert len(record) == 0
+    # new numpy (>= 1.20) raises warnings on older mne (<= 0.20)
+    from packaging import version
+    numpy_version = version.parse(np.__version__)
+    mne_version = version.parse(mne.__version__)
+    n_warn = 2 if mne_version <= version.parse('0.20') and numpy >= 1.20 else 0
+    assert len(record) == n_warn
 
     # with `full_silence` no warnings are raised
     with pytest.warns(None) as record:
