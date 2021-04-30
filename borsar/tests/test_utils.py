@@ -205,7 +205,7 @@ def test_silent_mne():
     numpy_version = version.parse(np.__version__)
     mne_version = version.parse(mne.__version__)
     n_warn = 2 if (mne_version <= version.parse('0.20')
-                   and numpy >= version.parse('1.20')) else 0
+                   and numpy_version >= version.parse('1.20')) else 0
     assert len(record) == n_warn
 
     # with `full_silence` no warnings are raised
