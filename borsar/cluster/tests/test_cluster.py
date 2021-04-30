@@ -289,6 +289,17 @@ def test_clusters():
     line_data = children[which_line[0]].get_data()[1]
     assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
 
+    # make sure the labels are correct
+    assert ax.get_xlabel() == 'Frequency (Hz)'
+    assert ax.get_ylabel() == 'Number of vertex bins'
+    # the second one could actually be just "Number of vertices"
+
+    # but the labels are not present when labeldims=False
+    ax = clst.plot_contribution('freq', labeldims=False)
+    assert ax.get_xlabel() == ''
+    assert ax.get_ylabel() == ''
+
+    # CONSIDER - what if dimcoords is None?
     # clst2.dimcoords, dcoords = None, clst2.dimcoords
     # ax = clst2.plot_contribution('freq')
     # xlab = ax.get_xlabel()
