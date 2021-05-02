@@ -268,7 +268,6 @@ class Clusters(object):
             self = _cluster_selection(self, sel)
         return self
 
-    # TODO: add deepcopy arg (`deep=False` by default)?
     def copy(self, deep=True):
         '''
         Copy the Clusters object.
@@ -281,7 +280,7 @@ class Clusters(object):
         clst : Clusters
             Copied Clusters object.
         deep : bool
-            Whether to deep-copy Clusters object.
+            Whether to deep-copy Clusters object. Defaults to ``True``.
         '''
         if deep:
             from copy import deepcopy

@@ -201,7 +201,6 @@ def test_silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
 
     # new numpy (>= 1.20) raises warnings on older mne (<= 0.20)
-    numpy_version = version.parse(np.__version__)
     mne_version = version.parse(mne.__version__)
 
     if mne_version >= version.parse('0.21'):
