@@ -976,6 +976,23 @@ def test_cluster_topo_title_labels():
     plt.close(topo.fig)
 
 
+def test_cluster_copy_deepcopy():
+    clst1 = _create_random_clusters(dims='ch_tm', n_clusters=2)
+    clst2 = clst1.copy(deep=False)
+    clst3 = clst1.copy(deep=True)
+
+    # data is equal
+    assert (clst1.stat == clst2.stat).all()
+    assert (clst1.stat == clst3.stat).all()
+
+    # changing the data of clst2 changes clst1 (shallow copy)
+    clst2.stat[0, 1] = 23.17
+    assert clst1.stat[0, 1] == 23.17
+
+    clst3.stat[0, 1] = 1985
+    assert clst1.stat[0, 1] == 23.17
+
+
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
     # mayavi import adapted from mne:
