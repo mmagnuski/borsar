@@ -33,7 +33,7 @@ fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 
 
 def _create_random_clusters(dims='ch_tm', n_clusters=1):
-    n_channels, n_times = 15, 35
+    n_channels, n_times, n_freqs = 15, 35, 15
 
     try:
         # mne > 0.18
@@ -44,6 +44,7 @@ def _create_random_clusters(dims='ch_tm', n_clusters=1):
 
     ch_names = mntg.ch_names[slice(0, 89, 6)]
     times = np.linspace(-0.2, 0.5, num=n_times)
+    freqs = np.arange(5, 20)
     sfreq = 1 / np.diff(times[:2])[0]
     try:
         info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
@@ -57,9 +58,11 @@ def _create_random_clusters(dims='ch_tm', n_clusters=1):
         dimnames = ['chan', 'time']
         dimsizes = (n_channels, n_times)
         dimcoords = [ch_names, times]
+    elif dims == 'ch_fr':
+        dimnames = ['chan', 'freq']
+        dimsizes = (n_channels, n_freqs)
+        dimcoords = [ch_names, freqs]
     elif dims == 'ch_fr_tm':
-        n_freqs = 15
-        freqs = np.arange(5, 20)
         dimnames = ['chan', 'freq', 'time']
         dimsizes = (n_channels, n_freqs, n_times)
         dimcoords = [ch_names, freqs, times]
@@ -279,50 +282,6 @@ def test_clusters():
     with pytest.raises(ValueError, match='must be greater or equal to 0'):
         clst2.get_contribution(cluster_idx=0, along=2)
 
-    # tests for plot_contribution
-    ax = clst2.plot_contribution('freq')
-    assert isinstance(ax, plt.Axes)
-    children = ax.get_children()
-    isline = [isinstance(chld, plt.Line2D) for chld in children]
-    assert sum(isline) == len(clst2)
-    which_line = np.where(isline)[0]
-    line_data = children[which_line[0]].get_data()[1]
-    assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
-
-    # clst2.dimcoords, dcoords = None, clst2.dimcoords
-    # ax = clst2.plot_contribution('freq')
-    # xlab = ax.get_xlabel()
-    # assert xlab == 'frequency bins'
-    # clst2.dimcoords = dcoords
-
-    match = 'Clusters has to have `dimnames` attribute'
-    with pytest.raises(TypeError, match=match):
-        dnames = clst2.dimnames
-        clst2.dimnames = None
-        ax = clst2.plot_contribution('freq')
-    clst2.dimnames = dnames
-
-    match = 'does not seem to have the dimension you requested'
-    with pytest.raises(ValueError, match=match):
-        clst2.plot_contribution('abc')
-
-    with pytest.raises(ValueError, match='No clusters present'):
-        clst_no.plot_contribution('freq')
-
-    # heatmap contribution with tfr clusters
-    clst_tfr = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
-    axes = clst_tfr.plot_contribution(dims=['freq', 'time'])
-    assert len(axes[0].images) > 0
-    img = axes[0].images[0]
-    data = img.get_array()
-    contrib = clst_tfr.clusters.sum(axis=(0, 1))
-    assert (data == contrib).all()
-
-    # passing in 'axis'
-    fig, ax = plt.subplots(ncols=2)
-    clst_tfr.plot_contribution(dims='chan', axis=ax[0], picks=0)
-    clst_tfr.plot_contribution(dims='freq', axis=ax[1], picks=0)
-    plt.close('all')
 
     # get index and limits
     # --------------------
@@ -963,6 +922,86 @@ def test_cluster_topo_title_labels():
         label = lb + '\n' + label2
         assert tp.axes.get_title() == label
     plt.close(topo.fig)
+
+
+def test_cluster_copy_deepcopy():
+    clst1 = _create_random_clusters(dims='ch_tm', n_clusters=2)
+    clst2 = clst1.copy(deep=False)
+    clst3 = clst1.copy(deep=True)
+
+    # data is equal
+    assert (clst1.stat == clst2.stat).all()
+    assert (clst1.stat == clst3.stat).all()
+
+    # changing the data of clst2 changes clst1 (shallow copy)
+    clst2.stat[0, 1] = 23.17
+    assert clst1.stat[0, 1] == 23.17
+
+    clst3.stat[0, 1] = 1985
+    assert clst1.stat[0, 1] == 23.17
+
+
+def test_cluster_plot_contribution():
+    clst = _create_random_clusters(dims='ch_fr', n_clusters=2)
+    clst_0_freq_contrib = clst.get_contribution(cluster_idx=0, along='freq')
+
+    # tests for plot_contribution
+    ax = clst.plot_contribution('freq')
+    assert isinstance(ax, plt.Axes)
+    children = ax.get_children()
+    isline = [isinstance(chld, plt.Line2D) for chld in children]
+    assert sum(isline) == len(clst)
+    which_line = np.where(isline)[0]
+    line_data = children[which_line[0]].get_data()[1]
+    assert (line_data / line_data.sum() == clst_0_freq_contrib).all()
+
+    # make sure the labels are correct
+    assert ax.get_xlabel() == 'Frequency (Hz)'
+    assert ax.get_ylabel() == 'Number of channel bins'
+    # the second one could actually be just "Number of channels / vertices"
+
+    # but the labels are not present when labeldims=False
+    ax = clst.plot_contribution('freq', labeldims=False)
+    assert ax.get_xlabel() == ''
+    assert ax.get_ylabel() == ''
+
+    # CONSIDER - what if dimcoords is None?
+    # clst2.dimcoords, dcoords = None, clst2.dimcoords
+    # ax = clst2.plot_contribution('freq')
+    # xlab = ax.get_xlabel()
+    # assert xlab == 'frequency bins'
+    # clst2.dimcoords = dcoords
+
+    match = 'Clusters has to have `dimnames` attribute'
+    with pytest.raises(TypeError, match=match):
+        dnames = clst.dimnames
+        clst.dimnames = None
+        ax = clst.plot_contribution('freq')
+    clst.dimnames = dnames
+
+    match = 'does not seem to have the dimension you requested'
+    with pytest.raises(ValueError, match=match):
+        clst.plot_contribution('abc')
+
+    thresh = clst.pvals.min()
+    clst_no = clst.copy(deep=False).select(p_threshold=thresh)
+    with pytest.raises(ValueError, match='No clusters present'):
+        clst_no.plot_contribution('freq')
+
+    # heatmap contribution with tfr clusters
+    clst_tfr = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+    axes = clst_tfr.plot_contribution(dims=['freq', 'time'])
+    assert len(axes[0].images) > 0
+    img = axes[0].images[0]
+    data = img.get_array()
+    contrib = clst_tfr.clusters.sum(axis=(0, 1))
+    assert (data == contrib).all()
+
+    # passing in 'axis'
+    fig, ax = plt.subplots(ncols=2)
+    clst_tfr.plot_contribution(dims='chan', axis=ax[0], picks=0)
+    clst_tfr.plot_contribution(dims='freq', axis=ax[1], picks=0)
+    plt.close('all')
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

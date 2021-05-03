@@ -60,25 +60,30 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
 
     # create "intensity" label
     # ------------------------
-    nonreduced_dims = [dim for dim in clst.dimnames if dim not in dims]
-    dimnames = [_full_dimname(dim, singular=True) for dim in nonreduced_dims]
-    binlabel = 'Number of {} bins'.format('-'.join(dimnames))
-    if isinstance(ax, tuple):
-        # heatmap with colorbar
-        cbar = ax[1]
-        cbar.set_label(binlabel)
-    elif isinstance(ax, Topo):
-        # only if contains colorbar - which will be added to Topo in some time
-        pass
-    elif isinstance(dims, str) or (isinstance(dims, list) and len(dims) == 1):
-        # line plot - label y axis
-        ax.set_ylabel(binlabel)
+    labeldims = kwargs.get('labeldims', True)
+    if labeldims:
+        nonreduced_dims = [dim for dim in clst.dimnames if dim not in dims]
+        dimnames = [_full_dimname(dim, singular=True)
+                    for dim in nonreduced_dims]
+        binlabel = 'Number of {} bins'.format('-'.join(dimnames))
+        if isinstance(ax, tuple):
+            # heatmap with colorbar
+            cbar = ax[1]
+            cbar.set_label(binlabel)
+        elif isinstance(ax, Topo):
+            # only if contains colorbar - which will be added to Topo
+            # in some time
+            pass
+        elif (isinstance(dims, str) or (isinstance(dims, list)
+              and len(dims) == 1)):
+            # line plot - label y axis
+            ax.set_ylabel(binlabel)
 
-        # make sure y axis min is 0
-        ylims = list(ax.get_ylim())
-        if not ylims[0] == 0:
-            ylims[0] = 0
-            ax.set_ylim(ylims)
+            # make sure y axis min is 0
+            ylims = list(ax.get_ylim())
+            if not ylims[0] == 0:
+                ylims[0] = 0
+                ax.set_ylim(ylims)
 
     return ax
 
@@ -203,6 +208,9 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     vmin, vmax = _get_clim(show, vmin=vmin, vmax=vmax,
                            pysurfer=False)
     vmin = 0 if plot_contribution else vmin
+    labeldims = True
+    if 'labeldims' in plotfun_kwargs:
+        labeldims = plotfun_kwargs.pop('labeldims')
 
     # Viz rules:
     # ----------
@@ -237,7 +245,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                                     cluster_colors, cluster_idx)
 
             # FIXME: labels axes also when resulting from idx reduction
-            _label_topos(clst, topo, dim_kwargs, idx)
+            if labeldims:
+                _label_topos(clst, topo, dim_kwargs, idx)
 
             if 'axes' not in plotfun_kwargs:
                 # we created the axes so we can reposition them for better
@@ -269,7 +278,9 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                 show = show.T
 
             ax.plot(x_axis, show, **plotfun_kwargs)
-            _label_axis(ax, clst, dim_idx[0], ax_dim='x')
+
+            if labeldims:
+                _label_axis(ax, clst, dim_idx[0], ax_dim='x')
             if not plot_contribution:
                 _mark_cluster_range(clst_mask, x_axis, ax)
             return ax
@@ -317,9 +328,10 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                       **plotfun_kwargs)
 
         # add dimension labels
-        heatmap_ax = axs[0] if isinstance(axs, (list, tuple)) else axs
-        _label_axis(heatmap_ax, clst, dim_idx[1], ax_dim='x')
-        _label_axis(heatmap_ax, clst, dim_idx[0], ax_dim='y')
+        if labeldims:
+            heatmap_ax = axs[0] if isinstance(axs, (list, tuple)) else axs
+            _label_axis(heatmap_ax, clst, dim_idx[1], ax_dim='x')
+            _label_axis(heatmap_ax, clst, dim_idx[0], ax_dim='y')
 
         return axs
     else:
