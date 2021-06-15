@@ -91,17 +91,19 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
 def _get_units(dimname, fullname=False):
     '''Return unit for specified dimension name.'''
     if not fullname:
-        return {'freq': 'Hz', 'time': 's', 'vert': 'vert'}[dimname]
+        return {'freq': 'Hz', 'lfreq': 'Hz', 'hfreq': 'Hz', 'time': 's',
+                'vert': 'vert'}[dimname]
     else:
-        return {'freq': 'hertz', 'time': 'seconds',
-                'vert': 'vertices'}[dimname]
+        return {'freq': 'hertz', 'lfreq': 'hertz', 'hfreq': 'hertz',
+                'time': 'seconds', 'vert': 'vertices'}[dimname]
 
 
 # TODO: add singular=False to have vertex and vertices possible
 def _full_dimname(dimname, singular=False):
     '''Return unit for specified dimension name.'''
     dim_dict = {'freq': 'frequency', 'time': 'time', 'vert': 'vertices',
-                'chan': 'channels'}
+                'chan': 'channels', 'lfreq': 'phase frequency',
+                'hfreq': 'amplitude frequency'}
     if singular:
         dim_dict.update({'chan': 'channel', 'vert': 'vertex'})
     return dim_dict[dimname]
@@ -192,9 +194,16 @@ def _handle_dims(clst, dims):
         if clst.dimnames[0] in ['chan', 'vert']:
             return [0]
         else:
-            raise ValueError("Can't infer the dimensions to plot when the"
-                             " first dimension is not 'chan' or 'vert'."
-                             " Please use ``dims`` argument.")
+            n_dims = len(clst.dimnames)
+            if n_dims < 3:
+                # we can plot a line or heatmap:
+                return [ix for ix in range(n_dims)]
+            else:
+                # too many dimensions - we don't know which to reduce and
+                # which to plot
+                raise ValueError("Can't infer the dimensions to plot when the"
+                                 " first dimension is not 'chan' or 'vert'."
+                                 " Please use ``dims`` argument.")
     else:
         if isinstance(dims, str):
             dims = [dims]
