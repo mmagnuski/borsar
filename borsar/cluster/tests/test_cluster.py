@@ -1004,6 +1004,27 @@ def test_cluster_plot_contribution():
     plt.close('all')
 
 
+def test_cluster_no_spatial_dim():
+    # make sure that 2d cluster without spatial dim works
+    lfreq = np.linspace(4, 10, num=13)
+    hfreq = np.linspace(25, 65, num=41)
+    data = np.random.random((hfreq.shape[0], lfreq.shape[0]))
+    masks = [np.random.random((hfreq.shape[0], lfreq.shape[0])) > 0.7]
+
+    test_clst = borsar.Clusters(data, clusters=masks, pvals=[0.015],
+                                dimnames=['hfreq', 'lfreq'],
+                                dimcoords=[hfreq, lfreq])
+
+    # test correct string representation
+    assert 'amplitude frequency x phase frequency' in str(test_clst)
+
+    # test that heatmap plot is produced by default
+    ax, cbar = test_clst.plot()
+    assert ax.get_xlabel() == 'Phase frequency (Hz)'
+    assert ax.get_ylabel() == 'Amplitude frequency (Hz)'
+    assert 'Colorbar' in str(cbar)
+
+
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
     # mayavi import adapted from mne:
