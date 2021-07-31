@@ -652,7 +652,7 @@ class Clusters(object):
             return plot_cluster_src(self, cluster_idx, vmin=vmin, vmax=vmax,
                                     figure_size=figure_size,
                                     set_light=set_light, **kwargs)
-        elif self.dimnames[0] == 'chan':
+        else:
             return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
                                      vmax=vmax, mark_kwargs=mark_kwargs,
                                      **kwargs)
