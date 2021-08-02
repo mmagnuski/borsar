@@ -571,51 +571,62 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
 
 # TODO: add _is_spatial_dim
 # TODO: add errors
+# throw error when kwarg not in dimnames?
 def _prepare_dimindex_plan(dimnames, **kwargs):
+    '''Prepare indexing plan.
+
+    The plan is a list ...
+    '''
     n_dims = len(dimnames)
     specified = [dim in kwargs for dim in dimnames]
-    plan =(None,) * n_dims
+    plan = {dim: None for dim in dimnames}
     if not any(specified):
         return plan, kwargs
 
     for idx in np.where(specified)[0]:
-        dimindex = kwargs[dimnames[idx]]
+        this_name = dimnames[idx]
+        dimindex = kwargs[this_name]
 
         if isinstance(dimindex, tuple):
+            # tuple -> range
+            # --------------
             if len(dimindex) == 2:
-                plan[idx] = 'range'
+                plan[this_name] = 'range'
             else:
-                msg = 'TEMP!'
+                msg = ('Indexing with a tuple means specifying a range: '
+                       '(from, to). For this reason the tuple has to be of '
+                       'length 2.')
                 raise ValueError(msg)
         elif isinstance(dimindex, Integral):
-            plan[idx] = 'singular'
+            plan[this_name] = 'singular'
         elif isinstance(dimindex, (list, np.ndarray)):
+            # list or array
+            # -------------
             # squeeze array?
             numel = len(dimindex)
             if numel == 0:
-                # TODO - what do we do with empty list?
-                msg = 'TEMP!'
+                msg = 'If indexing with a list, the list has to be non-empty.'
                 raise ValueError(msg)
             elif numel == 1:
-                plan[idx] = 'singular'
-                kwargs[dimnames[idx]] = dimindex[0]
+                plan[this_name] = 'singular'
+                kwargs[this_name] = dimindex[0]
             else:
-                plan[idx] = 'multi'
+                plan[this_name] = 'multi'
         elif isinstance(dimindex, str):
             pat = r'[0-9]{1,3}(\.[0-9]*)?%( vol)?'
             match = re.fullmatch(pat, dimindex)
             if match is not None:
-                plan[idx] = 'volume'
+                plan[this_name] = 'volume'
                 value = float(dimindex.replace('vol', '').replace(' ', '')
                               .replace('%', ''))
                 if value > 100. or value < 0.:
                     raise ValueError('The percentage value has to be >= '
                                      '0 and <= 100.')
-                kwargs[dimnames[idx]] = value
+                kwargs[this_name] = value
             else:
                 # TODO: could be a channel name
-                if _is_spatial_dim(dimnames[idx]):
-                    plan[idx] = 'spatial name'
+                if _is_spatial_dim(this_name):
+                    plan[idx] = 'spatial_names'
         elif isinstance(dimindex, slice):
             if dimindex == slice(None):
                 # "take everyting"
@@ -629,6 +640,7 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
             raise TypeError(msg)
 
         # LATER: check multi for channel/vertex indices or names
+        return plan, kwargs
 
 
 def _clean_up_indices(idx):
