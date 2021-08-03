@@ -587,7 +587,8 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                       to be translated
     * spatial_idx   - index/indices that are already in the right coordinates,
                       no need for translation
-    * spatial_name  - channel/label name, have to be translated in a special way
+    * spatial_name  - channel/label name, have to be translated in a special
+                      way
     * spatial_names - channel/label names, have to be translated in a special
                       way
     * volume
