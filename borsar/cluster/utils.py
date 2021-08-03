@@ -318,9 +318,16 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     idx = _clean_up_indices(idx)
 
     if do_aggregation:
-        reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
-                            if not (isinstance(idx[ix], (list, np.ndarray))
-                            or ix in dim_idx))
+        reduce_axes = list()
+        set_idx = 0
+        for ix in range(0, clst.stat.ndim):
+            if isinstance(idx[ix], Integral):
+                continue
+            if not (isinstance(idx[ix], (list, np.ndarray))
+                    or ix in dim_idx):
+                reduce_axes.append(set_idx)
+            set_idx += 1
+        reduce_axes = tuple(reduce_axes)
 
         # reduce spatial if present, not in dim_idx and list / array
         if (0 not in reduce_axes and _is_spatial_dim(clst.dimnames[0])
