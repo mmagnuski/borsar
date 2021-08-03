@@ -584,7 +584,7 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
     indexing type/intent for respective dimension.
     '''
     import re
-    from numbers import Integral
+    from numbers import Integral, Real
 
     msg_template = ('Could not understand {}.\nAllowed indexers are: int, str,'
                     ' list of int, list of str, tuple.')
@@ -609,8 +609,6 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                        '(from, to). For this reason the tuple has to be of '
                        'length 2.')
                 raise ValueError(msg)
-        elif isinstance(dimindex, Integral):
-            plan[idx] = 'singular'
         elif isinstance(dimindex, (list, np.ndarray)):
             # list or array
             # -------------
@@ -620,16 +618,29 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                 msg = 'If indexing with a list, the list has to be non-empty.'
                 raise ValueError(msg)
             elif numel == 1:
-                plan[idx] = 'singular'
-                kwargs[this_name] = dimindex[0]
+                dimindex = dimindex[0]
+                kwargs[this_name] = dimindex
             else:
-                if all([isinstance(x, Integral) for x in dimindex]):
-                    plan[idx] = 'multi'
-                elif _is_spatial_dim(this_name):
-                    plan[idx] = 'spatial_names'
+                if _is_spatial_dim(this_name):
+                    if all([isinstance(x, Integral) for x in dimindex]):
+                        plan[idx] = 'spatial_idx'
+                    elif all([isinstance(x, str) for x in dimindex]):
+                        plan[idx] = 'spatial_names'
+                    else:
+                        msg = ('Indexing spatial dimension is allowed only '
+                               'with int, str, list/array of int or list/array'
+                               ' of str. Got {}.')
+                        raise TypeError(msg.format(dimindex))
                 else:
-                    raise TypeError(msg_template.format(dimindex))
-
+                    if all([isinstance(x, Real) for x in dimindex]):
+                        plan[idx] = 'multi'
+                    else:
+                        msg = ('Indexing non-spatial dimensions is allowed '
+                               'only with int, float, list/array of int or '
+                               'list/array of float. Got {}.')
+                        raise TypeError(msg.format(dimindex))
+        elif isinstance(dimindex, (Integral, float)):
+            plan[idx] = 'singular'
         elif isinstance(dimindex, str):
             pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
             match = re.match(pat, dimindex)
@@ -638,9 +649,10 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                 plan[idx] = 'volume' if parts[-1] is not None else 'mass'
                 value = float(parts[0])
                 if value > 100. or value < 0.:
-                    raise ValueError('The percentage value has to be >= '
-                                     '0 and <= 100.')
-                kwargs[this_name] = value
+                    msg = ('The mass/volume percentage indexer has to be >= 0'
+                           ' and <= 100, got {}.').format(dimindex)
+                    raise ValueError(msg)
+                kwargs[this_name] = value / 100
             else:
                 # TODO: could be a channel \ label name
                 if _is_spatial_dim(this_name):
