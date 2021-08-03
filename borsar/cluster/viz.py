@@ -176,7 +176,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
 
     # consider dims
     dim_idx = _handle_dims(clst, dims)
-    dims = [clst.dimnames[ix] for ix in dim_idx]
+    dims = [clst.dimnames[ix] for ix in dim_idx] # because chan can be added
 
     # TODO - aggregate should work when no clusters
     # get and aggregate cluster mask and cluster stat
