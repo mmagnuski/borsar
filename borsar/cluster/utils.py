@@ -579,11 +579,18 @@ def _is_spatial_dim(dimname):
 def _prepare_dimindex_plan(dimnames, **kwargs):
     '''Prepare indexing plan.
 
-    The plan is a list ...
+    The plan is a list of str where each string informs about detected
+    indexing type/intent for respective dimension.
     '''
+    import re
+    from numbers import Integral
+
+    msg_template = ('Could not understand {}.\nAllowed indexers are: int, str,'
+                    ' list of int, list of str, tuple.')
+
     n_dims = len(dimnames)
     specified = [dim in kwargs for dim in dimnames]
-    plan = {dim: None for dim in dimnames}
+    plan = [None] * n_dims
     if not any(specified):
         return plan, kwargs
 
@@ -595,14 +602,14 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
             # tuple -> range
             # --------------
             if len(dimindex) == 2:
-                plan[this_name] = 'range'
+                plan[idx] = 'range'
             else:
                 msg = ('Indexing with a tuple means specifying a range: '
                        '(from, to). For this reason the tuple has to be of '
                        'length 2.')
                 raise ValueError(msg)
         elif isinstance(dimindex, Integral):
-            plan[this_name] = 'singular'
+            plan[idx] = 'singular'
         elif isinstance(dimindex, (list, np.ndarray)):
             # list or array
             # -------------
@@ -612,39 +619,50 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                 msg = 'If indexing with a list, the list has to be non-empty.'
                 raise ValueError(msg)
             elif numel == 1:
-                plan[this_name] = 'singular'
+                plan[idx] = 'singular'
                 kwargs[this_name] = dimindex[0]
             else:
-                plan[this_name] = 'multi'
+                if all([isinstance(x, Integral) for x in dimindex]):
+                    plan[idx] = 'multi'
+                elif _is_spatial_dim(this_name):
+                    plan[idx] = 'spatial_names'
+                else:
+                    raise TypeError(msg_template.format(dimindex))
+
         elif isinstance(dimindex, str):
-            pat = r'[0-9]{1,3}(\.[0-9]*)?%( vol)?'
-            match = re.fullmatch(pat, dimindex)
+            pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
+            match = re.match(pat, dimindex)
             if match is not None:
-                plan[this_name] = 'volume'
-                value = float(dimindex.replace('vol', '').replace(' ', '')
-                              .replace('%', ''))
+                parts = match.groups()
+                plan[idx] = 'volume' if parts[-1] is not None else 'mass'
+                value = float(parts[0])
                 if value > 100. or value < 0.:
                     raise ValueError('The percentage value has to be >= '
                                      '0 and <= 100.')
                 kwargs[this_name] = value
             else:
-                # TODO: could be a channel name
+                # TODO: could be a channel \ label name
                 if _is_spatial_dim(this_name):
-                    plan[idx] = 'spatial_names'
-        elif isinstance(dimindex, slice):
-            if dimindex == slice(None):
-                # "take everyting"
-                plan[idx] = 'full'
-            else:
-                # first it will be ValueError
-                msg = 'TEMP!'
-                raise ValueError(msg)
-        else:
-            msg = 'TEMP!'
-            raise TypeError(msg)
+                    plan[idx] = 'spatial_name'
+                else:
+                    raise ValueError('Str indexer has to be either a channel'
+                                     ' name or volume/mass percentage (for '
+                                     'example "50% vol")')
 
-        # LATER: check multi for channel/vertex indices or names
-        return plan, kwargs
+        # not sure about slices now
+        # elif isinstance(dimindex, slice):
+        #     if dimindex == slice(None):
+        #         # "take everyting"
+        #         plan[idx] = 'full'
+        #     else:
+        #         # first it will be ValueError
+        #         msg = 'TEMP!'
+        #         raise ValueError(msg)
+        else:
+            raise TypeError(msg_template.format(dimindex))
+
+    # LATER: check multi for channel/vertex indices or names
+    return plan, kwargs
 
 
 def _clean_up_indices(idx):
