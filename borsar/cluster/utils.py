@@ -7,6 +7,9 @@ from ..stats import format_pvalue
 from ..channels import find_channels
 
 
+SPATIAL_DIMS = ['chan', 'vert']
+
+
 # FIXME - currently the reading of neighbours seems to be a bit
 #         messy. They should be read into the same format, either
 #         FieldTrip struct (for a starter) or a new class Adjacency
@@ -192,7 +195,7 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
 def _handle_dims(clst, dims):
     '''Find indices of dimension names.'''
     if dims is None:
-        if clst.dimnames[0] in ['chan', 'vert']:
+        if _is_spatial_dim(clst.dimnames[0]):
             return [0]
         else:
             n_dims = len(clst.dimnames)
@@ -317,7 +320,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
                             or ix in dim_idx))
 
         # reduce spatial if present, not in dim_idx and list / array
-        if (0 not in reduce_axes and clst.dimnames[0] in ['chan', 'vert']
+        if (0 not in reduce_axes and _is_spatial_dim(clst.dimnames[0])
             and 0 not in dim_idx and isinstance(idx[0], (list, np.ndarray))):
             reduce_axes = (0, ) + reduce_axes
 
@@ -541,7 +544,7 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
         elif isinstance(selection, list) or (isinstance(selection, np.ndarray)
                                              and selection.ndim == 1):
             # special-case spatial dim
-            if dname in ['chan', 'vert']:
+            if _is_spatial_dim(dname):
                 # find dtype of list/array
                 from numbers import Integral
                 is_int = isinstance(selection[0], Integral)
@@ -569,8 +572,10 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     return tuple(idx)
 
 
-# TODO: add _is_spatial_dim
-# TODO: add errors
+def _is_spatial_dim(dimname):
+    return dimname in SPATIAL_DIMS
+
+
 # throw error when kwarg not in dimnames?
 def _prepare_dimindex_plan(dimnames, **kwargs):
     '''Prepare indexing plan.
