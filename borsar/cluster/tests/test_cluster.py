@@ -24,7 +24,8 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
-                                  _full_dimname, _human_readable_dimlabel)
+                                  _full_dimname, _human_readable_dimlabel,
+                                  _prepare_dimindex_plan)
 from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
@@ -172,7 +173,6 @@ def test_cluster_utils():
 
 
 def test_dimindex_plan():
-    from borsar.cluster.utils import _prepare_dimindex_plan
 
     # range
     plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
@@ -322,7 +322,7 @@ def test_clusters():
     # get index and limits
     # --------------------
     idx = clst2.get_cluster_limits(0, retain_mass=0.75)
-    clst_0_freq_contrib[idx[1]].sum() > 0.75
+    assert clst_0_freq_contrib[idx[1]].sum() > 0.75
 
     idx = clst2.get_index(freq=(8, 10))
     assert idx[1] == slice(2, 7)

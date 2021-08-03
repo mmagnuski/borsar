@@ -4,7 +4,8 @@ import numpy as np
 from .viz import plot_cluster_contribution, plot_cluster_chan
 from ._viz3d import plot_cluster_src
 from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
-                    _ensure_correct_info, _handle_dims, _full_dimname)
+                    _ensure_correct_info, _handle_dims, _full_dimname,
+                    _prepare_dimindex_plan)
 from .checks import (_clusters_safety_checks, _clusters_chan_vert_checks,
                      _check_dimnames_kwargs, _check_dimname_arg,
                      _check_description)
@@ -253,7 +254,9 @@ class Clusters(object):
             # kwargs check should be in a separate function
             if len(kwargs) > 0:
                 _check_dimnames_kwargs(self, allow_lists=False, **kwargs)
-            dim_idx = _index_from_dim(self.dimnames, self.dimcoords, **kwargs)
+            plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
+            dim_idx = _index_from_dim(self.dimnames, self.dimcoords, plan,
+                                      **kwargs)
 
             dims = np.arange(self.stat.ndim) + 1
             clst_idx = (slice(None),) + dim_idx
@@ -532,34 +535,25 @@ class Clusters(object):
             used in indexing stat (`clst.stat[idx]`) or clusters (
             `clst.clusters[:, *idx]`) for example.
         '''
+        _check_dimnames_kwargs(self, check_dimcoords=True, **kwargs)
+        plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
+        idx = _index_from_dim(self.dimnames, self.dimcoords, plan, **kwargs)
 
-        if len(kwargs) > 0:
-            # check correctness of keyword arguments
-            # CHECK - is check_dimcoords necessary?
-            normal_indexing, mass_indexing = _check_dimnames_kwargs(
-                self, **kwargs, ignore_dims=ignore_dims, check_dimcoords=True,
-                split_range_mass=True)
-        else:
-            normal_indexing, mass_indexing = kwargs, dict()
-
-        idx = _index_from_dim(self.dimnames, self.dimcoords,
-                              **normal_indexing)
+        mass_dimnames = [name for idx, name in enumerate(self.dimnames)
+                         if plan[idx] in ['mass', 'volume']]
+        mass_indexing = {dimname: kwargs[dimname] for dimname in mass_dimnames}
 
         # when retain_mass is specified it is used to get ranges for
         # dimensions not addressed with kwargs
         # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
-            check_dims = [idx for idx, val in enumerate(idx)
-                          if isinstance(val, slice) and val == slice(None)]
+            ignore_idx = (_handle_dims(self, ignore_dims)
+                          if ignore_dims is not None else list())
+            check_dims = [idx for idx, val in enumerate(plan)
+                          if (val is None or val == 'mass')
+                          and idx not in ignore_idx]
 
-            # ignore dimensions
-            if ignore_dims is not None:
-                dim_idx = _handle_dims(self, ignore_dims)
-                for ignored in dim_idx:
-                    if ignored in check_dims:
-                        check_dims.remove(ignored)
-
-            # check cluster limits only if some dim limits were not specified
+            # check cluster limits only for non-indexed dimensions
             # TODO: idx arg may be unnecessary if I clean things up
             if len(check_dims) > 0:
                 idx_mass = self.get_cluster_limits(
@@ -644,7 +638,7 @@ class Clusters(object):
         > clst.plot(cluster_idx=0, freq=(8, 10))
         > # to plot the second cluster selecting frequencies that make up at
         > # least 70% of the cluster mass:
-        > clst.plot(cluster_idx=1, freq=0.7)
+        > clst.plot(cluster_idx=1, freq='70%')
         '''
         if self.dimnames is None:
             raise TypeError('To plot the data you need to construct the '

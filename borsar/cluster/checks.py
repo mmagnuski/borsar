@@ -190,12 +190,10 @@ def _check_dimname_arg(clst, dimname):
     return idx
 
 
-def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
-                           split_range_mass=False, allow_lists=True, **kwargs):
+def _check_dimnames_kwargs(clst, check_dimcoords=False, split_range_mass=False,
+                           allow_lists=True, **kwargs):
     '''Ensure that **kwargs are correct dimnames and dimcoords.
 
-    ignore_dims : list of int?
-        Dimensions to ignore.
     split_range_mass : bool
         Whether to separate range (normal) and mass indices.
     allow_lists : bool
@@ -208,10 +206,6 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
         raise TypeError('Clusters has to have dimcoords to use operations '
                         'on named dimensions.')
 
-    if split_range_mass:
-        normal_indexing = kwargs.copy()
-        mass_indexing = dict()
-
     for dim in kwargs.keys():
         if dim not in clst.dimnames:
             msg = ('Could not find requested dimension {}. Available '
@@ -223,20 +217,3 @@ def _check_dimnames_kwargs(clst, check_dimcoords=False, ignore_dims=None,
                    ' in this context. Use range ((min, max) tuple) or mass/'
                    'extent (float).')
             raise TypeError(msg)
-
-        if split_range_mass:
-            dval = kwargs[dim]
-            # TODO - more elaborate checks
-            dim_type = ('range' if isinstance(dval, (list, tuple, np.ndarray))
-                        else 'mass' if isinstance(dval, float) else None)
-            if dim_type == 'mass':
-                mass_indexing[dim] = dval
-                normal_indexing.pop(dim)
-            elif dim_type is None:
-                raise TypeError('The values used in dimension name indexing '
-                                'have to be either specific points (list or '
-                                'array of values), ranges (tuple of two values'
-                                ') or cluster extent to retain (float), got '
-                                '{} for dimension {}.'.format(dval, dim))
-    if split_range_mass:
-        return normal_indexing, mass_indexing
