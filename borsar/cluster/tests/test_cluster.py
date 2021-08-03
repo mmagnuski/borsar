@@ -105,18 +105,31 @@ def test_index_from_dim():
     dimnames = ['chan', 'freq', 'time']
     dimcoords = [None, np.arange(8., 12.1, step=0.5),
                  np.arange(-0.2, 0.51, step=0.1)]
-    assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
-    assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
-    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5))
-            == (slice(None), slice(4, 8), slice(None)))
-    assert (_index_from_dim(dimnames, dimcoords, freq=(9.5, 10), time=(0, 0.3))
-            == (slice(None), slice(3, 5), slice(2, 6)))
-    print(_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3)))
-    idx = _index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3))
-    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all()
-            and idx[2] == slice(2, 6))
-    with pytest.raises(TypeError):
-        _index_from_dim(dimnames, dimcoords, freq=[9.5], time=(0, 0.2, 0.3))
+
+    idx = _index_from_dim(dimnames[1:2], dimcoords[1:2], [None])
+    assert idx == (slice(None),)
+
+    idx = _index_from_dim(dimnames[1:], dimcoords[1:], [None, None])
+    assert idx == (slice(None),) * 2
+
+    plan, _ = _prepare_dimindex_plan(dimnames, freq=(10, 11.5))
+    idx = _index_from_dim(dimnames, dimcoords, plan, freq=(10, 11.5))
+    assert idx == (slice(None), slice(4, 8), slice(None))
+
+    kwargs = dict(freq=(9.5, 10), time=(0, 0.3))
+    plan, kwargs = _prepare_dimindex_plan(dimnames, **kwargs)
+    idx = _index_from_dim(dimnames, dimcoords, plan, **kwargs)
+    assert idx == (slice(None), slice(3, 5), slice(2, 6))
+
+    kwargs['freq'] = [9.5, 10]
+    plan, kwargs = _prepare_dimindex_plan(dimnames, **kwargs)
+    idx = _index_from_dim(dimnames, dimcoords, plan, **kwargs)
+    assert idx[0] == slice(None)
+    assert (idx[1] == [3, 4]).all()
+    assert idx[2] == slice(2, 6)
+
+    with pytest.raises(ValueError):
+        _prepare_dimindex_plan(dimnames, freq=[9.5], time=(0, 0.2, 0.3))
 
 
 def test_cluster_limits():
@@ -330,7 +343,7 @@ def test_clusters():
     idx = clst2.get_index(freq=[8, 10])
     assert (idx[1] == [2, 6]).all()
 
-    idx = clst2.get_index(cluster_idx=1, freq=0.6)
+    idx = clst2.get_index(cluster_idx=1, freq='60%')
     contrib = clst2.get_contribution(1, 'freq')
     assert contrib[idx[1]].sum() >= 0.6
 
@@ -348,9 +361,9 @@ def test_clusters():
         clst2.dimcoords = None
         clst2.get_index(freq=(8.5, 10))
     clst2.dimcoords = dcoords
-    match = (r'either specific points \(list or array of values\), ranges '
-             r'\(tuple of two values\) or cluster extent to retain \(float\)')
-    with pytest.raises(TypeError, match=match):
+    match = ('String indexer has to be either a channel name or volume/mass'
+             ' percentage')
+    with pytest.raises(ValueError, match=match):
         clst2.get_index(freq='abc')
 
     # test iteration
@@ -789,7 +802,7 @@ def test_cluster_ignore_dims():
     assert (clst.stat[5:7].mean(axis=0) == data).all()
 
     # (B) we request all channels reduced
-    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan=1.)
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan='100%')
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
