@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from numpy.testing import assert_allclose
+
 import mne
 
 import borsar
@@ -167,6 +169,40 @@ def test_cluster_utils():
     _move_axes_to(ax, x=0.123)
     assert ax[0].get_position().bounds[0] == 0.123
     assert ax[1].get_position().bounds[0] == 0.123
+
+
+def test_dimindex_plan():
+    from borsar.cluster.utils import _prepare_dimindex_plan
+
+    # range
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
+    assert plan[0] is None
+    assert plan[1] == 'range'
+
+    # points and mass
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=[1, 4, 5],
+                                          time='50%')
+    assert plan[0] == 'spatial_idx'
+    assert plan[1] == 'mass'
+    assert kwargs['time'] == 0.5
+
+    # channel names, range and volume
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'freq', 'time'],
+                                          chan=['Cz', 'F3', 'Fz'],
+                                          freq=(7, 13), time='75% vol')
+    assert plan[0] == 'spatial_names'
+    assert plan[1] == 'range'
+    assert plan[2] == 'volume'
+    assert kwargs['time'] == 0.75
+
+    # single name, single
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'freq', 'time'],
+                                          chan='F3', freq='66.6% mass',
+                                          time=0.3)
+    assert plan[0] == 'spatial_name'
+    assert plan[1] == 'mass'
+    assert plan[2] == 'singular'
+    assert_allclose(kwargs['freq'], 0.666)
 
 
 def test_clusters():
