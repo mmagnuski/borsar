@@ -5,7 +5,7 @@ from .viz import plot_cluster_contribution, plot_cluster_chan
 from ._viz3d import plot_cluster_src
 from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
                     _ensure_correct_info, _handle_dims, _full_dimname,
-                    _prepare_dimindex_plan)
+                    _prepare_dimindex_plan, _update_plan, _find_mass_index)
 from .checks import (_clusters_safety_checks, _clusters_chan_vert_checks,
                      _check_dimnames_kwargs, _check_dimname_arg,
                      _check_description)
@@ -358,6 +358,7 @@ class Clusters(object):
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
+    # - [ ] change to use some parts of _find_mass_index (moved out)
     def get_contribution(self, cluster_idx=None, along=None, norm=True,
                          idx=None):
         '''
@@ -474,6 +475,7 @@ class Clusters(object):
         limits = list()
         for dim_idx in range(self.stat.ndim):
             if dim_idx in check_dims:
+                # use _find_mass_index_for_dim() !
                 dimname = self.dimnames[dim_idx]
                 mass = kwargs[dimname] if dimname in kwargs else retain_mass
                 contrib = self.get_contribution(cluster_idx, along=dimname,
@@ -539,29 +541,15 @@ class Clusters(object):
         _check_dimnames_kwargs(self, check_dimcoords=True, **kwargs)
         plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
         idx = _index_from_dim(self.dimnames, self.dimcoords, plan, **kwargs)
-
-        mass_dimnames = [name for idx, name in enumerate(self.dimnames)
-                         if plan[idx] in ['mass', 'volume']]
-        mass_indexing = {dimname: kwargs[dimname] for dimname in mass_dimnames}
+        plan, kwargs = _update_plan(self.dimnames, plan, kwargs,
+                                    select=retain_mass, ignore=ignore_dims)
 
         # when retain_mass is specified it is used to get ranges for
         # dimensions not addressed with kwargs
         # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
-            ignore_idx = (_handle_dims(self, ignore_dims)
-                          if ignore_dims is not None else list())
-            check_dims = [idx for idx, val in enumerate(plan)
-                          if (val is None or val == 'mass')
-                          and idx not in ignore_idx]
-
             # check cluster limits only for non-indexed dimensions
-            # TODO: idx arg may be unnecessary if I clean things up
-            if len(check_dims) > 0:
-                idx_mass = self.get_cluster_limits(
-                    cluster_idx, dims=check_dims, retain_mass=retain_mass,
-                    idx=idx, **mass_indexing)
-                idx = tuple([idx_mass[i] if i in check_dims else idx[i]
-                             for i in range(len(idx))])
+            idx = _find_mass_index(self, cluster_idx, plan, kwargs, idx)
         return idx
 
     # maybe rename to `plot mass`?
