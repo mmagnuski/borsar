@@ -419,11 +419,8 @@ class Clusters(object):
     # TODO: consider continuous vs discontinuous limits
     # TODO: consider merging more with get_index?
     # TODO: rename to `get_limits()`
-    # TODO: `idx` variable was ad-hoc and is not a good API choice
-    #       this will have to be cleaned-up, preferably when writing
-    #       an example on handling cluster limits
     def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           dims=None, idx=None, **kwargs):
+                           dims=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -478,8 +475,7 @@ class Clusters(object):
                 # use _find_mass_index_for_dim() !
                 dimname = self.dimnames[dim_idx]
                 mass = kwargs[dimname] if dimname in kwargs else retain_mass
-                contrib = self.get_contribution(cluster_idx, along=dimname,
-                                                idx=idx)
+                contrib = self.get_contribution(cluster_idx, along=dimname)
 
                 # current method - start at max and extend
                 adj = not (dim_idx == 0 and has_space)
