@@ -235,8 +235,8 @@ def _find_mass_index(clst, cluster_idx, plan, kwargs, idx):
 
     # update plan for dropped dimensions
     if stat_sel.ndim < n_dims:
-        this_plan = [pln for pln in plan if not pln == 'singular']
-        to_idx = [ix for ix in range(n_dims) if not pln == 'singular']
+        to_idx = [ix for ix in range(n_dims) if not plan[ix] == 'singular']
+        this_plan = [plan[ix] for ix in to_idx]
     else:
         this_plan = plan
         to_idx = list(range(n_dims))
