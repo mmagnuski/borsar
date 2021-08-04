@@ -218,6 +218,61 @@ def _handle_dims(clst, dims):
         return dim_idx
 
 
+# - [ ] consider unwrapping into two-three functions (for example selection
+#       with update for dropped dimensions)
+def _find_mass_index(clst, cluster_idx, plan, kwargs, idx):
+    # ignore if no mass/volume indices
+    is_mass = [pln in ['mass', 'volume'] for pln in plan]
+    if not any(is_mass):
+        return idx
+
+    # select stats and cluster mask
+    idx = list(idx)
+    n_dims = len(plan)
+    orig_idx = tuple(_clean_up_indices(idx.copy()))
+    stat_sel = clst.stat[orig_idx]
+    mask_sel = clst.clusters[cluster_idx][orig_idx]
+
+    # update plan for dropped dimensions
+    if stat_sel.ndim < n_dims:
+        this_plan = [pln for pln in plan if not pln == 'singular']
+        to_idx = [ix for ix in range(n_dims) if not pln == 'singular']
+    else:
+        this_plan = plan
+        to_idx = list(range(n_dims))
+
+    # find percentage range for each relevant dimension
+    for dim_idx, (pln, real_idx) in enumerate(zip(this_plan, to_idx)):
+        if is_mass[real_idx]:
+            dimname = clst.dimnames[real_idx]
+            mass_val = kwargs[dimname]
+            if_adjacent = not (real_idx == 0 and _is_spatial_dim(dimname))
+            found_range = _find_mass_index_for_dim(stat_sel, mask_sel, pln,
+                                                   mass_val, dim_idx,
+                                                   adjacent=if_adjacent)
+            idx[real_idx] = found_range
+
+    return tuple(idx)
+
+
+# - [ ] unwrap _get_contrib part?
+def _find_mass_index_for_dim(stat_sel, clst_sel, type, mass, dim_idx,
+                             adjacent=True):
+    n_dims = stat_sel.ndim
+    reduce_dims = list(range(n_dims))
+    reduce_dims.pop(dim_idx)
+
+    if type == 'volume':
+        contrib = clst_sel.sum(axis=tuple(reduce_dims))
+    elif type == 'mass':
+        contrib = (stat_sel * clst_sel).sum(axis=tuple(reduce_dims))
+    contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+
+    # curent method - start at max and extend
+    lims = _get_mass_range(contrib, mass, adjacent=adjacent)
+    return lims
+
+
 # TODO:
 # - [~] make sure dimensions are sorted according to ``ignore_dims``
 #       (this is done elsewhere - in plotting now, here it might not matter)
@@ -544,7 +599,7 @@ def _index_from_dim(dimnames, dimcoords, plan, **kwargs):
     idx = list()
     for dname, dcoord, planned in zip(dimnames, dimcoords, plan):
         # ignore dimensions that were not mentioned
-        if planned is None or planned in ['mass', 'vol']:
+        if planned is None or planned in ['mass', 'volume']:
             idx.append(slice(None))
             continue
         selection = kwargs.pop(dname)
@@ -666,28 +721,59 @@ def _check_singular_index(dimindex, dimname, msg_notfound, msg_spatial):
         else:
             return 'singular', val
     elif isinstance(dimindex, str):
-        pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
-        match = re.match(pat, dimindex)
-        if match is not None:
-            parts = match.groups()
-            plan = 'volume' if parts[-1] is not None else 'mass'
-            value = float(parts[0])
-            if value > 100. or value < 0.:
-                msg = ('The mass/volume percentage indexer has to be >= 0'
-                       ' and <= 100, got {}.').format(dimindex)
-                raise ValueError(msg)
-            val = value / 100
-            return plan, val
+        plan, perc_val = parse_percent_str_index(dimindex, throw_error=False)
+        if plan:
+            return plan, perc_val
         else:
             # TODO: could be a channel \ label name
             if _is_spatial_dim(dimname):
-                return 'spatial_name', val
+                plan, perc_val = parse_percent_str_index(dimindex,
+                                                         throw_error=False)
+                if plan:
+                    return plan, perc_val
+                else:
+                    return 'spatial_name', val
             else:
                 raise ValueError('String indexer has to be either a channel'
                                  ' name or volume/mass percentage (for '
                                  'example "50% vol"). Got {}'.format(dimindex))
     else:
         raise TypeError(msg_notfound.format(dimindex))
+
+
+def parse_percent_str_index(dimindex, throw_error=True):
+    pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
+    match = re.match(pat, dimindex)
+    if match is None:
+        if throw_error:
+            msg = 'Could not understand {} as a string percent indexer.'
+            raise ValueError(msg.format(dimindex))
+        else:
+            return False, None
+    parts = match.groups()
+    plan = 'volume' if parts[-1] is not None else 'mass'
+    value = float(parts[0])
+    if value > 100. or value < 0.:
+        msg = ('The mass/volume percentage indexer has to be >= 0'
+               ' and <= 100, got {}.').format(dimindex)
+        raise ValueError(msg)
+    value = value / 100
+    return plan, value
+
+
+def _update_plan(dimnames, plan, kwargs, select=0.65, ignore=None):
+    '''Update dimindex plan wrt default mass indexing and ignored dims.'''
+    ignore = list() if ignore is None else ignore
+    if isinstance(select, float):
+        sel_type, sel_value = 'mass', select
+    elif isinstance(select, str):
+        sel_type, sel_value = parse_percent_str_index(select)
+
+    for idx, (dimname, planned) in enumerate(zip(dimnames, plan)):
+        if planned is None and dimname not in ignore:
+            plan[idx] = sel_type
+            kwargs[dimname] = sel_value
+    return plan, kwargs
 
 
 def _clean_up_indices(idx):
