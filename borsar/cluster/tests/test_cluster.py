@@ -827,7 +827,7 @@ def test_cluster_ignore_dims():
     # (D) test that axes are inverted when dimension order is
     axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
     data = np.array(axs[0].images[0].get_array())
-    assert (clst.stat[5:7].mean(axis=0).T == data).all()
+    assert (clst.stat[ix].mean(axis=0).T == data).all()
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
     assert axs[0].get_ylabel() == 'Time (s)'
 
