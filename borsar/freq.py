@@ -111,13 +111,13 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                     raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
                     tmin=this_tmin, tmax=this_tmax, picks=picks, verbose=False)
 
-            psd_dict[event_type].append(this_psd)
-
             # compute percent of windows that do not overlap with artifacts
             # these constitute weights used in averaging
             weight = (valid_windows(raw, tmin=this_tmin, tmax=this_tmax,
                                     winlen=winlen, step=step)).mean()
-            psd_weights[event_type].append(weight)
+            if not weight == 0:
+                psd_dict[event_type].append(this_psd)
+                psd_weights[event_type].append(weight)
 
         # use np.average() with weights to compute wieghted average
         psd = {k: np.average(np.stack(psd_dict[k], axis=0),
