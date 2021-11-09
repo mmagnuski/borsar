@@ -22,9 +22,10 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     Parameters
     ----------
     data : numpy array
-        Matrix boolean array of shape ``(channels, dim2, dim3)``.
+        Boolean array of shape ``(n_channels, dim2, dim3)`` where ``dim2`` and
+        ``dim3`` are arbitrary dimensions.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
@@ -81,8 +82,8 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     # check channel neighbours and merge clusters across channels
     for ch1_idx in range(n_chan - 1):  # last chan will be already checked
         ch1_val = unrolled[ch1_idx]
-        ch1_whereidx = np.where(ch1_val)[0]
-        if len(ch1_whereidx) == 0:
+        ch1_where_idx = np.where(ch1_val)[0]
+        if len(ch1_where_idx) == 0:
             continue  # no clusters, no fun...
 
         # get unchecked neighbours
@@ -92,7 +93,7 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
 
             for ngb_idx in neighbours:
                 ch2_val = unrolled[ngb_idx]
-                for ind in ch1_whereidx:
+                for ind in ch1_where_idx:
                     if ch2_val[ind]:
                         # count number of adjacent channels for each point
                         if min_adj_ch > 0:
@@ -113,12 +114,23 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
+def _cluster_1d_or_2d_no_adj(data):
+    from skimage.measure import label
+    return label(data, connectivity=1, background=False)
+
+
 def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
     hasnb = False
     has_adjacency = adjacency is not None
-    if not has_adjacency or data.ndim not in [2, 3]:
+    if not has_adjacency:
+        if data.ndim < 3 and min_adj_ch == 0:
+            return _cluster_1d_or_2d_no_adj
+        else:
+            _borsar_clustering_error()
+
+    if data.ndim not in [2, 3]:
         _borsar_clustering_error()
     if backend in ['numba', 'auto']:
         hasnb = has_numba()
@@ -140,6 +152,8 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
         else:
             raise ValueError('Currently only "numba" backend can handle '
                              '2d data.')
+    elif data.ndim < 3 and not has_adjacency:
+        return _cluster_1d_or_2d_no_adj
 
 
 def _borsar_clustering_error():
@@ -177,7 +191,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         otherwise numpy is used. Default is ``'auto'`` which selects the
         relevant backend automatically.
     mne_reshape_clusters : bool, optional
-        When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
+        When ``backend`` is ``'mne'``: whether to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.
     min_adj_ch
