@@ -288,7 +288,8 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(pos_clusters)[1:]
+    cluster_id = np.unique(pos_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     pos_clusters = [pos_clusters == id for id in cluster_id]
     cluster_stats = [data[clst].sum() for clst in pos_clusters]
 
@@ -298,7 +299,8 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(neg_clusters)[1:]
+    cluster_id = np.unique(neg_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     neg_clusters = [neg_clusters == id for id in cluster_id]
     cluster_stats = np.array(cluster_stats + [data[clst].sum()
                                               for clst in neg_clusters])
