@@ -282,9 +282,15 @@ def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True):
+    if isinstance(threshold, list):
+        assert len(threshold) == 2
+        pos_threshold, neg_threshold = threshold
+    else:
+        pos_threshold, neg_threshold = threshold, -threshold
+
     # positive clusters
     # -----------------
-    pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
+    pos_clusters = cluster_fun(data > pos_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
@@ -295,7 +301,7 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 
     # negative clusters
     # -----------------
-    neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency,
+    neg_clusters = cluster_fun(data < neg_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
