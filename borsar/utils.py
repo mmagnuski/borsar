@@ -447,6 +447,7 @@ def download_test_data():
 
     # set up paths
     fname = 'temp_file.zip'
+    destination = op.join(data_dir, fname)
     download_link = ('https://www.dropbox.com/sh/l4scs37524lb3pa/'
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
 
@@ -457,7 +458,6 @@ def download_test_data():
         pooch.retrieve(url=download_link, known_hash=hash,
                        path=data_dir, fname=fname)
     else:
-        destination = op.join(data_dir, fname)
         _fetch_file(download_link, destination, print_destination=True,
                     resume=True, timeout=30.)
 
