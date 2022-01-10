@@ -432,7 +432,7 @@ def download_test_data():
     try:
         from mne.utils import _fetch_file
         use_pooch = False
-    except:
+    except ImportError:
         import pooch
         use_pooch = True
 
