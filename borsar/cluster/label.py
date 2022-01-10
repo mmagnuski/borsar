@@ -22,9 +22,10 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     Parameters
     ----------
     data : numpy array
-        Matrix boolean array of shape ``(channels, dim2, dim3)``.
+        Boolean array of shape ``(n_channels, dim2, dim3)`` where ``dim2`` and
+        ``dim3`` are arbitrary dimensions.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
@@ -81,8 +82,8 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     # check channel neighbours and merge clusters across channels
     for ch1_idx in range(n_chan - 1):  # last chan will be already checked
         ch1_val = unrolled[ch1_idx]
-        ch1_whereidx = np.where(ch1_val)[0]
-        if len(ch1_whereidx) == 0:
+        ch1_where_idx = np.where(ch1_val)[0]
+        if len(ch1_where_idx) == 0:
             continue  # no clusters, no fun...
 
         # get unchecked neighbours
@@ -92,7 +93,7 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
 
             for ngb_idx in neighbours:
                 ch2_val = unrolled[ngb_idx]
-                for ind in ch1_whereidx:
+                for ind in ch1_where_idx:
                     if ch2_val[ind]:
                         # count number of adjacent channels for each point
                         if min_adj_ch > 0:
@@ -113,12 +114,25 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
+def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
+    from skimage.measure import label
+    assert adjacency is None
+    assert min_adj_ch == 0
+    return label(data, connectivity=1, background=False)
+
+
 def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
     hasnb = False
     has_adjacency = adjacency is not None
-    if not has_adjacency or data.ndim not in [2, 3]:
+    if not has_adjacency:
+        if data.ndim < 3 and min_adj_ch == 0:
+            return _cluster_1d_or_2d_no_adj
+        else:
+            _borsar_clustering_error()
+
+    if data.ndim not in [2, 3]:
         _borsar_clustering_error()
     if backend in ['numba', 'auto']:
         hasnb = has_numba()
@@ -140,6 +154,8 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
         else:
             raise ValueError('Currently only "numba" backend can handle '
                              '2d data.')
+    elif data.ndim < 3 and not has_adjacency:
+        return _cluster_1d_or_2d_no_adj
 
 
 def _borsar_clustering_error():
@@ -177,7 +193,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         otherwise numpy is used. Default is ``'auto'`` which selects the
         relevant backend automatically.
     mne_reshape_clusters : bool, optional
-        When ``backend`` is ``'mne'``: wheteher to reshape clusters back to
+        When ``backend`` is ``'mne'``: whether to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.
     min_adj_ch
@@ -266,23 +282,31 @@ def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True):
+    if isinstance(threshold, list):
+        assert len(threshold) == 2
+        pos_threshold, neg_threshold = threshold
+    else:
+        pos_threshold, neg_threshold = threshold, -threshold
+
     # positive clusters
     # -----------------
-    pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
+    pos_clusters = cluster_fun(data > pos_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(pos_clusters)[1:]
+    cluster_id = np.unique(pos_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     pos_clusters = [pos_clusters == id for id in cluster_id]
     cluster_stats = [data[clst].sum() for clst in pos_clusters]
 
     # negative clusters
     # -----------------
-    neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency,
+    neg_clusters = cluster_fun(data < neg_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(neg_clusters)[1:]
+    cluster_id = np.unique(neg_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     neg_clusters = [neg_clusters == id for id in cluster_id]
     cluster_stats = np.array(cluster_stats + [data[clst].sum()
                                               for clst in neg_clusters])

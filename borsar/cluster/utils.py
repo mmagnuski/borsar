@@ -67,7 +67,7 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         for ch_idx, chan in enumerate(ch_names):
             ngb_ind = np.where(neighbours['label'] == chan)[0]
 
-            # safty checks:
+            # safety checks:
             if len(ngb_ind) == 0:
                 raise ValueError(('channel {} was not found in neighbours.'
                                   .format(chan)))
@@ -214,7 +214,7 @@ def _handle_dims(clst, dims):
 # TODO:
 # - [~] make sure dimensions are sorted according to ``ignore_dims``
 #       (this is done elsewhere - in plotting now, here it might not matter)
-# - [ ] beware of changing dimension order for some complex "facny index"
+# - [ ] beware of changing dimension order for some complex "fancy index"
 #       operations
 def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
                        mask_proportion=0.5, retain_mass=0.65, mask_sum=False,

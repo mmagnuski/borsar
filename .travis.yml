@@ -51,7 +51,7 @@ install:
   - conda install scikit-image
   - pip install codecov tqdm
   - if [ "${MNE_VERSION}" == "current" ]; then
-      pip install mne;
+      pip install mne pooch;
     fi
   - if [ "${MNE_VERSION}" == "0.21" ]; then
       pip install mne==0.21.2;
