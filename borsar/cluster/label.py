@@ -114,8 +114,15 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
+<<<<<<< HEAD
 def _cluster_1d_or_2d_no_adj(data):
     from skimage.measure import label
+=======
+def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
+    from skimage.measure import label
+    assert adjacency is None
+    assert min_adj_ch == 0
+>>>>>>> 933cb76708b9b73c12d73b90cc6e357489c7f63e
     return label(data, connectivity=1, background=False)
 
 
@@ -280,23 +287,31 @@ def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True):
+    if isinstance(threshold, list):
+        assert len(threshold) == 2
+        pos_threshold, neg_threshold = threshold
+    else:
+        pos_threshold, neg_threshold = threshold, -threshold
+
     # positive clusters
     # -----------------
-    pos_clusters = cluster_fun(data > threshold, adjacency=adjacency,
+    pos_clusters = cluster_fun(data > pos_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(pos_clusters)[1:]
+    cluster_id = np.unique(pos_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     pos_clusters = [pos_clusters == id for id in cluster_id]
     cluster_stats = [data[clst].sum() for clst in pos_clusters]
 
     # negative clusters
     # -----------------
-    neg_clusters = cluster_fun(data < -threshold, adjacency=adjacency,
+    neg_clusters = cluster_fun(data < neg_threshold, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
 
     # TODO - consider numba optimization of this part too:
-    cluster_id = np.unique(neg_clusters)[1:]
+    cluster_id = np.unique(neg_clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
     neg_clusters = [neg_clusters == id for id in cluster_id]
     cluster_stats = np.array(cluster_stats + [data[clst].sum()
                                               for clst in neg_clusters])

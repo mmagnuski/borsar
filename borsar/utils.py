@@ -316,7 +316,7 @@ def valid_windows(raw, tmin=None, tmax=None, winlen=2., step=1.):
     Returns
     -------
     valid : boolean numpy array
-        Whether the moving widnows overlap with annotations. Consecutive values
+        Whether the moving windows overlap with annotations. Consecutive values
         inform whether consecutive windows overlap with any annotation.
     '''
     # get and select bad annotations
@@ -429,7 +429,12 @@ def _get_test_data_dir():
 def download_test_data():
     '''Download additional test data from dropbox.'''
     import zipfile
-    from mne.utils import _fetch_file
+    try:
+        from mne.utils import _fetch_file
+        use_pooch = False
+    except ImportError:
+        import pooch
+        use_pooch = True
 
     # check if test data exist
     data_dir = _get_test_data_dir()
@@ -441,13 +446,20 @@ def download_test_data():
         return
 
     # set up paths
+    fname = 'temp_file.zip'
+    destination = op.join(data_dir, fname)
     download_link = ('https://www.dropbox.com/sh/l4scs37524lb3pa/'
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
-    destination = op.join(data_dir, 'temp_file.zip')
 
     # download the file
-    _fetch_file(download_link, destination, print_destination=True,
-                resume=True, timeout=30.)
+    if use_pooch:
+        hash = ('98bab9750844ab969c5a74deea9d041701d73f43dfe05465c'
+                '577a83d974064e8')
+        pooch.retrieve(url=download_link, known_hash=hash,
+                       path=data_dir, fname=fname)
+    else:
+        _fetch_file(download_link, destination, print_destination=True,
+                    resume=True, timeout=30.)
 
     # unzip and extract
     # TODO - optionally extract only the missing files
