@@ -114,15 +114,10 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
-<<<<<<< HEAD
-def _cluster_1d_or_2d_no_adj(data):
-    from skimage.measure import label
-=======
 def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     from skimage.measure import label
     assert adjacency is None
     assert min_adj_ch == 0
->>>>>>> 933cb76708b9b73c12d73b90cc6e357489c7f63e
     return label(data, connectivity=1, background=False)
 
 
