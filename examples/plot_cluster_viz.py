@@ -22,8 +22,9 @@ download_test_data()
 # Let's first create the info object:
 
 import mne
-mntg = mne.channels.read_montage('easycap-M1')
-info = mne.create_info(mntg.ch_names, sfreq=250., ch_types='eeg', montage=mntg)
+mntg = mne.channels.make_standard_montage('easycap-M1')
+info = mne.create_info(mntg.ch_names, sfreq=250., ch_types='eeg')
+info = info.set_montage(mntg)
 
 ###############################################################################
 # Now we read the file.

@@ -9,15 +9,24 @@ import os
 import os.path as op
 from setuptools import setup
 
+version = None
+with open('borsar/__init__.py', 'r') as fid:
+    for line in fid:
+        line = line.strip()
+        if line.startswith('__version__ = '):
+            version = line.split(' = ')[1].split('#')[0].strip('\'')
+            break
+if version is None:
+    raise RuntimeError('Could not determine version')
+
 
 DISTNAME = 'borsar'
 DESCRIPTION = "Tools for (mostly eeg) data analysis with mne-python."
 MAINTAINER = u'Mikołaj Magnuski'
 MAINTAINER_EMAIL = 'mmagnuski@swps.edu.pl'
 URL = 'https://github.com/mmagnuski/borsar'
-LICENSE = 'BSD (3-clause)'
+LICENSE = 'BSD-3-Clause'
 DOWNLOAD_URL = 'https://github.com/mmagnuski/borsar'
-VERSION = '0.1dev1'
 
 
 def package_tree(pkgroot):
@@ -37,7 +46,7 @@ if __name__ == "__main__":
           description=DESCRIPTION,
           license=LICENSE,
           url=URL,
-          version=VERSION,
+          version=version,
           download_url=DOWNLOAD_URL,
           long_description=open('README.md').read(),
           zip_safe=False,  # the package can run out of an .egg file

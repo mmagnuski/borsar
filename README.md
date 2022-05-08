@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/mmagnuski/borsar.svg?branch=master)](https://travis-ci.org/mmagnuski/borsar)
-[![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)   
+[![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)
 
 Various tools, objects and functions for EEG/MEG data analysis and visualisation. Some functionality that is available here may
 be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
@@ -14,7 +14,7 @@ be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
 
 
 ## Installation
-`borsar` is not yet released on `PPI` so to install you have to download it from Github using pip in the following way:
+`borsar` is not yet released on `PyPI` so to install you have to download it from GitHub using pip in the following way:
 ```
 pip install git+https://github.com/mmagnuski/borsar
 ```
@@ -29,5 +29,5 @@ python setup.py develop
 both methods require you to have [git](https://git-scm.com/) installed.
 
 ## Documentation
-Go to the [online documentation](https://mmagnuski.github.io/borsar.github.io/index.html) for more information about usage examples or full API docs.  
+Go to the [online documentation](https://mmagnuski.github.io/borsar.github.io/index.html) for more information about usage examples or full API docs.
 :construction: be warned that documentation is under contstruction :construction:

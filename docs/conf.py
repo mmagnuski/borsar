@@ -3,25 +3,25 @@
 # Configuration file for the Sphinx documentation builder.
 
 # import sphinx_gallery
+from datetime import date
+
 from numpydoc import docscrape
+import sphinx_bootstrap_theme
 
-
-# add custom styles
-def setup(app):
-    app.add_stylesheet("style.css")
+import borsar
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'borsar'
-copyright = '2018, Mikołaj Magnuski'
+_today = date.today()
+copyright = f'2018-{_today.year}, Mikołaj Magnuski. Last updated {_today.isoformat()}'
 author = 'Mikołaj Magnuski'
 
 # The short X.Y version
-version = '0.1'
+version = borsar.__version__
 # The full version, including alpha/beta/rc tags
-release = '0.1dev'
-
+release = version
 
 # -- General configuration ---------------------------------------------------
 
@@ -46,6 +46,13 @@ extensions = [
 
 # generate autosummary even if no references
 autosummary_generate = True
+
+# set autodoc
+autodoc_default_options = {
+    "members": True,
+    "inherited-members": True,
+    "show-inheritance": True,
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -74,6 +81,7 @@ pygments_style = None
 # a list of builtin themes.
 #
 html_theme = 'bootstrap'
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -88,6 +96,8 @@ html_theme_options = {
     ],
     'bootswatch_theme': "united"
 }
+
+html_templates_path = ['_templates']
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -161,27 +171,35 @@ epub_exclude_files = ['search.html']
 
 # configuration for intersphinx: refer to the Python standard library.
 # Example configuration for intersphinx: refer to the Python standard library.
-sns_link = 'https://web.stanford.edu/~mwaskom/software/seaborn/'
-intersphinx_mapping = {'python': ('https://docs.python.org/', None),
-                       'seaborn': (sns_link, None),
-                       'mne': ('http://martinos.org/mne/stable/', None)
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
+                       'mne': ('https://mne.tools/dev', None),
+                       'numpy': ('https://numpy.org/devdocs', None),
+                       'scipy': ('https://scipy.github.io/devdocs', None),
+                       'mayavi': (
+                           'http://docs.enthought.com/mayavi/mayavi',
+                           None),
                        }
 
 sphinx_gallery_conf = {
     'examples_dirs': '../examples',
     'gallery_dirs': 'auto_examples',
     'backreferences_dir': 'generated',
-    'reference_url': {
-        'mne': 'http://mne-tools.github.io/stable/',
-        'numpy': 'http://docs.scipy.org/doc/numpy-1.9.1',
-        'scipy': 'http://docs.scipy.org/doc/scipy-0.17.0/reference',
-        'mayavi': 'http://docs.enthought.com/mayavi/mayavi',
-        'borsar': 'http://borsar.github.io/'}
+    'reference_url': {  # noqa: E501 --> https://sphinx-gallery.github.io/stable/configuration.html#add-intersphinx-links-to-your-examples
+        'borsar': None
+    },
 }
 
 # -- numpydoc ----------------------------------------------------------------
 docscrape.ClassDoc.extra_public_methods = (
     '__getitem__', '__iter__', '__len__')
+numpydoc_show_class_members = False  # https://stackoverflow.com/a/34604043/5201771
 numpydoc_class_members_toctree = False
-numpydoc_attributes_as_param_list = False
 numpydoc_xref_param_type = True
+numpydoc_attributes_as_param_list = False
+numpydoc_xref_ignore = {
+    # words
+    "of",
+    "or",
+    "shape",
+    "optional",
+}

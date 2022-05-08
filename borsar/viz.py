@@ -33,8 +33,8 @@ class Topo(object):
         Topo object that exposes various useful methods like `remove_levels`
         or `mark_channels`.
 
-    Example
-    -------
+    Examples
+    --------
     topo = Topo(values, info, axis=ax)
     topo.remove_levels(0)
     topo.solid_lines()
@@ -204,8 +204,8 @@ class Topo(object):
             each should be updated independently by looping through the
             ``Topo`` object and using ``.update()`` on each element.
 
-        Example
-        -------
+        Examples
+        --------
         # single topography:
         topo = Topo(values, info)
         topo.update(other_values)
@@ -347,7 +347,7 @@ def _extract_topo_channels(ax):
         # if there are no circles: look for PathCollection
         path_collection = ax.findobj(mpl.collections.PathCollection)
         if len(path_collection) > 0:
-            chans = path_collection[0]
+            chans = path_collection[8]
             chan_pos = chans.get_offsets()
         else:
             msg = ('Could not find matplotlib objects representing channels. '
