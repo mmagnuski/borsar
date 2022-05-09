@@ -15,7 +15,8 @@ import borsar
 
 project = 'borsar'
 _today = date.today()
-copyright = f'2018-{_today.year}, Mikołaj Magnuski. Last updated {_today.isoformat()}'
+iso_date = _today.isoformat()
+copyright = f'2018-{_today.year}, Mikołaj Magnuski. Last updated {iso_date}'
 author = 'Mikołaj Magnuski'
 
 # The short X.Y version
@@ -192,7 +193,8 @@ sphinx_gallery_conf = {
 # -- numpydoc ----------------------------------------------------------------
 docscrape.ClassDoc.extra_public_methods = (
     '__getitem__', '__iter__', '__len__')
-numpydoc_show_class_members = False  # https://stackoverflow.com/a/34604043/5201771
+# https://stackoverflow.com/a/34604043/5201771
+numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
 numpydoc_xref_param_type = True
 numpydoc_attributes_as_param_list = False
