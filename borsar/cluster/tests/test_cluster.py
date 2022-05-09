@@ -613,8 +613,14 @@ def test_cluster_pvals_and_polarity_sorting():
 
 def test_chan_freq_clusters():
     from mne import create_info
-    from mne.externals import h5io
     import matplotlib.pyplot as plt
+
+    try:
+        # mne < 1.0
+        from mne.externals import h5io
+    except ModuleNotFoundError:
+        # mne > 1.0 requires separate installation of h5io
+        import h5io
 
     fname = op.join(data_dir, 'chan_alpha_range.hdf5')
     data_dict = h5io.read_hdf5(fname)

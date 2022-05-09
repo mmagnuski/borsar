@@ -33,7 +33,12 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     clst : Clusters
         Cluster results read from file.
     '''
-    from mne.externals import h5io
+    try:
+        # mne < 1.0
+        from mne.externals import h5io
+    except ModuleNotFoundError:
+        # mne > 1.0 requires separate installation of h5io
+        import h5io
     # subjects_dir = mne.utils.get_subjects_dir(subjects_dir, raise_error=True)
     data_dict = h5io.read_hdf5(fname)
     clst = Clusters(
@@ -187,14 +192,14 @@ class Clusters(object):
             which does not select clusters by p value.
         percentage_in : None | float
             Select clusters by percentage participation in range of the data
-            space specified in **kwargs. For example
+            space specified in ``**kwargs``. For example
             ``clst.select(percentage_in=0.15, freq=(3, 7))`` selects only those
             clusters that have at least 15% of their mass in 3 - 7 Hz frequency
             range. Defaults to None which does not select clusters by their
             participation in data space.
         n_points_in : None | int
             Select clusters by number of their minimum number of data points
-            that lie in the range of the data specified in **kwargs. For
+            that lie in the range of the data specified in ``**kwargs``. For
             example `clst.select(n_points_in=25, time=[0.2, 0.35])` selects
             only those clusters that contain at least 25 points within
             0.2 - 0.35 s time range. Defaults to None which does not select
@@ -225,8 +230,8 @@ class Clusters(object):
             ``percentage_in`` or ``n_points_in``. Otherwise ``*kwargs`` are
             ignored.
 
-        Return
-        ------
+        Returns
+        -------
         clst : borsar.cluster.Clusters
             Selected clusters.
         '''
@@ -341,7 +346,12 @@ class Clusters(object):
             Additional description added when saving. When passed overrides
             the description parameter of Clusters.
         '''
-        from mne.externals import h5io
+        try:
+            # mne < 1.0
+            from mne.externals import h5io
+        except ModuleNotFoundError:
+            # mne > 1.0 requires separate installation of h5io
+            import h5io
 
         if description is None:
             description = self.description

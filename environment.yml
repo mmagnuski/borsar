@@ -1,4 +1,4 @@
-name: base
+name: borsar
 channels:
 - defaults
 dependencies:
@@ -27,3 +27,5 @@ dependencies:
   - neo
   - pydocstyle
   - codespell
+  - sphinx_gallery
+  - sphinx_bootstrap_theme

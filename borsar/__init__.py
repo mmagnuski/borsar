@@ -1,3 +1,5 @@
+__version__ = '0.1.dev1'
+
 from borsar import (channels, cluster, csd, freq, project, stats, utils, viz)
 
 from borsar.cluster import Clusters, find_clusters, read_cluster

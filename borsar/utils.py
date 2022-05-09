@@ -118,8 +118,14 @@ def write_info(fname, info, overwrite=False):
     """
     from .channels import get_ch_pos
     from mne.utils import _validate_type
-    from mne.externals import h5io
     from mne.io.pick import channel_indices_by_type
+
+    try:
+        # mne < 1.0
+        from mne.externals import h5io
+    except ModuleNotFoundError:
+        # mne > 1.0 requires separate installation of h5io
+        import h5io
 
     # make sure the types are correct
     _validate_type(fname, 'str', item_name='fname')
@@ -156,10 +162,17 @@ def read_info(fname):
         Info object read from file.
     """
     import mne
+    try:
+        # mne < 1.0
+        from mne.externals import h5io
+    except ModuleNotFoundError:
+        # mne > 1.0 requires separate installation of h5io
+        import h5io
+
     mne.utils._validate_type(fname, 'str', item_name='fname')
 
     # read file
-    data_dict = mne.externals.h5io.read_hdf5(fname)
+    data_dict = h5io.read_hdf5(fname)
     ch_names = data_dict['ch_names']
 
     # parse ch_type
@@ -453,8 +466,7 @@ def download_test_data():
 
     # download the file
     if use_pooch:
-        hash = ('98bab9750844ab969c5a74deea9d041701d73f43dfe05465c'
-                '577a83d974064e8')
+        hash = ('d88b76a6af113f9faefe4ce616ad17cf0a7fbc99f3febdcebfb2b1580eaaaa62')  # noqa: E501
         pooch.retrieve(url=download_link, known_hash=hash,
                        path=data_dir, fname=fname)
     else:
