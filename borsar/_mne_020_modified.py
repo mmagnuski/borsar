@@ -4,6 +4,8 @@ from mne.viz.topomap import _plot_topomap
 
 from packaging import version
 has_0_21 = version.parse(mne.__version__) >= version.parse('0.21.dev0')
+has_1_1 = version.parse(mne.__version__) >= version.parse('1.1.dev0')
+
 _BORDER_DEFAULT = 'mean'
 _EXTRAPOLATE_DEFAULT = 'head' if has_0_21 else 'box'
 
@@ -22,7 +24,15 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
     (docs as in mne)
     """
     sphere = _check_sphere(sphere)
-    if has_0_21:
+    if has_1_1:
+        if image_interp == 'bilinear':
+            image_interp = 'cubic'
+        return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
+                        names, show_names, mask, mask_params, outlines,
+                        contours, image_interp, show, onselect,
+                        extrapolate, sphere=sphere, border=border,
+                        ch_type=ch_type)
+    elif has_0_21:
         return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
                              names, show_names, mask, mask_params, outlines,
                              contours, image_interp, show, onselect,
