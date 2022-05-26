@@ -25,9 +25,9 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     subjects_dir : str, optional
         Path to Freesurfer subjects directory.
     src : mne.SourceSpaces, optional
-        Source space that the results are reprseneted in.
+        Source space that the results are represented in.
     info : mne.Info, optional
-        Channel space that the results are respresented in.
+        Channel space that the results are represented in.
 
     Returns
     -------
@@ -50,7 +50,7 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 #      - [x] make clusters and pvals keyword
 #            * clusters=None and pvals=None by default
 #      - [x] change order to stat, clusters, pvals
-#      - [ ] sometine: make only stat necessary
+#      - [ ] sometime: make only stat necessary
 #      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
     '''
@@ -65,9 +65,9 @@ class Clusters(object):
         space).
     clusters : list of boolean ndarrays | boolean ndarray
         List of boolean masks - one per cluster. The masks should match the
-        dimensions of the `stat` ndarray. Each mask descirbes which elements
+        dimensions of the `stat` ndarray. Each mask describes which elements
         are members of given cluster. Alternatively - one boolean array where
-        first dimension corresponds to consevutive clusters. When no clusters
+        first dimension corresponds to consecutive clusters. When no clusters
         were found this can be an empty numpy array, an empty list or None.
     pvals : list or array of float
         List/array of p values corresponding to consecutive clusters in
@@ -76,9 +76,9 @@ class Clusters(object):
     dimnames : list of str, optional
         List of dimension names. For example ``['chan', 'freq']`` or ``['vert',
         'time']``. The length of `dimnames` has to mach ``stat.ndim``.
-        If 'chan' dimname is given, you also need to provide ``mne.Info``
+        If 'chan' dimension name is given, you also need to provide ``mne.Info``
         corresponding to the channels via ``info`` keyword argument.
-        If ``'vert'`` dimname is given, you also need to provide
+        If ``'vert'`` dimension name is given, you also need to provide
         ``mne.SourceSpaces`` via ``src`` keyword argument. You also have to
         specify ``subject`` and ``subjects_dir`` via respective keyword
         arguments.
@@ -98,10 +98,10 @@ class Clusters(object):
         space then the ``dimcoords`` should specify vertex indices with respect
         to the provided ``src`` (``mne.SourceSpaces``). These indices have to
         be with respect to vertices used in the source space, not all possible
-        vertices present in the original brain model. Becasue of that filling
+        vertices present in the original brain model. Because of that filling
         ``dimcoords`` with vertex indices should only be used when the analysis
-        was not conducted on the whole ``src`` space, but on subselection of
-        vertices (for example: only frontal regions). Ohterwise ``dimcoords``
+        was not conducted on the whole ``src`` space, but on sub-selection of
+        vertices (for example: only frontal regions). Otherwise ``dimcoords``
         corresponding to ``'vert'`` dimension can be left as ``None``.
     info : mne.Info, optional
         When using channel space ('chan' is one of the dimnames) you need to
@@ -116,8 +116,8 @@ class Clusters(object):
         given subject).
     subjects_dir : str, optional
         When using source space ('vert' is one of the dimnames) you need to
-        pass a Freesurfer subjects directory (path to the folder contraining
-        subjects as subfolders).
+        pass a Freesurfer subjects directory (path to the folder constraining
+        subjects as sub-folders).
     description : str | dict, optional
         Optional description of the Clusters - for example analysis parameters
         and some other additional details.
@@ -146,11 +146,11 @@ class Clusters(object):
                 pvals = np.asarray(pvals)
 
                 # sort by p values if necessary
-                psort = np.argsort(pvals)
-                if not (psort == np.arange(pvals.shape[0])).all():
-                    clusters = clusters[psort]
-                    pvals = pvals[psort]
-                    self.polarity = [self.polarity[idx] for idx in psort]
+                pval_sort = np.argsort(pvals)
+                if not (pval_sort == np.arange(pvals.shape[0])).all():
+                    clusters = clusters[pval_sort]
+                    pvals = pvals[pval_sort]
+                    self.polarity = [self.polarity[idx] for idx in pval_sort]
 
         # create attributes
         self.subjects_dir = subjects_dir
@@ -397,15 +397,15 @@ class Clusters(object):
         dim_idx = _check_dimname_arg(self, along)
 
         # one line for each cluster
-        alldims = list(range(self.stat.ndim + 1))
-        alldims.remove(0)
-        alldims.remove(dim_idx + 1)
+        all_dims = list(range(self.stat.ndim + 1))
+        all_dims.remove(0)
+        all_dims.remove(dim_idx + 1)
 
         clst = self.clusters[cluster_idx]
         if idx is not None:
             clst = clst[(slice(None),) + idx]
 
-        contrib = clst.sum(axis=tuple(alldims))
+        contrib = clst.sum(axis=tuple(all_dims))
         if norm:
             contrib = contrib / contrib.sum(axis=-1, keepdims=True)
 
@@ -432,7 +432,7 @@ class Clusters(object):
             Cluster index to find limits of.
         retain_mass : float
             Percentage of cluster mass to retain in cluster limits for
-            dimensions not specified with keyword arugments (see `kwargs`).
+            dimensions not specified with keyword arguments (see `kwargs`).
             Defaults to 0.65.
         dims : list-like of int | list-like of str | None, optional
             Which dimensions to check. Defaults to None which checks all
@@ -478,7 +478,7 @@ class Clusters(object):
                 contrib = self.get_contribution(cluster_idx, along=dimname,
                                                 idx=idx)
 
-                # curent method - start at max and extend
+                # current method - start at max and extend
                 adj = not (dim_idx == 0 and has_space)
                 lims = _get_mass_range(contrib, mass, adjacent=adj)
                 limits.append(lims)
@@ -496,8 +496,8 @@ class Clusters(object):
         ----------
         cluster_idx : int | None, optional
             Cluster index to use when calculating index. Dimensions that are
-            not adressed using range keyword arguments will be sliced by
-            maximizing cluster mass along that dimnensions with mass to retain
+            not addressed using range keyword arguments will be sliced by
+            maximizing cluster mass along that dimensions with mass to retain
             given either in relevant keyword argument or if not such keyword
             argument `retain_mass` value is used. See `kwargs`.
         ignore_dims : str | list of str | None
@@ -506,7 +506,7 @@ class Clusters(object):
             including the whole extent for given dimension). ``None`` defaults
             to the spatial dimension.
         retain_mass : float, optional
-            If cluster_idx is passed then dimensions not adressed using keyword
+            If cluster_idx is passed then dimensions not addressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
             The default value is 0.65. See `kwargs`.
         **kwargs : additional arguments
@@ -546,7 +546,7 @@ class Clusters(object):
                               **normal_indexing)
 
         # when retain_mass is specified it is used to get ranges for
-        # dimensions not adressed with kwargs
+        # dimensions not addressed with kwargs
         # FIXME - error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             check_dims = [idx for idx, val in enumerate(idx)
@@ -660,7 +660,7 @@ class Clusters(object):
 
     @property
     def cluster_polarity(self):
-        """Just for the deprecation period - returns ploarity of clusters."""
+        """Just for the deprecation period - returns polarity of clusters."""
         warnings.warn('``Clusters.cluster_polarity`` is now ``Clusters.pola'
                       'rity``. ``.cluster_polarity`` will be deprecated.',
                       DeprecationWarning)
