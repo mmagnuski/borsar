@@ -433,6 +433,19 @@ def has_numba():
         return False
 
 
+def import_hdf5():
+    """Import h5py module if available."""
+    try:
+        # mne < 1.0
+        from mne.externals import h5io
+        h5io.read_hdf5
+    except (ModuleNotFoundError, AttributeError):
+        # mne > 1.0 requires separate installation of h5io
+        import h5io
+
+    return h5io
+
+
 def _get_test_data_dir():
     '''Get test data directory.'''
     from . import __path__ as borsar_dir
