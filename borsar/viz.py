@@ -347,7 +347,10 @@ def _extract_topo_channels(ax):
         # if there are no circles: look for PathCollection
         path_collection = ax.findobj(mpl.collections.PathCollection)
         if len(path_collection) > 0:
-            chans = path_collection[8]
+            n_points = [path.get_offsets().shape[0]
+                        for path in path_collection]
+            chan_idx = np.argmax(n_points)
+            chans = path_collection[chan_idx]
             chan_pos = chans.get_offsets()
         else:
             msg = ('Could not find matplotlib objects representing channels. '
