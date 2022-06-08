@@ -139,6 +139,10 @@ class Topo(object):
             for line in topo.lines.collections:
                 line.set_linestyle(*args, **kwargs)
 
+        # changing linestyle to solid often goes without changes in interactive
+        # mode, we have to force a redraw:
+        self.fig.canvas.draw()
+
     # TODO: keywords: contours=x, outline=y,
     def set_linewidth(self, contours=None, outline=None):
         '''
@@ -313,6 +317,7 @@ class Topo(object):
 
     def _check_axes(self, kwargs):
         '''Handle axes checking for Topo.'''
+
         # handle multiple axes
         self.multi_axes = self.values.ndim > 1 and self.values.shape[1] > 1
         if self.multi_axes:
