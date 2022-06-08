@@ -193,6 +193,34 @@ class Topo(object):
                 **default_marker)[0]
             topo.marks.append(this_marks)
 
+    def zoom(self, xlim=None, ylim=None):
+        '''Change the x and y limits of the topography image.
+
+        Takes care of line clipping after changing limits.
+
+        Parameters
+        ----------
+        xlim : tuple
+            New x-axis limits. Defaults to ``None``, which does not change the
+            x-axis limits.
+        ylim : tuple
+            New y-axis limits. Defaults to ``None``, which does not change the
+            y-axis limits.
+        '''
+        if xlim is not None and ylim is None:
+            return
+
+        for topo in self:
+            ax = topo.axes
+            if xlim is not None:
+                ax.set_xlim(xlim)
+            if ylim is not None:
+                ax.set_ylim(ylim)
+
+            if hasattr(topo, 'head'):
+                [line.set_clip_on(True) for line in topo.head]
+            [line.set_clip_on(True) for line in topo.lines]
+
     def update(self, values):
         '''
         Change data presented in the topography. Useful especially in
