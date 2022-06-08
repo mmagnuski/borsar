@@ -140,18 +140,26 @@ class Topo(object):
                 line.set_linestyle(*args, **kwargs)
 
     # TODO: keywords: contours=x, outline=y,
-    def set_linewidth(self, lw):
+    def set_linewidth(self, contours=None, outline=None):
         '''
         Set contour lines line width.
 
         Parameters
         ----------
-        lw : int | float
-            Desired line width of the contour lines.
+        contours : None | int | float
+            Desired line width of the contour lines. The contour line width
+            is not changed if ``None``. Defaults to ``None``.
+        outline : None | int | float
+            Desired line width of the head outline. The outline line width is
+            not changed if ``None``. Defaults to ``None``.
         '''
         for topo in self:
-            for line in topo.lines.collections:
-                line.set_linewidths(lw)
+            if contours is not None:
+                for line in topo.lines.collections:
+                    line.set_linewidths(contours)
+            if outline is not None:
+                for line in topo.head:
+                    line.set_linewidth(outline)
 
     def mark_channels(self, chans, **kwargs):
         '''
