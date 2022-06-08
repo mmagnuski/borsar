@@ -76,7 +76,7 @@ class Topo(object):
             kwargs.pop('axes')
 
         # plot using mne's `plot_topomap`
-        im, lines, chans = list(), list(), list()
+        im, lines, chans, head = list(), list(), list(), list()
 
         for topo_idx in range(self.n_topos):
             this_im, this_lines, interp = plot_topomap(
@@ -85,16 +85,19 @@ class Topo(object):
 
             # get channel objects and channel positions from topo
             this_chans, chan_pos = _extract_topo_channels(this_im.axes)
+            head_lines = self.axes[topo_idx].findobj(plt.Line2D)[:4]
 
             im.append(this_im)
             lines.append(this_lines)
             chans.append(this_chans)
+            head.append(head_lines)
 
         self.chan_pos = chan_pos
         self.interpolator = interp
         self.mask_patch = this_im.get_clip_path()
         self.chan = chans if self.multi_axes else chans[0]
         self.img = im if self.multi_axes else im[0]
+        self.head = head if self.multi_axes else head[0]
         self.lines = lines if self.multi_axes else lines[0]
         self.marks = [list() for idx in range(self.n_topos)]
         self.fig = im[0].figure if isinstance(im, list) else im.figure
@@ -145,6 +148,7 @@ class Topo(object):
             for line in topo.lines.collections:
                 line.set_linestyle(*args, **kwargs)
 
+    # TODO: keywords: contours=x, outline=y,
     def set_linewidth(self, lw):
         '''
         Set contour lines line width.
@@ -271,6 +275,7 @@ class Topo(object):
 
         if self.multi_axes:
             topo.img = topo.img[self._current]
+            topo.head = topo.head[self._current]
             topo.chan = topo.chan[self._current]
             topo.lines = topo.lines[self._current]
             topo.marks = topo.marks[self._current]
@@ -361,6 +366,7 @@ def _extract_topo_channels(ax):
     return chans, chan_pos
 
 
+# REMOVE - no longer needed with extrapolate='local'
 def _infer_topo_part(info):
     """Infer whether a specific part of the topography should be shown.
 
@@ -391,6 +397,7 @@ def _infer_topo_part(info):
     return side
 
 
+# REMOVE - no longer needed with extrapolate='local'
 def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
     from mne.viz.topomap import _find_topomap_coords
