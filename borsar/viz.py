@@ -366,6 +366,7 @@ def _extract_topo_channels(ax):
     return chans, chan_pos
 
 
+# REMOVE - no longer needed with extrapolate='local'
 def _infer_topo_part(info):
     """Infer whether a specific part of the topography should be shown.
 
@@ -396,6 +397,7 @@ def _infer_topo_part(info):
     return side
 
 
+# REMOVE - no longer needed with extrapolate='local'
 def _construct_topo_part(info, part, kwargs):
     """Mask part of the topography."""
     from mne.viz.topomap import _find_topomap_coords
