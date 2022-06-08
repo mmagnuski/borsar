@@ -105,7 +105,7 @@ class Topo(object):
 
     def remove_levels(self, lvl):
         '''
-        Remove countour lines at specified levels.
+        Remove contour lines at specified levels.
 
         Parameters
         ----------
@@ -147,7 +147,7 @@ class Topo(object):
 
     def set_linewidth(self, lw):
         '''
-        Set contour lines linewidth.
+        Set contour lines line width.
 
         Parameters
         ----------
@@ -198,7 +198,7 @@ class Topo(object):
 
         Parameters
         ----------
-        values : umpy array
+        values : numpy array
             Values to plot topographically. Has to be of shape
             ``(n_channels,)``. If ``Topo`` contains multiple topographies
             each should be updated independently by looping through the
@@ -225,7 +225,7 @@ class Topo(object):
                                       ' Topo and use .update() on each element'
                                       ' independently.')
 
-        # FIXME - topo.update() is not particularily fast, profile later
+        # FIXME - topo.update() is not particularly fast, profile later
         interp = self.interpolator
         new_image = interp.set_values(values)()
         self.img.set_data(new_image)
@@ -241,7 +241,7 @@ class Topo(object):
                                        n_contours, colors='k',
                                        linewidths=linewidth / 2.)
 
-        # reapply clipping to the countours
+        # reapply clipping to the contours
         patch = self.mask_patch
         for l in self.lines.collections:
             l.set_clip_path(patch)
@@ -308,8 +308,8 @@ class Topo(object):
             if self.multi_axes:
                 # create a row of topographies
                 n_per_topo = 2.5
-                figsize = (n_per_topo * self.n_topos, n_per_topo)
-                fig, axes = plt.subplots(ncols=self.n_topos, figsize=figsize)
+                fig_size = (n_per_topo * self.n_topos, n_per_topo)
+                fig, axes = plt.subplots(ncols=self.n_topos, figsize=fig_size)
                 self.axes = axes.tolist()
             else:
                 fig, axes = plt.subplots()
