@@ -7,6 +7,9 @@ from ._heatmap import heatmap
 from ._vizutils import add_colorbar_to_axis, color_limits
 
 
+# * add possibility to index topo object
+# * loop + tp.marks[0].set_markersize(4) -> method?
+
 # CONSIDER:
 # - [ ] save vmin and vmax and let modify?
 class Topo(object):
