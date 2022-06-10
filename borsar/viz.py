@@ -214,7 +214,7 @@ class Topo(object):
             New y-axis limits. Defaults to ``None``, which does not change the
             y-axis limits.
         '''
-        if xlim is not None and ylim is None:
+        if xlim is None and ylim is None:
             return
 
         for topo in self:
