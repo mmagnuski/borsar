@@ -171,7 +171,7 @@ def _borsar_clustering_error():
                      'cency matrix for the spatial dimension.')
 
 
-# TODO : add tail=0 to control for tail selection
+# TODO : add tail=0 to control for tail selection! or 'pos', 'neg' and 'both'
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
                   backend='auto', mne_reshape_clusters=True, min_adj_ch=0):
     """Find clusters in data array given cluster membership threshold and
@@ -199,7 +199,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         When ``backend`` is ``'mne'``: whether to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.
-    min_adj_ch
+    min_adj_ch : int
         Number of minimum adjacent channels/vertices above ``threshold`` for
         given point to be included in a cluster.
 
@@ -222,11 +222,15 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 
 def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
     '''Prepare clustering - perform checks and create necessary variables.'''
-    # FIXME - some these lines should be put in _get_cluster_fun
+
+    # TODO: check - 2d only in mne is no longer true
+    #               ... or is 2d possible only in numba?
+    # FIXME - maybe some of these lines should be put in _get_cluster_fun?
     if cluster_fun is None and backend == 'auto':
         if data.ndim < 3:
             backend = 'auto' if has_numba() else 'mne'
 
+    # TODO: check - this is no longer true...
     if data.ndim < 3 and min_adj_ch > 0:
         if backend not in ['auto', 'numba']:
             raise ValueError('currently ``min_adj_ch`` is implemented only for'
@@ -263,6 +267,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
         return _find_clusters_borsar, adjacency, cluster_fun
 
 
+# TODO: describe the ``full`` argument better
 def _find_clusters_mne(data, threshold, adjacency, arg_name, min_adj_ch=0,
                        full=True):
     from mne.stats.cluster_level import (
