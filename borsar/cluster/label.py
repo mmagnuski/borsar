@@ -241,8 +241,6 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
                         filter_fun=None, filter_fun_post=None):
     '''Prepare clustering - perform checks and create necessary variables.'''
 
-    # TODO: check - 2d only in mne is no longer true
-    #               ... or is 2d possible only in numba?
     # FIXME - maybe some of these lines should be put in _get_cluster_fun?
     if cluster_fun is None and backend == 'auto':
         if data.ndim < 3:
@@ -250,11 +248,10 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
         if filter_fun is not None or filter_fun_post is not None:
             backend = 'auto'
 
-    # TODO: check - this is no longer true...
     if data.ndim < 3 and min_adj_ch > 0:
         if backend not in ['auto', 'numba']:
-            raise ValueError('currently ``min_adj_ch`` is implemented only for'
-                             ' 3d clustering.')
+            raise ValueError('currently ``min_adj_ch`` for 2d clustering'
+                             'is implemented only for the numba backend.')
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
