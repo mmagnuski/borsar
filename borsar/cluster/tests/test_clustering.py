@@ -266,16 +266,15 @@ def test_2d_numba_clustering_with_min_adj():
     '''Test 2d numba clustering when min_adj_ch is specified.'''
 
     data = np.array([[1, 0, 0, 1, 1],
-                    [1, 0, 0, 1, 1],
-                    [1, 1, 1, 1, 1]])
+                     [1, 0, 0, 1, 1],
+                     [1, 1, 1, 1, 1]])
     adjacency = np.array([[False, True, False],
-                        [True, False, True],
-                        [False, True, False]])
+                          [True, False, True],
+                          [False, True, False]])
 
     # find clusters
     clusters, cluster_stats = find_clusters(
         data.copy(), threshold=0.5, adjacency=adjacency, min_adj_ch=1)
-
 
     assert len(clusters) == 2
     # first cluster - first column
