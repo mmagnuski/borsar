@@ -262,6 +262,35 @@ def test_3d_clustering_with_min_adj_ch():
         assert any([(masks_numba[1] == m).all() for m in masks])
 
 
+def test_2d_numba_clustering_with_min_adj():
+    '''Test 2d numba clustering when min_adj_ch is specified.'''
+
+    data = np.array([[1, 0, 0, 1, 1],
+                    [1, 0, 0, 1, 1],
+                    [1, 1, 1, 1, 1]])
+    adjacency = np.array([[False, True, False],
+                        [True, False, True],
+                        [False, True, False]])
+
+    # find clusters
+    clusters, cluster_stats = find_clusters(
+        data.copy(), threshold=0.5, adjacency=adjacency, min_adj_ch=1)
+
+
+    assert len(clusters) == 2
+    # first cluster - first column
+    assert clusters[0][:, 0].all()
+    # ... and nothing else
+    assert not clusters[0][:, 1:].any()
+    # second cluster - two last columns
+    assert clusters[1][:, 3:].all()
+    # ... and nothing else
+    assert not clusters[1][:, :3].any()
+
+    assert cluster_stats[0] == 3
+    assert cluster_stats[1] == 6
+
+
 def test_get_cluster_fun():
     from borsar.cluster.label import _get_cluster_fun
 
