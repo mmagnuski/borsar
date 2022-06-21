@@ -173,7 +173,8 @@ def _borsar_clustering_error():
 
 # TODO : add tail=0 to control for tail selection! or 'pos', 'neg' and 'both'
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
-                  backend='auto', mne_reshape_clusters=True, min_adj_ch=0):
+                  backend='auto', mne_reshape_clusters=True, min_adj_ch=0,
+                  filter_fun=None, filter_fun_post=None):
     """Find clusters in data array given cluster membership threshold and
     optionally adjacency matrix.
 
@@ -202,6 +203,19 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     min_adj_ch : int
         Number of minimum adjacent channels/vertices above ``threshold`` for
         given point to be included in a cluster.
+    filter_fun : callable | None
+        Additional filtering to perform on the boolean mask before clustering.
+        Must be a function that receives a boolean matrix and adjacency and
+        returns filtered clusters. Can be used for example to remove "pixels"
+        that have less than N other neighboring pixels (irrespective of
+        ``min_adj_ch``).
+    filter_fun_post : callable | None
+        Additional filtering to perform on the identified clusters. Must be a
+        function that receives cluster ID matrix and adjacency and returns
+        the filtered clusters. Can be used for example to automatically reject
+        clusters that do not overlap sufficiently with channels of interest or
+        that overlap with a known high variance space in the search space that
+        is not of interest.
 
     Returns
     -------
@@ -213,14 +227,18 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         Array with cluster statistics - usually sum of cluster members' values.
     """
     find_func, adjacency, add_arg = _prepare_clustering(
-        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
+        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch,
+        filter_fun=filter_fun, filter_fun_post=filter_fun_post)
     clusters, cluster_stats = find_func(
-        data, threshold, adjacency, add_arg, min_adj_ch=min_adj_ch, full=True)
+        data, threshold, adjacency, add_arg, min_adj_ch=min_adj_ch, full=True,
+        filter_fun=filter_fun, filter_fun_post=filter_fun_post)
 
     return clusters, cluster_stats
 
 
-def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
+# TODO: backend auto option should be better!
+def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
+                        filter_fun=None, filter_fun_post=None):
     '''Prepare clustering - perform checks and create necessary variables.'''
 
     # TODO: check - 2d only in mne is no longer true
@@ -229,6 +247,8 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
     if cluster_fun is None and backend == 'auto':
         if data.ndim < 3:
             backend = 'auto' if has_numba() else 'mne'
+        if filter_fun is not None or filter_fun_post is not None:
+            backend = 'auto'
 
     # TODO: check - this is no longer true...
     if data.ndim < 3 and min_adj_ch > 0:
@@ -269,7 +289,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
 
 # TODO: describe the ``full`` argument better
 def _find_clusters_mne(data, threshold, adjacency, arg_name, min_adj_ch=0,
-                       full=True):
+                       full=True, filter_fun=None, filter_fun_post=None):
     from mne.stats.cluster_level import (
         _find_clusters, _cluster_indices_to_mask)
 
@@ -289,7 +309,8 @@ def _find_clusters_mne(data, threshold, adjacency, arg_name, min_adj_ch=0,
 
 
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
-                          min_adj_ch=0, full=True):
+                          min_adj_ch=0, full=True, filter_fun=None,
+                          filter_fun_post=None):
     if isinstance(threshold, list):
         assert len(threshold) == 2
         pos_threshold, neg_threshold = threshold
@@ -298,8 +319,13 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 
     # positive clusters
     # -----------------
-    pos_clusters = cluster_fun(data > pos_threshold, adjacency=adjacency,
+    pos_mask = data > pos_threshold
+    if filter_fun is not None:
+        pos_mask = filter_fun(pos_mask, adjacency=adjacency)
+    pos_clusters = cluster_fun(pos_mask, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
+    if filter_fun_post is not None:
+        pos_clusters = filter_fun_post(pos_clusters, adjacency=adjacency)
 
     # TODO - consider numba optimization of this part too:
     cluster_id = np.unique(pos_clusters)
@@ -309,8 +335,13 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 
     # negative clusters
     # -----------------
-    neg_clusters = cluster_fun(data < neg_threshold, adjacency=adjacency,
+    neg_mask = data < neg_threshold
+    if filter_fun is not None:
+        neg_mask = filter_fun(neg_mask, adjacency=adjacency)
+    neg_clusters = cluster_fun(neg_mask, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
+    if filter_fun_post is not None:
+        neg_clusters = filter_fun_post(neg_clusters, adjacency=adjacency)
 
     # TODO - consider numba optimization of this part too:
     cluster_id = np.unique(neg_clusters)
