@@ -280,7 +280,7 @@ def test_get_cluster_fun():
         with pytest.raises(ValueError, match=expected_msg):
             _get_cluster_fun(data, adj, backend='numba')
 
-    expected_msg = 'only for three- and two-dimensional data'
+    expected_msg = 'Numba backend requires an adjacency matrix.'
     with pytest.raises(ValueError, match=expected_msg):
         _get_cluster_fun(data, backend='numba')
 
