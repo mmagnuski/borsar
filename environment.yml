@@ -4,7 +4,7 @@ channels:
 dependencies:
 - python>=3.8
 - pip
-- mkl
+- mkl=2020.2
 - numpy
 - scipy
 - matplotlib
