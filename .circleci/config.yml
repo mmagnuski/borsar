@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: continuumio/miniconda3
+      - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       USE_NUMBA: "yes"
     steps:
