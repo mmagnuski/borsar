@@ -390,9 +390,7 @@ class PSD(*mixins):
         '''Turn the PSD object to Evoked to use standard mne functions like
         mne.viz.plot_compare_evokeds.'''
         freq_diff = np.diff(self.freqs)[0]
-        sfreq = 1 / freq_diff
         info = self.info.copy()
-        info['sfreq'] = sfreq
         data = (self.copy().average().data if self._has_epochs
                 else self.data.copy())
         if dB:
