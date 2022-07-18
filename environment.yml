@@ -5,24 +5,27 @@ dependencies:
 - python>=3.5
 - pip
 - mkl
-- numpy
-- scipy
+# numpy and scipy versions are pinned to try to avoid an error on circle CI...
+- numpy=1.22.2
+- scipy=1.8.0
 - matplotlib
 - pandas>=0.18
 - xlrd
 - scikit-learn
 - scikit-image
 - h5py
-- pillow
+# dev/testing libraries:
 - statsmodels
-- jupyter
 - pytest
 - pytest-cov
-- joblib
 - psutil
 - numpydoc
 - flake8
+# likely not needed:
+- pillow
 - spyder
+- jupyter
+- joblib
 - pip:
   - mne
   - h5io
