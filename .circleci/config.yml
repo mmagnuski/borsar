@@ -10,16 +10,18 @@ jobs:
       - run:
           name: Create conda env
           command: |
-            conda create -n test_env python=3.9 matplotlib scipy -y
+            conda create -n test_env python=3.9 matplotlib scipy scikit-image -y
             source activate test_env
             if [ "${USE_NUMBA}" == "yes" ]; then
               conda install numba;
             fi
-            conda install scikit-image
             pip install mne
             pip install codecov tqdm
       - run:
           name: Run tests
           command: |
-            ls -al
-            echo '^^^The files in your repo^^^'
+            pytest --cov=borsar borsar/
+      - run:
+          name: Update coverage
+          command: |
+            codecov
