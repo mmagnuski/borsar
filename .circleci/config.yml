@@ -16,7 +16,7 @@ jobs:
               conda install numba;
             fi
             conda install scikit-image
-            pip install mne-python
+            pip install mne
             pip install codecov tqdm
       - run:
           name: Run tests
