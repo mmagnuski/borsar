@@ -11,6 +11,7 @@ dependencies:
 - pandas>=0.18
 - xlrd
 - scikit-learn
+- scikit-image
 - h5py
 - pillow
 - statsmodels
