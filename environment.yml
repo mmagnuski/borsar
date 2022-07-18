@@ -2,13 +2,13 @@ name: borsar
 channels:
 - conda-forge
 dependencies:
-- python>=3.5
+- python>=3.8
 - pip
 - mkl
 - numpy
 - scipy
 - matplotlib
-- pandas>=0.18
+- pandas
 - xlrd
 - scikit-learn
 - scikit-image
