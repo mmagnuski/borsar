@@ -25,6 +25,7 @@ dependencies:
 - spyder
 - pip:
   - mne
+  - h5io
   - neo
   - pydocstyle
   - codespell
