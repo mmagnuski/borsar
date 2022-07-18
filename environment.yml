@@ -6,9 +6,8 @@ dependencies:
 - python>=3.5
 - pip
 - mkl
-# numpy and scipy versions are pinned to try to avoid an error on circle CI...
-- numpy=1.22.2
-- scipy=1.8.0
+- numpy
+- scipy
 - matplotlib
 - pandas>=0.18
 - xlrd
