@@ -666,14 +666,6 @@ def test_cluster_ignore_dims():
     assert _handle_dims(clst, 'time') == [1]
     assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
 
-    # _handle_dims can only take None as the second arg if the first dim
-    # in the CLusters is spatial
-    clst2 = clst.copy()
-    clst2.dimnames = clst2.dimnames.copy()
-    clst2.dimnames[0] = 'cheese'
-    with pytest.raises(ValueError, match="Can't infer the dimensions to plot"):
-        _handle_dims(clst2, None)
-
     # check aggregation with ignored dims passed
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])
     assert clst_mask is None
