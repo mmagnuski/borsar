@@ -1,5 +1,6 @@
 name: borsar
 channels:
+- conda-forge
 - defaults
 dependencies:
 - python>=3.5
