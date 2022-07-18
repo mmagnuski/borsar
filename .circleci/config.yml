@@ -10,7 +10,7 @@ jobs:
       - run:
           name: Create conda env
           command: |
-            conda create -f environment.yml -y
+            conda env create -f environment.yml -y
             source activate borsar
             if [ "${USE_NUMBA}" == "yes" ]; then
               conda install numba;
