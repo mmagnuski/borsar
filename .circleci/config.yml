@@ -20,7 +20,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            pytest --cov=borsar borsar/
+            python -m pytest --cov=borsar borsar/
       - run:
           name: Update coverage
           command: |
