@@ -12,14 +12,14 @@ import mne
 import borsar
 from borsar.stats import format_pvalue
 from borsar.utils import (download_test_data, _get_test_data_dir, find_index,
-                          find_range)
+                          find_range, import_hdf5)
 from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
                                    _check_dimnames_kwargs)
 from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _prepare_cluster_description, _handle_dims,
-                                  _aggregate_cluster, _get_units, import_hdf5,
+                                  _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
                                   _full_dimname, _human_readable_dimlabel)
