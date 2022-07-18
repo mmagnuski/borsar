@@ -10,7 +10,7 @@ jobs:
       - run:
           name: Create conda env
           command: |
-            conda create -n test_env python=3.9 matplotlib scipy scikit-image -y
+            conda create -n test_env -f environment.yml -y
             source activate test_env
             if [ "${USE_NUMBA}" == "yes" ]; then
               conda install numba;
