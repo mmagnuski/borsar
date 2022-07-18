@@ -17,10 +17,11 @@ jobs:
             fi
             pip install mne
             pip install codecov tqdm
+            hash -r pytest
       - run:
           name: Run tests
           command: |
-            python -m pytest --cov=borsar borsar/
+            pytest --cov=borsar borsar/
       - run:
           name: Update coverage
           command: |
