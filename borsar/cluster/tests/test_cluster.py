@@ -19,7 +19,7 @@ from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _check_dimnames_kwargs)
 from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _prepare_cluster_description, _handle_dims,
-                                  _aggregate_cluster, _get_units,
+                                  _aggregate_cluster, _get_units, import_hdf5,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
                                   _full_dimname, _human_readable_dimlabel)
@@ -615,12 +615,7 @@ def test_chan_freq_clusters():
     from mne import create_info
     import matplotlib.pyplot as plt
 
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-    except ModuleNotFoundError:
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
+    h5io = import_hdf5()
 
     fname = op.join(data_dir, 'chan_alpha_range.hdf5')
     data_dict = h5io.read_hdf5(fname)

@@ -120,12 +120,7 @@ def write_info(fname, info, overwrite=False):
     from mne.utils import _validate_type
     from mne.io.pick import channel_indices_by_type
 
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-    except ModuleNotFoundError:
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
+    h5io = import_hdf5()
 
     # make sure the types are correct
     _validate_type(fname, 'str', item_name='fname')
@@ -162,12 +157,7 @@ def read_info(fname):
         Info object read from file.
     """
     import mne
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-    except ModuleNotFoundError:
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
+    h5io = import_hdf5()
 
     mne.utils._validate_type(fname, 'str', item_name='fname')
 
