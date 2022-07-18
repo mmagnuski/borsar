@@ -5,7 +5,7 @@ dependencies:
 - python>=3.8
 - pip
 - mkl=2020.2
-- numpy=1.19.4
+- numpy=1.20.1
 - scipy
 - matplotlib
 - pandas
