@@ -32,9 +32,12 @@ def test_compute_regression_t():
     assert t_vals_sm.shape == t_vals_borsar.shape
     np.testing.assert_allclose(t_vals_borsar, t_vals_sm, rtol=1e-8)
 
-    # make sure we are at least 20 times faster than statsmodels loop
+    # make sure we are at least 8 times faster than statsmodels loop
     # (although in many cases this will be about 100 times faster)
-    assert elapsed_borsar * 20 < elapsed_sm
+    # (the factor of 8 is used because the speedup is much less evident
+    #  on Circle CI than on a local machine - likely due to the computational
+    #  resources on free Circle plan)
+    assert elapsed_borsar * 8 < elapsed_sm
 
     # make sure preds are turned from 1d to 2d
     data = np.random.random((35, 2))
