@@ -107,17 +107,11 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
             this_tmax = event_onset + tmax
 
             # compute psd for given segment, then add to psd_dict
-            try:
-                this_psd, freqs = psd_welch(
-                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                    tmin=this_tmin, tmax=this_tmax, picks=picks, average=None,
-                    verbose=False)
-                this_psd = np.nanmean(this_psd, axis=-1)
-            except TypeError:
-                # old psd function, no average kwarg...
-                this_psd, freqs = psd_welch(
-                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                    tmin=this_tmin, tmax=this_tmax, picks=picks, verbose=False)
+            this_psd, freqs = psd_welch(
+                raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
+                tmin=this_tmin, tmax=this_tmax, picks=picks, average=None,
+                verbose=False)
+            this_psd = np.nanmean(this_psd, axis=-1)
 
             # compute percent of windows that do not overlap with artifacts
             # these constitute weights used in averaging
