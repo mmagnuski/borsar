@@ -374,8 +374,7 @@ class PSD(*mixins):
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
-        if has_20_mne or has_new_mne:
-            args += [sphere, xlabels_list]
+        args += [sphere, xlabels_list]
 
         fig = _plot_psd(*args)
         plt_show(show)
