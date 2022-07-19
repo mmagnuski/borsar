@@ -3,6 +3,7 @@ import numpy as np
 import mne
 from mne.viz.epochs import plot_epochs_psd
 
+# TODO: check which mne version was this changed in
 try:
     has_epochs_mixin = True
     from mne.utils import GetEpochsMixin
@@ -11,6 +12,7 @@ except ImportError:
 
 from mne.channels.channels import UpdateChannelsMixin
 
+# TODO: check which mne version was this changed in
 try:
     from mne.channels.channels import ContainsMixin
 except ImportError:
@@ -125,7 +127,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                 psd_dict[event_type].append(this_psd)
                 psd_weights[event_type].append(weight)
 
-        # use np.average() with weights to compute wieghted average
+        # use np.average() with weights to compute weighted average
         psd = {k: np.average(np.stack(psd_dict[k], axis=0),
                              weights=psd_weights[k], axis=0)
                for k in psd_dict.keys()}
@@ -139,7 +141,6 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                          tmin=tmin, tmax=tmax)
 
 
-# - [x] make the default to be simple fft
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
@@ -413,18 +414,18 @@ class PSD(*mixins):
         Returns
         -------
         fig : matplotlib Figure
-            Figure containing the visualisation.
+            Figure containing the visualization.
         '''
-        psd_evkd = self.to_evoked(dB=dB)
+        psd_evoked = self.to_evoked(dB=dB)
         if fmin is not None or fmax is not None:
-            psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
+            psd_evoked = psd_evoked.crop(tmin=fmin, tmax=fmax)
 
         if dB:
-            vmin = np.percentile(psd_evkd.data, 1)
-            vmax = np.percentile(psd_evkd.data, 99)
+            vmin = np.percentile(psd_evoked.data, 1)
+            vmax = np.percentile(psd_evoked.data, 99)
 
         freqs = 'peaks' if freqs is None else freqs
-        fig = psd_evkd.plot_joint(times=freqs, show=False, **args)
+        fig = psd_evoked.plot_joint(times=freqs, show=False, **args)
 
         # set up labels
         axs = fig.axes
