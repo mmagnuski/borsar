@@ -1,0 +1,30 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: continuumio/conda-ci-linux-64-python3.9
+    environment:
+      USE_NUMBA: "yes"
+    steps:
+      - checkout
+      - run:
+          name: Create conda env
+          command: |
+            conda env create -f environment.yml
+            source activate borsar
+            if [ "${USE_NUMBA}" == "yes" ]; then
+              conda install numba -y;
+            fi
+            pip install mne
+            pip install codecov tqdm
+            hash -r pytest
+      - run:
+          name: Run tests
+          command: |
+            source activate borsar
+            python -m pytest --cov=borsar borsar/
+      - run:
+          name: Update coverage
+          command: |
+            source activate borsar
+            codecov

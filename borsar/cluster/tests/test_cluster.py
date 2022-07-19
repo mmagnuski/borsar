@@ -12,7 +12,7 @@ import mne
 import borsar
 from borsar.stats import format_pvalue
 from borsar.utils import (download_test_data, _get_test_data_dir, find_index,
-                          find_range)
+                          find_range, import_hdf5)
 from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
@@ -615,12 +615,7 @@ def test_chan_freq_clusters():
     from mne import create_info
     import matplotlib.pyplot as plt
 
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-    except ModuleNotFoundError:
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
+    h5io = import_hdf5()
 
     fname = op.join(data_dir, 'chan_alpha_range.hdf5')
     data_dict = h5io.read_hdf5(fname)
@@ -670,14 +665,6 @@ def test_cluster_ignore_dims():
     assert _handle_dims(clst, 'chan') == [0]
     assert _handle_dims(clst, 'time') == [1]
     assert (_handle_dims(clst, ['chan', 'time']) == np.array([0, 1])).all()
-
-    # _handle_dims can only take None as the second arg if the first dim
-    # in the CLusters is spatial
-    clst2 = clst.copy()
-    clst2.dimnames = clst2.dimnames.copy()
-    clst2.dimnames[0] = 'cheese'
-    with pytest.raises(ValueError, match="Can't infer the dimensions to plot"):
-        _handle_dims(clst2, None)
 
     # check aggregation with ignored dims passed
     clst_mask, clst_stat, _ = _aggregate_cluster(clst, [None])

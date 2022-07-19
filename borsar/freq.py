@@ -329,7 +329,10 @@ class PSD(*mixins):
         if has_new_mne:
             from mne.defaults import _handle_default
             from mne.io.pick import _picks_to_idx
-            from mne.viz._figure import _split_picks_by_type
+            try:
+                from mne.viz._figure import _split_picks_by_type
+            except ImportError:
+                from mne.viz._mpl_figure import _split_picks_by_type
 
             if ax is None:
                 import matplotlib.pyplot as plt
@@ -387,9 +390,7 @@ class PSD(*mixins):
         '''Turn the PSD object to Evoked to use standard mne functions like
         mne.viz.plot_compare_evokeds.'''
         freq_diff = np.diff(self.freqs)[0]
-        sfreq = 1 / freq_diff
         info = self.info.copy()
-        info['sfreq'] = sfreq
         data = (self.copy().average().data if self._has_epochs
                 else self.data.copy())
         if dB:

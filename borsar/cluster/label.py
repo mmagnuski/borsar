@@ -127,6 +127,8 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
     hasnb = False
     has_adjacency = adjacency is not None
     if not has_adjacency:
+        if backend == 'numba':
+            raise ValueError('Numba backend requires an adjacency matrix.')
         if data.ndim < 3 and min_adj_ch == 0:
             return _cluster_1d_or_2d_no_adj
         else:
