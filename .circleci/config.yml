@@ -33,23 +33,23 @@ version: 2.1
           codecov
 jobs:
   build-mne-current-numba:
+    <<: *dockerbuild
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       MNE_VERSION: "current"
       USE_NUMBA: "yes"
-    <<: *dockerbuild
   build-mne-023-numba:
+    <<: *dockerbuild
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       MNE_VERSION: "0.23"
       USE_NUMBA: "yes"
-    <<: *dockerbuild
   build-mne-020-nonumba:
+    <<: *dockerbuild
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       MNE_VERSION: "0.20"
       USE_NUMBA: "no"
-    <<: *dockerbuild
