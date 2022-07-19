@@ -43,7 +43,7 @@ class Topo(object):
     '''
 
     def __init__(self, values, info, side=None, **kwargs):
-        from._mne_modified import plot_topomap, has_new_mne
+        from ._mne_020_modified import plot_topomap
 
         self.info = info
         self.values = values
@@ -56,20 +56,11 @@ class Topo(object):
         else:
             self.values = self.values[:, np.newaxis]
 
-        # default outlines='skirt' and extrapolate='head':
-        if 'outlines' not in kwargs:
-            if not has_new_mne:
-                kwargs['outlines'] = 'skirt'
+        # default extrapolate='local'
         if 'extrapolate' not in kwargs:
-            if not has_new_mne:
-                kwargs['extrapolate'] = 'head'
+            kwargs['extrapolate'] = 'local'
 
         self._check_axes(kwargs)
-        if not has_new_mne:
-            # TODO - these functions will have to be modified and made
-            # compatible with new mne versions (>= 0.20)
-            part = _infer_topo_part(info)
-            info, kwargs = _construct_topo_part(info, part, kwargs)
 
         kwargs.update({'show': False})
         if 'axes' in kwargs:
@@ -364,100 +355,3 @@ def _extract_topo_channels(ax):
             raise RuntimeError(msg)
 
     return chans, chan_pos
-
-
-# REMOVE - no longer needed with extrapolate='local'
-def _infer_topo_part(info):
-    """Infer whether a specific part of the topography should be shown.
-
-    For example when only channels on the left are shown, the right side of the
-    topography should be masked.
-    This function will be less useful once convex-hull masking is available in
-    mne-python.
-    """
-    ch_pos = get_ch_pos(info)
-    all_x_above_0 = (ch_pos[:, 0] >= 0.).all()
-    all_y_above_0 = (ch_pos[:, 1] >= 0.).all()
-
-    # additional checks...
-    y_limits = ch_pos[:, 1].min(), ch_pos[:, 1].max()
-    y_range = y_limits[1] - y_limits[0]
-    all_y_sufficiently_high = y_limits[0] > y_range * -0.3
-
-    side = ''
-    if all_x_above_0:
-        side += 'right'
-    elif (ch_pos[:, 0] <= 0.).all():
-        side += 'left'
-
-    if all_y_above_0 or all_y_sufficiently_high:
-        side = 'frontal' if len(side) == 0 else '_'.join([side, 'frontal'])
-
-    side = None if len(side) == 0 else side
-    return side
-
-
-# REMOVE - no longer needed with extrapolate='local'
-def _construct_topo_part(info, part, kwargs):
-    """Mask part of the topography."""
-    from mne.viz.topomap import _find_topomap_coords
-
-    # project channels to 2d
-    picks = range(len(info['ch_names']))
-    pos = _find_topomap_coords(info, picks=picks)
-
-    # create head circle and other shapes
-    # -----------------------------------
-    use_skirt = kwargs.get('outlines', None) == 'skirt'
-    radius = np.pi / 2 if use_skirt else max(np.linalg.norm(pos, axis=1).max(),
-                                             np.pi / 2)
-    ll = np.linspace(0, 2 * np.pi, 101)
-    head_x = np.cos(ll) * radius
-    head_y = np.sin(ll) * radius
-
-    nose_x = np.array([0.18, 0, -0.18]) * radius
-    nose_y = np.array([radius - .004, radius * 1.15, radius - .004])
-    ear_x = np.array([.497, .510, .518, .5299, .5419, .54, .547,
-                      .532, .510, .489]) * (radius / 0.5)
-    ear_y = np.array([.0555, .0775, .0783, .0746, .0555, -.0055, -.0932,
-                      -.1313, -.1384, -.1199]) * (radius / 0.5)
-
-    outlines_dict = dict(head=(head_x, head_y), nose=(nose_x, nose_y),
-                         ear_left=(ear_x, ear_y),
-                         ear_right=(-ear_x, ear_y))
-    outlines_dict['autoshrink'] = False
-
-    # create mask properties
-    mask_outlines = np.c_[head_x, head_y]
-    head_pos = dict(center=(0., 0.))
-    # what does head_pos['scale'] do?
-
-    mask_scale = (max(1.25, np.linalg.norm(pos, axis=1).max() / radius)
-                  if use_skirt else 1)
-    mask_outlines *= mask_scale
-    outlines_dict['clip_radius'] = (mask_scale * radius,) * 2
-    outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-
-    # modify mask pizza-style
-    # -----------------------
-    if isinstance(part, str):
-        if 'right' in part:
-            lowest = pos[:, 0].min() - radius * 0.2
-            below_lowest = mask_outlines[:, 0] < lowest
-            min_x = mask_outlines[~below_lowest, 0].min()
-            mask_outlines[below_lowest, 0] = min_x
-        elif 'left' in part:
-            highest = pos[:, 0].max() + radius * 0.2
-            above_highest = mask_outlines[:, 0] > highest
-            max_x = mask_outlines[~above_highest, 0].max()
-            mask_outlines[above_highest, 0] = max_x
-
-        if 'frontal' in part:
-            lowest_y = pos[:, 1].min() - radius * 0.2
-            below_lowest = mask_outlines[:, 1] < lowest_y
-            min_y = mask_outlines[~below_lowest, 1].min()
-            mask_outlines[below_lowest, 1] = min_y
-
-    outlines_dict['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-    kwargs.update(dict(outlines=outlines_dict, head_pos=head_pos))
-    return pos, kwargs

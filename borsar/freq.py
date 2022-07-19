@@ -3,6 +3,7 @@ import numpy as np
 import mne
 from mne.viz.epochs import plot_epochs_psd
 
+# TODO: check which mne version was this changed in
 try:
     has_epochs_mixin = True
     from mne.utils import GetEpochsMixin
@@ -11,6 +12,7 @@ except ImportError:
 
 from mne.channels.channels import UpdateChannelsMixin
 
+# TODO: check which mne version was this changed in
 try:
     from mne.channels.channels import ContainsMixin
 except ImportError:
@@ -105,17 +107,11 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
             this_tmax = event_onset + tmax
 
             # compute psd for given segment, then add to psd_dict
-            try:
-                this_psd, freqs = psd_welch(
-                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                    tmin=this_tmin, tmax=this_tmax, picks=picks, average=None,
-                    verbose=False)
-                this_psd = np.nanmean(this_psd, axis=-1)
-            except TypeError:
-                # old psd function, no average kwarg...
-                this_psd, freqs = psd_welch(
-                    raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                    tmin=this_tmin, tmax=this_tmax, picks=picks, verbose=False)
+            this_psd, freqs = psd_welch(
+                raw, n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
+                tmin=this_tmin, tmax=this_tmax, picks=picks, average=None,
+                verbose=False)
+            this_psd = np.nanmean(this_psd, axis=-1)
 
             # compute percent of windows that do not overlap with artifacts
             # these constitute weights used in averaging
@@ -125,7 +121,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                 psd_dict[event_type].append(this_psd)
                 psd_weights[event_type].append(weight)
 
-        # use np.average() with weights to compute wieghted average
+        # use np.average() with weights to compute weighted average
         psd = {k: np.average(np.stack(psd_dict[k], axis=0),
                              weights=psd_weights[k], axis=0)
                for k in psd_dict.keys()}
@@ -139,7 +135,6 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                          tmin=tmin, tmax=tmax)
 
 
-# - [x] make the default to be simple fft
 # - [ ] welch args: proj=False, n_jobs=1, reject_by_annotation=True,
 #                   verbose=None
 def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
@@ -324,14 +319,14 @@ class PSD(*mixins):
         from packaging import version
         mne_version = version.parse(mne.__version__)
         has_new_mne = mne_version >= version.parse('0.22.0')
-        has_20_mne = (mne_version >= version.parse('0.20.0')
-                      and mne_version < version.parse('0.22.0'))
+
         if has_new_mne:
             from mne.defaults import _handle_default
             from mne.io.pick import _picks_to_idx
             try:
                 from mne.viz._figure import _split_picks_by_type
             except ImportError:
+                # this was changed around 1.0 mne version
                 from mne.viz._mpl_figure import _split_picks_by_type
 
             if ax is None:
@@ -350,16 +345,11 @@ class PSD(*mixins):
             xlabels_list = [False] * (len(ax_list) - 1) + [True]
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
-        elif has_20_mne:
+        else:
             from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
-        else:
-            from mne.viz.utils import _set_psd_plot_params
-            fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
-                make_label = _set_psd_plot_params(self.info, proj, picks, ax,
-                                                  area_mode)
         del ax
 
         crop_inst = not (fmin == 0 and fmax is None)
@@ -379,8 +369,7 @@ class PSD(*mixins):
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
-        if has_20_mne or has_new_mne:
-            args += [sphere, xlabels_list]
+        args += [sphere, xlabels_list]
 
         fig = _plot_psd(*args)
         plt_show(show)
@@ -419,18 +408,18 @@ class PSD(*mixins):
         Returns
         -------
         fig : matplotlib Figure
-            Figure containing the visualisation.
+            Figure containing the visualization.
         '''
-        psd_evkd = self.to_evoked(dB=dB)
+        psd_evoked = self.to_evoked(dB=dB)
         if fmin is not None or fmax is not None:
-            psd_evkd = psd_evkd.crop(tmin=fmin, tmax=fmax)
+            psd_evoked = psd_evoked.crop(tmin=fmin, tmax=fmax)
 
         if dB:
-            vmin = np.percentile(psd_evkd.data, 1)
-            vmax = np.percentile(psd_evkd.data, 99)
+            vmin = np.percentile(psd_evoked.data, 1)
+            vmax = np.percentile(psd_evoked.data, 99)
 
         freqs = 'peaks' if freqs is None else freqs
-        fig = psd_evkd.plot_joint(times=freqs, show=False, **args)
+        fig = psd_evoked.plot_joint(times=freqs, show=False, **args)
 
         # set up labels
         axs = fig.axes

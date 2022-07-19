@@ -3,8 +3,13 @@ jobs:
   build:
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
-    environment:
-      USE_NUMBA: "yes"
+    parameters:
+      mne_version:
+        type: string
+        default: "current"
+      use_numba:
+        type: string
+        default: "no"
     steps:
       - checkout
       - run:
@@ -12,10 +17,14 @@ jobs:
           command: |
             conda env create -f environment.yml
             source activate borsar
-            if [ "${USE_NUMBA}" == "yes" ]; then
+            if [ << parameters.use_numba >> == "yes" ]; then
               conda install numba -y;
             fi
-            pip install mne
+            if [ << parameters.mne_version >> == "current" ]; then
+              pip install mne
+            else
+              pip install mne==<< parameters.mne_version >>;
+            fi
             pip install codecov tqdm
             hash -r pytest
       - run:
@@ -28,3 +37,11 @@ jobs:
           command: |
             source activate borsar
             codecov
+workflows:
+  workflow:
+    jobs:
+      - build:
+          matrix:
+            parameters:
+              use_numba: ["yes", "no"]
+              mne_version: ["current", "0.23.4", "0.20.8"]
