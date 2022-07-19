@@ -324,8 +324,7 @@ class PSD(*mixins):
         from packaging import version
         mne_version = version.parse(mne.__version__)
         has_new_mne = mne_version >= version.parse('0.22.0')
-        has_20_mne = (mne_version >= version.parse('0.20.0')
-                      and mne_version < version.parse('0.22.0'))
+
         if has_new_mne:
             from mne.defaults import _handle_default
             from mne.io.pick import _picks_to_idx
@@ -350,16 +349,11 @@ class PSD(*mixins):
             xlabels_list = [False] * (len(ax_list) - 1) + [True]
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
-        elif has_20_mne:
+        else:
             from mne.viz.utils import _set_psd_plot_params
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
-        else:
-            from mne.viz.utils import _set_psd_plot_params
-            fig, picks_list, titles_list, units_list, scalings_list, ax_list, \
-                make_label = _set_psd_plot_params(self.info, proj, picks, ax,
-                                                  area_mode)
         del ax
 
         crop_inst = not (fmin == 0 and fmax is None)
