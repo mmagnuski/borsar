@@ -32,22 +32,25 @@ version: 2.1
           source activate borsar
           codecov
 jobs:
-  build-mne-current-numba:
+  build:
     <<: *dockerbuild
+    name: mne-current-numba
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       MNE_VERSION: "current"
       USE_NUMBA: "yes"
-  build-mne-023-numba:
+  build:
     <<: *dockerbuild
+    name: mne-023-numba
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
       MNE_VERSION: "0.23"
       USE_NUMBA: "yes"
-  build-mne-020-nonumba:
+  build:
     <<: *dockerbuild
+    name: mne-020-nonumba
     docker:
       - image: continuumio/conda-ci-linux-64-python3.9
     environment:
