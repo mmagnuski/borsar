@@ -326,6 +326,7 @@ class PSD(*mixins):
             try:
                 from mne.viz._figure import _split_picks_by_type
             except ImportError:
+                # this was changed around 1.0 mne version
                 from mne.viz._mpl_figure import _split_picks_by_type
 
             if ax is None:
