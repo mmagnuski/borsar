@@ -65,77 +65,77 @@ def test_contstruct_adjacency():
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
 
 
+@pytest.mark.skipif(has_numba() == False, reason="requires numba")
 def test_numba_3d_clustering():
     '''Test clustering/labeling with numba.'''
-    if has_numba():
-        from borsar.cluster.label_numba import _cluster_3d_numba
-        data = np.load(op.join(data_dir, 'test_clustering.npy'))
+    from borsar.cluster.label_numba import _cluster_3d_numba
+    data = np.load(op.join(data_dir, 'test_clustering.npy'))
 
-        # smooth each 'channel' independently
-        for idx in range(data.shape[0]):
-            data[idx] = gaussian(data[idx])
+    # smooth each 'channel' independently
+    for idx in range(data.shape[0]):
+        data[idx] = gaussian(data[idx])
 
-        mask_test = data > (data.mean() + data.std())
+    mask_test = data > (data.mean() + data.std())
 
-        # adjacency
-        T, F = True, False
-        adj = np.array([[F, T, T, F, F],
-                        [T, F, T, F, T],
-                        [T, T, F, F, F],
-                        [F, F, F, F, T],
-                        [F, T, F, T, F]])
+    # adjacency
+    T, F = True, False
+    adj = np.array([[F, T, T, F, F],
+                    [T, F, T, F, T],
+                    [T, T, F, F, F],
+                    [F, F, F, F, T],
+                    [F, T, F, T, F]])
 
-        clst1 = _cluster_3d_numpy(mask_test, adj)
-        clst2 = _cluster_3d_numba(mask_test, adj)
+    clst1 = _cluster_3d_numpy(mask_test, adj)
+    clst2 = _cluster_3d_numba(mask_test, adj)
 
-        assert (clst1 == clst2).all()
+    assert (clst1 == clst2).all()
 
 
+@pytest.mark.skipif(has_numba() == False, reason="requires numba")
 def test_2d_clustering():
     '''Test clustering/labeling in 2d with numba and various settings of
     ``min_adj_ch``.'''
 
-    if has_numba():
-        from borsar.cluster.label_numba import _cluster_2d_numba
-        T, F = True, False
+    from borsar.cluster.label_numba import _cluster_2d_numba
+    T, F = True, False
 
-        data = np.array([[T, T, F, F, F, F, T, F],
-                         [F, T, T, F, F, T, T, T],
-                         [F, F, F, F, F, F, T, F],
-                         [F, F, F, F, F, T, F, F]])
+    data = np.array([[T, T, F, F, F, F, T, F],
+                        [F, T, T, F, F, T, T, T],
+                        [F, F, F, F, F, F, T, F],
+                        [F, F, F, F, F, T, F, F]])
 
-        adjacency = np.zeros((4, 4), dtype='bool')
-        adjacency[0, [1, 2]] = T
-        adjacency[[1, 2], 0] = T
-        adjacency[1, 3] = T
-        adjacency[3, 1] = T
+    adjacency = np.zeros((4, 4), dtype='bool')
+    adjacency[0, [1, 2]] = T
+    adjacency[[1, 2], 0] = T
+    adjacency[1, 3] = T
+    adjacency[3, 1] = T
 
-        correct_labels = np.array(
-            [[1, 1, 0, 0, 0, 0, 2, 0],
-             [0, 1, 1, 0, 0, 2, 2, 2],
-             [0, 0, 0, 0, 0, 0, 2, 0],
-             [0, 0, 0, 0, 0, 2, 0, 0]])
+    correct_labels = np.array(
+        [[1, 1, 0, 0, 0, 0, 2, 0],
+            [0, 1, 1, 0, 0, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 2, 0],
+            [0, 0, 0, 0, 0, 2, 0, 0]])
 
-        correct_labels_minadj1 = np.array(
-            [[0, 1, 0, 0, 0, 0, 2, 0],
-             [0, 1, 0, 0, 0, 2, 2, 0],
-             [0, 0, 0, 0, 0, 0, 2, 0],
-             [0, 0, 0, 0, 0, 2, 0, 0]])
+    correct_labels_minadj1 = np.array(
+        [[0, 1, 0, 0, 0, 0, 2, 0],
+            [0, 1, 0, 0, 0, 2, 2, 0],
+            [0, 0, 0, 0, 0, 0, 2, 0],
+            [0, 0, 0, 0, 0, 2, 0, 0]])
 
-        correct_labels_minadj2 = np.array(
-            [[0, 0, 0, 0, 0, 0, 1, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0]])
+    correct_labels_minadj2 = np.array(
+        [[0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0]])
 
-        correct_answers = [correct_labels, correct_labels_minadj1,
-                           correct_labels_minadj2]
+    correct_answers = [correct_labels, correct_labels_minadj1,
+                        correct_labels_minadj2]
 
-        # test 2d numba clustering for min_adj_ch 0, 1 and 2
-        for minadj, correct in zip([0, 1, 2], correct_answers):
-            labels = _cluster_2d_numba(data.copy(), adjacency,
-                                       min_adj_ch=minadj)
-            assert (labels == correct).all()
+    # test 2d numba clustering for min_adj_ch 0, 1 and 2
+    for minadj, correct in zip([0, 1, 2], correct_answers):
+        labels = _cluster_2d_numba(data.copy(), adjacency,
+                                    min_adj_ch=minadj)
+        assert (labels == correct).all()
 
 
 def test_find_clusters():
