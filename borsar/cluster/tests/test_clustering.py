@@ -65,7 +65,7 @@ def test_contstruct_adjacency():
         construct_adjacency_matrix(arr, ch_names=['A', 'B', 'C'])
 
 
-@pytest.mark.skipif(has_numba() == False, reason="requires numba")
+@pytest.mark.skipif(not has_numba(), reason="requires numba")
 def test_numba_3d_clustering():
     '''Test clustering/labeling with numba.'''
     from borsar.cluster.label_numba import _cluster_3d_numba
@@ -91,7 +91,7 @@ def test_numba_3d_clustering():
     assert (clst1 == clst2).all()
 
 
-@pytest.mark.skipif(has_numba() == False, reason="requires numba")
+@pytest.mark.skipif(not has_numba(), reason="requires numba")
 def test_2d_clustering():
     '''Test clustering/labeling in 2d with numba and various settings of
     ``min_adj_ch``.'''
@@ -262,6 +262,7 @@ def test_3d_clustering_with_min_adj_ch():
         assert any([(masks_numba[1] == m).all() for m in masks])
 
 
+@pytest.mark.skipif(not has_numba(), reason="requires numba")
 def test_2d_numba_clustering_with_min_adj():
     '''Test 2d numba clustering when min_adj_ch is specified.'''
 
