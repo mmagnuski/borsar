@@ -178,7 +178,7 @@ def test_find_clusters():
 
     # mne does not support min_adj_ch
     data = np.random.random((5, 5, 3))
-    mssg = 'mne backend does not supprot ``min_adj_ch``'
+    mssg = 'mne backend does not support ``min_adj_ch``'
     with pytest.raises(ValueError, match=mssg):
         clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                    backend='mne', min_adj_ch=1)
