@@ -6,8 +6,6 @@ from ..utils import has_numba
 
 # TODO:
 # - [ ] compare speed against mne clustering
-# - [x] add min_adj_ch (minimum adjacent channels)
-# - [x] wait with relabeling till the end (tried that and it was slower)
 def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
@@ -287,6 +285,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 # TODO: describe the ``full`` argument better
 def _find_clusters_mne(data, threshold, adjacency, arg_name, min_adj_ch=0,
                        full=True, filter_fun=None, filter_fun_post=None):
+    '''Perform clustering using mne functions.'''
     from mne.stats.cluster_level import (
         _find_clusters, _cluster_indices_to_mask)
 
