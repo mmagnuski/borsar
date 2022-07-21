@@ -375,3 +375,30 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
     clusters = pos_clusters + neg_clusters
 
     return clusters, cluster_stats
+
+
+def get_supported_find_clusters_parameters():
+    from io import StringIO
+    import pandas as pd
+
+    table_text = """n dimensions,channel dimension,min_adj_ch,backend,supported
+        1,no,NA,numba,no
+        1,no,NA,numpy,yes
+        1,yes,yes,numba,no
+        1,yes,no,numba,no
+        1,yes,yes,numpy,no
+        1,yes,no,numpy,no
+        2,no,NA,numba,no
+        2,no,NA,numpy,yes
+        2,yes,no,numba,yes
+        2,yes,no,numpy,no
+        2,yes,yes,numba,yes
+        2,yes,yes,numpy,no
+        3,no,NA,numba,no
+        3,no,NA,numpy,no
+        3,yes,no,numba,yes
+        3,yes,no,numpy,yes
+        3,yes,yes,numba,yes
+        3,yes,yes,numpy,yes"""
+    supported = pd.read_csv(StringIO(table_text), keep_default_na=False)
+    return supported

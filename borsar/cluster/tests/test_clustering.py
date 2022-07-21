@@ -1,4 +1,5 @@
 import os.path as op
+import random
 import pytest
 import numpy as np
 
@@ -15,6 +16,31 @@ from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
 data_dir = _get_test_data_dir()
 fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
 fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
+
+
+def create_fake_data_for_cluster_test(ndim=2, adjacency=True):
+    '''Create fake data to use in tests of clustering functions.'''
+    ch_dim_sizes = [5, 10, 15]
+    dim_sizes = [10, 20, 40, 60]
+
+    dim_size = [random.choice(dim_sizes) for dim in range(ndim)]
+    if adjacency:
+        dim_size[0] = random.choice(ch_dim_sizes)
+
+    data = (np.random.rand(*dim_size) - 0.5) * 2
+
+    # create random symmetic adjacency
+    if adjacency:
+        n_ch = data.shape[0]
+        adj = np.random.rand(n_ch, n_ch) > 0.75
+        triu_i, triu_j = np.triu_indices(n_ch, k=1)
+        adj[triu_j, triu_i] = adj[triu_i, triu_j]
+        diag_i, diag_j = np.diag_indices(n_ch)
+        adj[diag_i, diag_j] = False
+    else:
+        adj = None
+
+    return data, adj
 
 
 def test_contstruct_adjacency():
@@ -480,3 +506,28 @@ def test_cluster_based_regression_3d_simulated():
     assert clst[pos_clst_idx][pos_idx[1:]].mean() > 0.75
     assert clst[pos_clst_idx][neg_idx[1:]].mean() < 0.29
     assert clst[neg_clst_idx][neg_idx[1:]].mean() > 0.75
+
+
+def test_clustering_parameter_combinations():
+    from borsar.cluster.label import get_supported_find_clusters_parameters
+    supported = get_supported_find_clusters_parameters()
+
+    for idx, row in supported.iterrows():
+        ndim = row['n dimensions']
+        use_adj = row['channel dimension'] == 'yes'
+
+        data, adj = create_fake_data_for_cluster_test(
+            ndim=ndim, adjacency=use_adj)
+        min_adj_ch = (0 if not row['min_adj_ch'] == 'yes'
+                      else random.choice([1, 2, 3, 4]))
+
+        backend = row['backend']
+        should_succeed = row['supported'] == 'yes'
+
+        if should_succeed:
+            find_clusters(data, threshold=0.6, adjacency=adj, backend=backend,
+                          min_adj_ch=min_adj_ch)
+        else:
+            with pytest.raises(ValueError):
+                find_clusters(data, threshold=0.6, adjacency=adj, backend=backend,
+                              min_adj_ch=min_adj_ch)
