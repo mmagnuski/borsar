@@ -524,6 +524,9 @@ def test_clustering_parameter_combinations():
         backend = row['backend']
         should_succeed = row['supported'] == 'yes'
 
+        if backend == 'numba' and not has_numba():
+            should_succeed = False
+
         if should_succeed:
             find_clusters(data, threshold=0.6, adjacency=adj, backend=backend,
                           min_adj_ch=min_adj_ch)
