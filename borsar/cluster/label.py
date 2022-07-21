@@ -182,13 +182,7 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
     presence of an adjacency matrix.'''
     backend = _check_backend(data, adjacency, backend, min_adj_ch, filter_fun,
                              filter_fun_post)
-
-    # return_numba = backend == 'numba' or (backend == 'auto' and has_numba_lib)
-
-    # check:
     has_adjacency = adjacency is not None
-    if data.ndim < 3 and min_adj_ch == 0:
-        return _cluster_1d_or_2d_no_adj
 
     if data.ndim == 3:
         if backend == 'numba':
