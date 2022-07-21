@@ -214,17 +214,19 @@ def test_find_clusters():
 
 
 def test_expected_find_clusters_errors():
+    from borsar.cluster.label import _get_cluster_fun
+
     data, adj = create_fake_data_for_cluster_test(ndim=2, adjacency=True)
 
     # data has to match the shape of adjacency
     with pytest.raises(ValueError, match='of the correct size'):
-        find_clusters(data, 0.7, adjacency=adjacency, backend='mne')
+        find_clusters(data, 0.7, adjacency=adj, backend='mne')
 
     # mne does not support min_adj_ch
     data_3d = np.random.random((5, 5, 3))
     mssg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
     with pytest.raises(ValueError, match=mssg):
-        find_clusters(data_3d, 0.7, adjacency=adjacency, backend='mne',
+        find_clusters(data_3d, 0.7, adjacency=adj, backend='mne',
                       min_adj_ch=1)
 
     # min_adj_ch > 0 is allowed only when adjacency is passed
@@ -236,7 +238,7 @@ def test_expected_find_clusters_errors():
     if not has_numba():
 
         with pytest.raises(ValueError, match='only "numba" backend can'):
-            find_clusters(data, threshold, adjacency=adjacency, backend='auto',
+            find_clusters(data, 0.7, adjacency=adj, backend='auto',
                           min_adj_ch=1)
 
     # 2d with adjacency is available only for numba backend
