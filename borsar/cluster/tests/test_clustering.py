@@ -1,5 +1,6 @@
 import os.path as op
 import random
+
 import pytest
 import numpy as np
 
@@ -155,7 +156,7 @@ def test_2d_clustering():
          [0, 0, 0, 0, 0, 0, 0, 0]])
 
     correct_answers = [correct_labels, correct_labels_minadj1,
-                        correct_labels_minadj2]
+                       correct_labels_minadj2]
 
     # test 2d numba clustering for min_adj_ch 0, 1 and 2
     for minadj, correct in zip([0, 1, 2], correct_answers):
@@ -211,28 +212,48 @@ def test_find_clusters():
                                backend='mne')
     assert (clst[0] == correct_clst).all()
 
-    # TODO: test warnings in a separate function
-    # warnings
-    # --------
+
+def test_expected_find_clusters_errors():
+    data, adj = create_fake_data_for_cluster_test(ndim=2, adjacency=True)
 
     # data has to match the shape of adjacency
     with pytest.raises(ValueError, match='of the correct size'):
-        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                   backend='mne')
+        find_clusters(data, 0.7, adjacency=adjacency, backend='mne')
 
     # mne does not support min_adj_ch
-    data = np.random.random((5, 5, 3))
+    data_3d = np.random.random((5, 5, 3))
     mssg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
     with pytest.raises(ValueError, match=mssg):
-        clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                   backend='mne', min_adj_ch=1)
+        find_clusters(data_3d, 0.7, adjacency=adjacency, backend='mne',
+                      min_adj_ch=1)
 
-    # min_adj_ch > 0 is currently available only for 3d data
+    # min_adj_ch > 0 is allowed only when adjacency is passed
+    mssg = 'requires that adjacency is not None'
+    with pytest.raises(ValueError, match=mssg):
+        find_clusters(data, 0.7, adjacency=None, min_adj_ch=1)
+
+    # min_adj_ch > 0 is currently available only for 3d data without numba
     if not has_numba():
-        data = np.random.random((3, 5))
+
         with pytest.raises(ValueError, match='only "numba" backend can'):
-            clst, stat = find_clusters(data, threshold, adjacency=adjacency,
-                                       backend='auto', min_adj_ch=1)
+            find_clusters(data, threshold, adjacency=adjacency, backend='auto',
+                          min_adj_ch=1)
+
+    # 2d with adjacency is available only for numba backend
+    expected_msg = 'Currently only "numba" backend can handle '
+    with pytest.raises(ValueError, match=expected_msg):
+        _get_cluster_fun(data, adj, backend='numpy')
+
+    if not has_numba():
+        # if you don't have numba you get an error if you ask for numba backend
+        expected_msg = 'You need numba package to use the "numba"'
+        with pytest.raises(ValueError, match=expected_msg):
+            _get_cluster_fun(data, adj, backend='numba')
+    else:
+        # make sure adjacency is present when using numba
+        expected_msg = 'Numba backend requires an adjacency matrix.'
+        with pytest.raises(ValueError, match=expected_msg):
+            _get_cluster_fun(data, backend='numba')
 
 
 def test_3d_clustering_with_min_adj_ch():
@@ -397,19 +418,6 @@ def test_get_cluster_fun():
     data = np.random.random((4, 10)) > 0.75
     adj = np.zeros((4, 4), dtype='bool')
     adj[[0, 0, 1, 1, 2, 3], [1, 3, 0, 2, 1, 0]] = True
-
-    expected_msg = 'Currently only "numba" backend can handle '
-    with pytest.raises(ValueError, match=expected_msg):
-        _get_cluster_fun(data, adj, backend='numpy')
-
-    if not has_numba():
-        expected_msg = 'You need numba package to use the "numba"'
-        with pytest.raises(ValueError, match=expected_msg):
-            _get_cluster_fun(data, adj, backend='numba')
-    else:
-        expected_msg = 'Numba backend requires an adjacency matrix.'
-        with pytest.raises(ValueError, match=expected_msg):
-            _get_cluster_fun(data, backend='numba')
 
     # check correct outputs
     # ---------------------
