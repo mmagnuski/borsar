@@ -157,6 +157,8 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
     if not has_adjacency:
         if backend == 'numba':
             raise ValueError('Numba backend requires an adjacency matrix.')
+        elif backend == 'numpy' and n_dims >= 3:
+            _borsar_clustering_error()
         elif backend == 'mne' and n_dims == 3:
             # TODO: more informative error
             _borsar_clustering_error()
@@ -169,9 +171,10 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
         raise ValueError('Currently only "numba" backend can handle 2d data'
                          ' with channel adjacency.')
 
-    if n_dims == 1 and backend == 'numba':
-        # TODO: more informative error
-        _borsar_clustering_error()
+    if n_dims == 1:
+        if backend == 'numba' or (backend == 'numpy' and has_adjacency):
+            # TODO: more informative error
+            _borsar_clustering_error()
 
     return backend
 
