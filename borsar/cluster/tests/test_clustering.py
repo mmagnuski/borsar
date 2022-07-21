@@ -512,7 +512,7 @@ def test_clustering_parameter_combinations():
     from borsar.cluster.label import get_supported_find_clusters_parameters
     supported = get_supported_find_clusters_parameters()
 
-    for idx, row in supported.iterrows():
+    for _, row in supported.iterrows():
         ndim = row['n dimensions']
         use_adj = row['channel dimension'] == 'yes'
 
@@ -529,5 +529,5 @@ def test_clustering_parameter_combinations():
                           min_adj_ch=min_adj_ch)
         else:
             with pytest.raises(ValueError):
-                find_clusters(data, threshold=0.6, adjacency=adj, backend=backend,
-                              min_adj_ch=min_adj_ch)
+                find_clusters(data, threshold=0.6, adjacency=adj,
+                              backend=backend, min_adj_ch=min_adj_ch)
