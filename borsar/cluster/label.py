@@ -120,27 +120,68 @@ def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     return label(data, connectivity=1, background=False)
 
 
-def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
-    '''Return the correct clustering function depending on the data shape and
-    presence of an adjacency matrix.'''
+def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0):
+    '''Select adequate backend if 'auto', else check if selected backend is ok.
+    '''
+    n_dims = data.ndim
     has_numba_lib = False
     has_adjacency = adjacency is not None
-    if not has_adjacency:
-        if backend == 'numba':
-            raise ValueError('Numba backend requires an adjacency matrix.')
-        if data.ndim < 3 and min_adj_ch == 0:
-            return _cluster_1d_or_2d_no_adj
-        else:
-            _borsar_clustering_error()
-
-    if data.ndim not in [2, 3]:
-        _borsar_clustering_error()
+    # if backend is auto or numba - check if numba is available
     if backend in ['numba', 'auto']:
         has_numba_lib = has_numba()
     if backend == 'numba' and not has_numba_lib:
         raise ValueError('You need numba package to use the "numba" '
                          'backend.')
-    return_numba = backend == 'numba' or (backend == 'auto' and has_numba_lib)
+
+    # select backend for 'auto':
+    # --------------------------
+    # numba, else numpy else mne
+    if backend == 'auto':
+        # numba works for 2d, 3d with adjacency
+        if has_adjacency and n_dims in [2, 3] and has_numba_lib:
+            backend = 'numba'
+        elif (has_adjacency and n_dims in [2, 3]) or (n_dims in [1, 2]):
+            backend = 'numpy'
+        else:
+            backend = 'mne'
+
+    if filter_fun is not None or filter_fun_post is not None:
+        if backend == 'mne':
+            raise ValueError('``filter_fun`` and ``filter_fun_post`` are '
+                             "not available for the ``'mne'`` backend.")
+
+    if not has_adjacency:
+        if backend == 'numba':
+            raise ValueError('Numba backend requires an adjacency matrix.')
+        elif backend == 'mne' and n_dims == 3:
+            # TODO: more informative error
+            _borsar_clustering_error()
+
+    if min_adj_ch > 0:
+        if backend == 'mne':
+            raise ValueError("``min_adj_ch`` is not available for the "
+                             "``'mne'`` backend.")
+    if data.ndim == 2 and min_adj_ch > 0:
+        if backend == 'numpy':
+            raise ValueError('currently ``min_adj_ch`` for 2d clustering'
+                             'is implemented only for the numba backend.')
+
+    if n_dims == 1 and backend == 'numba':
+        # TODO: more informative error
+        _borsar_clustering_error()
+
+    return backend
+
+
+def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
+    '''Return the correct clustering function depending on the data shape and
+    presence of an adjacency matrix.'''
+    backend = _check_backend(backend)
+    # return_numba = backend == 'numba' or (backend == 'auto' and has_numba_lib)
+
+    # check:
+    if data.ndim < 3 and min_adj_ch == 0:
+        return _cluster_1d_or_2d_no_adj
 
     if data.ndim == 3:
         if return_numba:
@@ -238,18 +279,6 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
                         filter_fun=None, filter_fun_post=None):
     '''Prepare clustering - perform checks and create necessary variables.'''
-
-    # FIXME - maybe some of these lines should be put in _get_cluster_fun?
-    if cluster_fun is None and backend == 'auto':
-        if data.ndim < 3:
-            backend = 'auto' if has_numba() else 'mne'
-        if filter_fun is not None or filter_fun_post is not None:
-            backend = 'auto'
-
-    if data.ndim < 3 and min_adj_ch > 0:
-        if backend not in ['auto', 'numba']:
-            raise ValueError('currently ``min_adj_ch`` for 2d clustering'
-                             'is implemented only for the numba backend.')
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
