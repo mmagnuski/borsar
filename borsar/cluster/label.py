@@ -165,10 +165,9 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
         if backend == 'mne':
             raise ValueError("``min_adj_ch`` is not available for the "
                              "``'mne'`` backend.")
-    if data.ndim == 2 and min_adj_ch > 0:
-        if backend == 'numpy':
-            raise ValueError('currently ``min_adj_ch`` for 2d clustering'
-                             'is implemented only for the numba backend.')
+    if backend == 'numpy' and n_dims == 2 and has_adjacency:
+        raise ValueError('Currently only "numba" backend can handle 2d data'
+                         'with channel adjacency.')
 
     if n_dims == 1 and backend == 'numba':
         # TODO: more informative error
@@ -197,13 +196,9 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
             return _cluster_3d_numba
         else:
             return _cluster_3d_numpy
-    elif data.ndim == 2:
-        if backend == 'numba':
+    elif data.ndim == 2 and backend == 'numba':
             from .label_numba import _cluster_2d_numba
             return _cluster_2d_numba
-        else:
-            raise ValueError('Currently only "numba" backend can handle '
-                             '2d data.')
     elif data.ndim < 3 and not has_adjacency:
         return _cluster_1d_or_2d_no_adj
 
