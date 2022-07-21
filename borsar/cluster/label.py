@@ -113,6 +113,7 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
+# TODO: ideally, these checks should be done in _get_cluster_fun
 def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     from skimage.measure import label
     assert adjacency is None
@@ -120,8 +121,9 @@ def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     return label(data, connectivity=1, background=False)
 
 
-def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0):
-    '''Select adequate backend if 'auto', else check if selected backend is ok.
+def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
+                   filter_fun=None, filter_fun_post=None):
+    '''Select adequate backend if 'auto', else check the selected backend.
     '''
     n_dims = data.ndim
     has_numba_lib = False
@@ -145,6 +147,8 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0):
         else:
             backend = 'mne'
 
+    # check backend for validity
+    # --------------------------
     if filter_fun is not None or filter_fun_post is not None:
         if backend == 'mne':
             raise ValueError('``filter_fun`` and ``filter_fun_post`` are '
@@ -173,24 +177,28 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0):
     return backend
 
 
-def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
+def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
+                     filter_fun=None, filter_fun_post=None):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
-    backend = _check_backend(backend)
+    backend = _check_backend(data, adjacency, backend, min_adj_ch, filter_fun,
+                             filter_fun_post)
+
     # return_numba = backend == 'numba' or (backend == 'auto' and has_numba_lib)
 
     # check:
+    has_adjacency = adjacency is not None
     if data.ndim < 3 and min_adj_ch == 0:
         return _cluster_1d_or_2d_no_adj
 
     if data.ndim == 3:
-        if return_numba:
+        if backend == 'numba':
             from .label_numba import _cluster_3d_numba
             return _cluster_3d_numba
         else:
             return _cluster_3d_numpy
     elif data.ndim == 2:
-        if return_numba:
+        if backend == 'numba':
             from .label_numba import _cluster_2d_numba
             return _cluster_2d_numba
         else:
@@ -265,6 +273,11 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     cluster_stats : numpy array
         Array with cluster statistics - usually sum of cluster members' values.
     """
+    if cluster_fun is None:
+        cluster_fun = _get_cluster_fun(
+            data, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch,
+            filter_fun=filter_fun, filter_fun_post=filter_fun_post)
+
     find_func, adjacency, add_arg = _prepare_clustering(
         data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch,
         filter_fun=filter_fun, filter_fun_post=filter_fun_post)
@@ -283,10 +296,6 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
     # mne_reshape_clusters=True,
     if backend == 'mne':
         # prepare mne clustering, maybe put this in a separate function?
-        if min_adj_ch > 0:
-            raise ValueError('mne backend does not support ``min_adj_ch`` '
-                             'filtering')
-
         try:
             from mne.stats.cluster_level import _setup_connectivity
             arg_name = 'connectivity'
