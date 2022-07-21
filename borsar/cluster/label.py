@@ -128,12 +128,17 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
     n_dims = data.ndim
     has_numba_lib = False
     has_adjacency = adjacency is not None
+
     # if backend is auto or numba - check if numba is available
     if backend in ['numba', 'auto']:
         has_numba_lib = has_numba()
     if backend == 'numba' and not has_numba_lib:
         raise ValueError('You need numba package to use the "numba" '
                          'backend.')
+
+    # min_adj_ch requires adjacency
+    if not has_adjacency and min_adj_ch > 0:
+        raise ValueError('min_adj_ch > 0 requires that adjacency is not None')
 
     # select backend for 'auto':
     # --------------------------
