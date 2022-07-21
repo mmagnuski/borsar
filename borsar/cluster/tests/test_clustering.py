@@ -346,6 +346,48 @@ def test_2d_numba_clustering_with_min_adj():
     assert cluster_stats[1] == 6
 
 
+def test_1d_numpy_clustering_no_adjacency():
+    '''Test clustering on 1d simple data without adjacency.'''
+    import skimage
+
+    # create 1d data with gaussian blobs centered at given x positons:
+    values = np.zeros(100)
+    x_pos = [25, 68, 92]
+    values[x_pos] = 1.
+    values = skimage.filters.gaussian(values, sigma=5.5)
+
+    # use find clusters with appropriate threshold:
+    clusters, stats = find_clusters(values, 0.03)
+    assert len(clusters) == 3
+
+    # make sure detected clusters are centered around correct x positions:
+    for idx in range(3):
+        assert np.abs(np.where(clusters[idx])[0].mean() - x_pos[idx]) < 2
+
+
+def test_2d_numpy_clustering_no_adjacency():
+    '''Test clustering on 2d simple data without adjacency.'''
+    import skimage
+
+    # create 2d data with gaussian blobs centered at given x, y positons:
+    values = np.zeros((50, 50))
+    x_pos = [10, 23, 42]
+    y_pos = [27, 6, 44]
+    values[x_pos, y_pos] = 1.
+    values = skimage.filters.gaussian(values, sigma=5.5)
+
+    # use find clusters with appropriate threshold:
+    clusters, stats = find_clusters(values, 0.003)
+    assert len(clusters) == 3
+
+    # make sure detected clusters are centered around correct x, y positions:
+    for idx in range(3):
+        cluster_pos = np.array([pos.mean() for pos in np.where(clusters[idx])])
+        true_pos = np.array([x_pos[idx], y_pos[idx]])
+        dist = np.sqrt(((true_pos - cluster_pos) ** 2).sum())
+        assert dist < 2
+
+
 def test_get_cluster_fun():
     from borsar.cluster.label import _get_cluster_fun
 
@@ -509,6 +551,10 @@ def test_cluster_based_regression_3d_simulated():
 
 
 def test_clustering_parameter_combinations():
+    '''Test all possible parameter combinations for find_clusters.
+
+    Only parameters lited in ``get_supported_find_clusters_parameters`` are
+    tested.'''
     from borsar.cluster.label import get_supported_find_clusters_parameters
     supported = get_supported_find_clusters_parameters()
 
