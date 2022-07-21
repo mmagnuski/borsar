@@ -147,7 +147,8 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
         # numba works for 2d, 3d with adjacency
         if has_adjacency and n_dims in [2, 3] and has_numba_lib:
             backend = 'numba'
-        elif (has_adjacency and n_dims in [2, 3]) or (n_dims in [1, 2]):
+        elif ((has_adjacency and n_dims == 3)
+              or (n_dims in [1, 2] and not has_adjacency)):
             backend = 'numpy'
         else:
             backend = 'mne'
