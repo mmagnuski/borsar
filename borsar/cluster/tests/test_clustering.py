@@ -590,3 +590,44 @@ def test_clustering_parameter_combinations():
             with pytest.raises(ValueError):
                 find_clusters(data, threshold=0.6, adjacency=adj,
                               backend=backend, min_adj_ch=min_adj_ch)
+
+
+def test_clustering_backend_selection():
+    from borsar.cluster.label import _check_backend
+    from borsar.cluster.label import get_supported_find_clusters_parameters
+    supported = get_supported_find_clusters_parameters()
+
+    cols = supported.columns.to_list()
+    uniq = supported.groupby(cols[:3], as_index=False).count()
+
+    for _, row in uniq.iterrows():
+        ndim = row['n dimensions']
+        has_adj = row['channel dimension']
+        min_adj_ch = row['min_adj_ch']
+
+        msk = (
+            (supported['n dimensions'] == ndim)
+            & (supported['channel dimension'] == has_adj)
+            & (supported['min_adj_ch'] == min_adj_ch)
+        )
+        sel = supported.loc[msk, :]
+
+        is_supported = sel.supported == 'yes'
+        n_supported = is_supported.sum()
+        if n_supported == 2:
+            should_select = 'numba'
+        elif n_supported == 1:
+            should_select = sel.loc[is_supported, 'backend'].values[0]
+        elif n_supported == 0:
+            should_select = 'mne'
+
+        data, adj = create_fake_data_for_cluster_test(
+            ndim=ndim, adjacency=has_adj == 'yes')
+        min_adj_ch = 2 if min_adj_ch == 'yes' else 0
+
+        try:
+            selected = _check_backend(data, adjacency=adj,
+                                      min_adj_ch=min_adj_ch)
+            assert selected == should_select
+        except ValueError:
+            assert should_select == 'mne'
