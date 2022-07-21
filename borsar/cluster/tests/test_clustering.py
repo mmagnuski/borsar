@@ -185,6 +185,7 @@ def test_find_clusters():
                                backend='mne')
     assert (clst[0] == correct_clst).all()
 
+    # TODO: test warnings in a separate function
     # warnings
     # --------
 
@@ -322,6 +323,7 @@ def test_2d_numba_clustering_with_min_adj():
 def test_get_cluster_fun():
     from borsar.cluster.label import _get_cluster_fun
 
+    # TODO: test errors in a separate function
     # check expected errors
     # ---------------------
     data = np.random.random((4, 10)) > 0.75
@@ -336,10 +338,10 @@ def test_get_cluster_fun():
         expected_msg = 'You need numba package to use the "numba"'
         with pytest.raises(ValueError, match=expected_msg):
             _get_cluster_fun(data, adj, backend='numba')
-
-    expected_msg = 'Numba backend requires an adjacency matrix.'
-    with pytest.raises(ValueError, match=expected_msg):
-        _get_cluster_fun(data, backend='numba')
+    else:
+        expected_msg = 'Numba backend requires an adjacency matrix.'
+        with pytest.raises(ValueError, match=expected_msg):
+            _get_cluster_fun(data, backend='numba')
 
     # check correct outputs
     # ---------------------
