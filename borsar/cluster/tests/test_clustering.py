@@ -203,10 +203,9 @@ def test_find_clusters():
     # min_adj_ch > 0 is currently available only for 3d data
     if not has_numba():
         data = np.random.random((3, 5))
-        with pytest.raises(ValueError, match='for 3d clustering.'):
+        with pytest.raises(ValueError, match='only "numba" backend can'):
             clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                        backend='auto', min_adj_ch=1)
-
 
 
 def test_3d_clustering_with_min_adj_ch():

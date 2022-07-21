@@ -167,7 +167,7 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
                              "``'mne'`` backend.")
     if backend == 'numpy' and n_dims == 2 and has_adjacency:
         raise ValueError('Currently only "numba" backend can handle 2d data'
-                         'with channel adjacency.')
+                         ' with channel adjacency.')
 
     if n_dims == 1 and backend == 'numba':
         # TODO: more informative error
