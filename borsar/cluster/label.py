@@ -290,6 +290,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
 def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
                         filter_fun=None, filter_fun_post=None):
     '''Prepare clustering - perform checks and create necessary variables.'''
+    import mne
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
@@ -305,9 +306,13 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
         if adjacency is not None and isinstance(adjacency, np.ndarray):
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
-            if adjacency.ndim == 2:
-                adjacency = _setup_connectivity(adjacency, np.prod(data.shape),
-                                                data.shape[0])
+
+        if data.ndim > 1:
+            adjacency = mne.stats.combine_adjacency(
+                adjacency, *data.shape[1:])
+            # if adjacency.ndim == 2:
+            #     adjacency = _setup_connectivity(
+            #         adjacency, np.prod(data.shape), data.shape[0])
 
         return _find_clusters_mne, adjacency, arg_name
     else:
