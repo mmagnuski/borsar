@@ -199,8 +199,6 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
                      filter_fun=None, filter_fun_post=None):
     '''Return the correct clustering function depending on the data shape and
     presence of an adjacency matrix.'''
-    backend = _check_backend(data, adjacency, backend, min_adj_ch, filter_fun,
-                             filter_fun_post)
     has_adjacency = adjacency is not None
 
     if data.ndim == 3:
@@ -281,6 +279,8 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     cluster_stats : numpy array
         Array with cluster statistics - usually sum of cluster members' values.
     """
+    backend = _check_backend(data, adjacency, backend, min_adj_ch, filter_fun,
+                             filter_fun_post)
     if cluster_fun is None:
         cluster_fun = _get_cluster_fun(
             data, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch,

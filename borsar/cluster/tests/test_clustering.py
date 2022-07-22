@@ -190,7 +190,7 @@ def test_find_clusters():
 
 
 def test_expected_find_clusters_errors():
-    from borsar.cluster.label import _get_cluster_fun
+    from borsar.cluster.label import _check_backend
 
     data, adj = create_fake_data_for_cluster_test(ndim=2, adjacency=True)
 
@@ -229,18 +229,18 @@ def test_expected_find_clusters_errors():
     # 2d with adjacency is available only for numba backend
     expected_msg = 'Currently only "numba" backend can handle '
     with pytest.raises(ValueError, match=expected_msg):
-        _get_cluster_fun(data, adj, backend='numpy')
+        _check_backend(data, adj, backend='numpy')
 
     if not has_numba():
         # if you don't have numba you get an error if you ask for numba backend
         expected_msg = 'You need numba package to use the "numba"'
         with pytest.raises(ValueError, match=expected_msg):
-            _get_cluster_fun(data, adj, backend='numba')
+            _check_backend(data, adj, backend='numba')
     else:
         # make sure adjacency is present when using numba
         expected_msg = 'Numba backend requires an adjacency matrix.'
         with pytest.raises(ValueError, match=expected_msg):
-            _get_cluster_fun(data, backend='numba')
+            _check_backend(data, backend='numba')
 
 
 def test_3d_clustering_with_min_adj_ch():

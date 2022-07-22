@@ -1,6 +1,6 @@
 import numpy as np
 
-from .label import find_clusters, _get_cluster_fun, _prepare_clustering
+from .label import _check_backend, _get_cluster_fun, _prepare_clustering
 from ..stats import compute_regression_t, _handle_preds
 
 
@@ -99,6 +99,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     t_values = stat_fun(data, preds)[cluster_pred]
 
     # set up clustering
+    backend = _check_backend(data, adjacency, backend, min_adj_ch)
     cluster_fun = _get_cluster_fun(
         t_values, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
     find_func, adjacency, add_arg = _prepare_clustering(
