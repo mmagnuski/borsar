@@ -315,7 +315,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
                         adjacency, *data.shape[1:])
                 else:
                     adjacency = _setup_connectivity(
-                        adjacency, np.prod(data.shape), data.shape[0])
+                        adjacency, np.prod(data.shape), data.shape[1])
 
         return _find_clusters_mne, adjacency, has_adjacency_mne
     else:
