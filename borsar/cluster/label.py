@@ -168,6 +168,16 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
         elif backend == 'mne' and n_dims == 3:
             # TODO: more informative error
             _borsar_clustering_error()
+    else:
+        adj_shape = adjacency.shape
+        if not adjacency.ndim == 2 or not adj_shape[0] == adj_shape[1]:
+            raise ValueError('Adjacency has to be a 2d square matrix. Got '
+                             'array of {adj_shape} shape.')
+        if not len(adjacency) == len(data):
+            raise ValueError('First data dimension has to correspond to the'
+                             ' passed adjacency matrix. First data dimension'
+                             f' is {len(data)} long, while adjacency is '
+                             f'{len(adj_shape[0])} x {len(adj_shape[0])}.')
 
     if min_adj_ch > 0:
         if backend == 'mne':
