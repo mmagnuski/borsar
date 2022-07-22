@@ -618,3 +618,104 @@ def test_clustering_backend_selection():
             assert selected == should_select
         except ValueError:
             assert should_select == 'mne'
+
+
+def test_custom_filter_function():
+    from functools import partial
+
+    # create data
+    test_data = np.array(
+        [[1, 0, 0, 1, 0, 0],
+         [0, 1, 0, 1, 1, 0],
+         [0, 0, 0, 1, 1, 1],
+         [0, 0, 0, 0, 1, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 1, 1, 0, 1, 1]]
+    )
+
+    corrected_for_min_4_ngb = np.array(
+        [[0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 1, 1, 0],
+         [0, 0, 0, 1, 1, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0]],
+        dtype='bool'
+    )
+
+    corrected_for_min_3_ngb = np.array(
+        [[0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 1, 1, 0],
+         [0, 0, 0, 1, 1, 1],
+         [0, 0, 0, 0, 1, 0],
+         [0, 2, 0, 0, 0, 0],
+         [0, 2, 0, 0, 0, 0]]
+    )
+
+    # custom function to remove pixels with too little neighbours
+    # (including diagonal neighbours)
+    def filter_fun(clusters, adjacency=None, min_adj=4):
+        from scipy.signal import correlate2d
+
+        kernel = np.array([[1, 1, 1],
+                           [1, 0, 1],
+                           [1, 1, 1]])
+        n_ngb = correlate2d(clusters, kernel, mode='same')
+        return clusters & (n_ngb >= min_adj)
+
+    clusters, _ = find_clusters(
+        test_data, threshold=0.5, filter_fun=filter_fun)
+    assert (clusters[0] == corrected_for_min_4_ngb).all()
+
+    this_filter = partial(filter_fun, min_adj=3)
+    clusters, _ = find_clusters(
+        test_data, threshold=0.5, filter_fun=this_filter)
+    assert (clusters[0] == (corrected_for_min_3_ngb == 1)).all()
+    assert (clusters[1] == (corrected_for_min_3_ngb == 2)).all()
+
+
+def test_custom_postfilter_function():
+    from functools import partial
+
+    # create data
+    test_data = np.array(
+        [[1, 0, 0, 1, 0, 0],
+         [0, 0, 0, 1, 1, 0],
+         [0, 0, 1, 1, 1, 1],
+         [0, 0, 0, 0, 1, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 1, 1, 0, 1, 1]]
+    )
+
+    data_after_removing_diagonal_clusters = np.array(
+        [[0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0],
+         [0, 1, 0, 0, 0, 0],
+         [1, 1, 1, 0, 0, 0]],
+        dtype='bool'
+    )
+
+    # custom function to remove clusters on the diagonal
+    # (may be useful for far off-diagonal generalization effects in
+    #  time generalization decoding)
+    def remove_diagnoal_clusters(clusters, adjacency=None):
+        diag_mask = np.zeros(clusters.shape, dtype='bool')
+        np.fill_diagonal(diag_mask, True)
+
+        cluster_ids = np.unique(clusters)
+        if cluster_ids[0] == 0:
+            cluster_ids = cluster_ids[1:]
+
+        for clst_id in cluster_ids:
+            this_mask = clusters == clst_id
+            is_diagonal = (diag_mask & this_mask).any()
+            if is_diagonal:
+                clusters[this_mask] = 0
+
+        return clusters
+
+    clusters, _ = find_clusters(
+        test_data, threshold=0.5, filter_fun_post=remove_diagnoal_clusters)
+    assert (clusters[0] == data_after_removing_diagonal_clusters).all()
