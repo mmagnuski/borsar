@@ -212,8 +212,10 @@ def test_expected_find_clusters_errors():
 
     # min_adj_ch > 0 is currently available only for 3d data without numba
     if not has_numba():
-
-        with pytest.raises(ValueError, match='only "numba" backend can'):
+        # TODO: this error message should be improved in the future,
+        #       if backend='auto' it is quite surprising...
+        msg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
+        with pytest.raises(ValueError, match=msg):
             find_clusters(data, 0.7, adjacency=adj, backend='auto',
                           min_adj_ch=1)
 
@@ -571,8 +573,9 @@ def test_clustering_parameter_combinations():
 def test_clustering_backend_selection():
     from borsar.cluster.label import _check_backend
     from borsar.cluster.label import get_supported_find_clusters_parameters
-    supported = get_supported_find_clusters_parameters()
 
+    has_numba_lib = has_numba()
+    supported = get_supported_find_clusters_parameters()
     cols = supported.columns.to_list()
     uniq = supported.groupby(cols[:3], as_index=False).count()
 
@@ -591,9 +594,11 @@ def test_clustering_backend_selection():
         is_supported = sel.supported == 'yes'
         n_supported = is_supported.sum()
         if n_supported == 2:
-            should_select = 'numba'
+            should_select = 'numba' if has_numba_lib else 'numpy'
         elif n_supported == 1:
             should_select = sel.loc[is_supported, 'backend'].values[0]
+            if should_select == 'numba' and not has_numba_lib:
+                should_select = 'mne'
         elif n_supported == 0:
             should_select = 'mne'
 
