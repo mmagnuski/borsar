@@ -184,7 +184,7 @@ def test_find_clusters():
                      [0.1, 0.8, 1.5, 1.9, 2.1]])
     correct_clst = data.T > threshold
 
-    clst, stat = find_clusters(data.T, threshold, adjacency=adjacency,
+    clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                backend='mne')
     assert (clst[0] == correct_clst).all()
 

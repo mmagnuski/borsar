@@ -296,30 +296,28 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
     if backend == 'mne':
         from packaging import version
         mne_version = version.parse(mne.__version__)
-        has_adjacency = mne_version >= version.parse('0.21.0')
+        has_adjacency_mne = mne_version >= version.parse('0.21.0')
 
         # prepare mne clustering, maybe put this in a separate function?
-        if not has_adjacency:
+        if not has_adjacency_mne:
             from mne.stats.cluster_level import _setup_connectivity
-            arg_name = 'connectivity'
         else:
             from mne.stats.cluster_level import (_setup_adjacency
                                                  as _setup_connectivity)
-            arg_name = 'adjacency'
 
         if adjacency is not None and isinstance(adjacency, np.ndarray):
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
 
             if data.ndim > 1:
-                if has_adjacency:
+                if has_adjacency_mne:
                     adjacency = mne.stats.combine_adjacency(
                         adjacency, *data.shape[1:])
                 else:
                     adjacency = _setup_connectivity(
                         adjacency, np.prod(data.shape), data.shape[0])
 
-        return _find_clusters_mne, adjacency, arg_name
+        return _find_clusters_mne, adjacency, has_adjacency_mne
     else:
         if cluster_fun is None:
             cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
@@ -329,15 +327,21 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 
 
 # TODO: describe the ``full`` argument better
-def _find_clusters_mne(data, threshold, adjacency, arg_name, min_adj_ch=0,
+def _find_clusters_mne(data, threshold, adjacency, has_adjacency_mne, min_adj_ch=0,
                        full=True, filter_fun=None, filter_fun_post=None):
     '''Perform clustering using mne functions.'''
     from mne.stats.cluster_level import (
         _find_clusters, _cluster_indices_to_mask)
 
     orig_data_shape = data.shape
+    arg_name = 'adjacency' if has_adjacency_mne else 'connectivity'
     kwargs = {arg_name: adjacency}
-    data = (data.ravel() if adjacency is not None else data)
+
+    if adjacency is not None:
+        if not has_adjacency_mne:
+            data = data.T
+        data = data.ravel()
+
     clusters, cluster_stats = _find_clusters(
         data, threshold=threshold, tail=0, **kwargs)
 
