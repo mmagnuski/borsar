@@ -6,8 +6,6 @@ from ..utils import has_numba
 
 # TODO:
 # - [ ] compare speed against mne clustering
-# - [x] add min_adj_ch (minimum adjacent channels)
-# - [x] wait with relabeling till the end (tried that and it was slower)
 def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     '''
     Cluster three-dimensional data given adjacency matrix.
@@ -41,7 +39,8 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
     assert data.dtype == np.bool
 
     if min_adj_ch > 0:
-        data = _cross_channel_adjacency_3d(data, adjacency, min_adj_ch=min_adj_ch)
+        data = _cross_channel_adjacency_3d(
+            data, adjacency, min_adj_ch=min_adj_ch)
 
     clusters = _per_channel_adjacency_3d(data)
     clusters = _cross_channel_adjacency_3d(clusters, adjacency)
@@ -114,6 +113,7 @@ def _cross_channel_adjacency_3d(clusters, adjacency, min_adj_ch=0):
     return clusters
 
 
+# TODO: ideally, these checks should be done in _get_cluster_fun
 def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     from skimage.measure import label
     assert adjacency is None
@@ -121,47 +121,101 @@ def _cluster_1d_or_2d_no_adj(data, adjacency=None, min_adj_ch=0):
     return label(data, connectivity=1, background=False)
 
 
-def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0):
-    '''Return the correct clustering function depending on the data shape and
-    presence of an adjacency matrix.'''
-    hasnb = False
+def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
+                   filter_fun=None, filter_fun_post=None):
+    '''Select adequate backend if 'auto', else check the selected backend.
+    '''
+    n_dims = data.ndim
+    has_numba_lib = False
     has_adjacency = adjacency is not None
+
+    # if backend is auto or numba - check if numba is available
+    if backend in ['numba', 'auto']:
+        has_numba_lib = has_numba()
+    if backend == 'numba' and not has_numba_lib:
+        raise ValueError('You need numba package to use the "numba" '
+                         'backend.')
+
+    # min_adj_ch requires adjacency
+    if not has_adjacency and min_adj_ch > 0:
+        raise ValueError('min_adj_ch > 0 requires that adjacency is not None')
+
+    # select backend for 'auto':
+    # --------------------------
+    # numba, else numpy else mne
+    if backend == 'auto':
+        # numba works for 2d, 3d with adjacency
+        if has_adjacency and n_dims in [2, 3] and has_numba_lib:
+            backend = 'numba'
+        elif ((has_adjacency and n_dims == 3)
+              or (n_dims in [1, 2] and not has_adjacency)):
+            backend = 'numpy'
+        else:
+            backend = 'mne'
+
+    # check backend for validity
+    # --------------------------
+    if filter_fun is not None or filter_fun_post is not None:
+        if backend == 'mne':
+            raise ValueError('``filter_fun`` and ``filter_fun_post`` are '
+                             "not available for the ``'mne'`` backend.")
+
     if not has_adjacency:
         if backend == 'numba':
             raise ValueError('Numba backend requires an adjacency matrix.')
-        if data.ndim < 3 and min_adj_ch == 0:
-            return _cluster_1d_or_2d_no_adj
-        else:
+        elif backend == 'numpy' and n_dims >= 3:
+            _borsar_clustering_error()
+        elif backend == 'mne' and n_dims == 3:
+            # TODO: more informative error
+            _borsar_clustering_error()
+    else:
+        adj_shape = adjacency.shape
+        if not adjacency.ndim == 2 or not adj_shape[0] == adj_shape[1]:
+            raise ValueError('Adjacency has to be a 2d square matrix. Got '
+                             'array of {adj_shape} shape.')
+        if not adj_shape[0] == len(data):
+            raise ValueError('First data dimension has to correspond to the'
+                             ' passed adjacency matrix. First data dimension'
+                             f' is {len(data)} long, while adjacency is '
+                             f'{adj_shape[0]} x {adj_shape[0]}.')
+
+    if min_adj_ch > 0:
+        if backend == 'mne':
+            raise ValueError("``min_adj_ch`` is not available for the "
+                             "``'mne'`` backend.")
+    if backend == 'numpy' and n_dims == 2 and has_adjacency:
+        raise ValueError('Currently only "numba" backend can handle 2d data'
+                         ' with channel adjacency.')
+
+    if n_dims == 1:
+        if backend == 'numba' or (backend == 'numpy' and has_adjacency):
+            # TODO: more informative error
             _borsar_clustering_error()
 
-    if data.ndim not in [2, 3]:
-        _borsar_clustering_error()
-    if backend in ['numba', 'auto']:
-        hasnb = has_numba()
-    if backend == 'numba' and not hasnb:
-        raise ValueError('You need numba package to use the "numba" '
-                         'backend.')
-    return_numba = backend == 'numba' or (backend == 'auto' and hasnb)
+    return backend
+
+
+def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
+                     filter_fun=None, filter_fun_post=None):
+    '''Return the correct clustering function depending on the data shape and
+    presence of an adjacency matrix.'''
+    has_adjacency = adjacency is not None
 
     if data.ndim == 3:
-        if return_numba:
+        if backend == 'numba':
             from .label_numba import _cluster_3d_numba
             return _cluster_3d_numba
         else:
             return _cluster_3d_numpy
-    elif data.ndim == 2:
-        if return_numba:
+    elif data.ndim == 2 and backend == 'numba':
             from .label_numba import _cluster_2d_numba
             return _cluster_2d_numba
-        else:
-            raise ValueError('Currently only "numba" backend can handle '
-                             '2d data.')
     elif data.ndim < 3 and not has_adjacency:
         return _cluster_1d_or_2d_no_adj
 
 
 def _borsar_clustering_error():
-    raise ValueError('borsar has specialised clustering functions only'
+    raise ValueError('borsar has specialized clustering functions only'
                      ' for three- and two-dimensional data where the first '
                      'dimension is spatial (channels or vertices). This spat'
                      'ial dimension requires adjacency matrix defining '
@@ -170,9 +224,10 @@ def _borsar_clustering_error():
                      'cency matrix for the spatial dimension.')
 
 
-# TODO : add tail=0 to control for tail selection
+# TODO : add tail=0 to control for tail selection! or 'pos', 'neg' and 'both'
 def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
-                  backend='auto', mne_reshape_clusters=True, min_adj_ch=0):
+                  backend='auto', mne_reshape_clusters=True, min_adj_ch=0,
+                  filter_fun=None, filter_fun_post=None):
     """Find clusters in data array given cluster membership threshold and
     optionally adjacency matrix.
 
@@ -184,7 +239,7 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         Threshold value for cluster membership.
     adjacency : numpy bool array | list, optional
         Boolean adjacency matrix. Can be dense or sparse. None by default,
-        which assumes standard lattuce adjacency.
+        which assumes standard lattice adjacency.
     cluster_fun : function, optional
         Clustering function to use. ``None`` by default which selects relevant
         clustering function based on adjacency and number of data dimensions.
@@ -198,9 +253,22 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
         When ``backend`` is ``'mne'``: whether to reshape clusters back to
         the original data shape after obtaining them from mne. Not used for
         other backends.
-    min_adj_ch
+    min_adj_ch : int
         Number of minimum adjacent channels/vertices above ``threshold`` for
         given point to be included in a cluster.
+    filter_fun : callable | None
+        Additional filtering to perform on the boolean mask before clustering.
+        Must be a function that receives a boolean matrix and adjacency and
+        returns filtered clusters. Can be used for example to remove "pixels"
+        that have less than N other neighboring pixels (irrespective of
+        ``min_adj_ch``).
+    filter_fun_post : callable | None
+        Additional filtering to perform on the identified clusters. Must be a
+        function that receives cluster ID matrix and adjacency and returns
+        the filtered clusters. Can be used for example to automatically reject
+        clusters that do not overlap sufficiently with channels of interest or
+        that overlap with a known high variance space in the search space that
+        is not of interest.
 
     Returns
     -------
@@ -211,50 +279,44 @@ def find_clusters(data, threshold, adjacency=None, cluster_fun=None,
     cluster_stats : numpy array
         Array with cluster statistics - usually sum of cluster members' values.
     """
-    findfunc, adjacency, addarg = _prepare_clustering(
-        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
-    clusters, cluster_stats = findfunc(data, threshold, adjacency, addarg,
-                                       min_adj_ch=min_adj_ch, full=True)
+    backend = _check_backend(data, adjacency, backend, min_adj_ch, filter_fun,
+                             filter_fun_post)
+    if cluster_fun is None:
+        cluster_fun = _get_cluster_fun(
+            data, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch,
+            filter_fun=filter_fun, filter_fun_post=filter_fun_post)
+
+    find_func, adjacency, add_arg = _prepare_clustering(
+        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch,
+        filter_fun=filter_fun, filter_fun_post=filter_fun_post)
+    clusters, cluster_stats = find_func(
+        data, threshold, adjacency, add_arg, min_adj_ch=min_adj_ch, full=True,
+        filter_fun=filter_fun, filter_fun_post=filter_fun_post)
 
     return clusters, cluster_stats
 
 
-def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
+# TODO: backend auto option should be better!
+def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
+                        filter_fun=None, filter_fun_post=None):
     '''Prepare clustering - perform checks and create necessary variables.'''
-    # FIXME - some these lines should be put in _get_cluster_fun
-    if cluster_fun is None and backend == 'auto':
-        if data.ndim < 3:
-            backend = 'auto' if has_numba() else 'mne'
-
-    if data.ndim < 3 and min_adj_ch > 0:
-        if backend not in ['auto', 'numba']:
-            raise ValueError('currently ``min_adj_ch`` is implemented only for'
-                             ' 3d clustering.')
+    import mne
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
-        # prepare mne clustering, maybe put this in a separate function?
-        if min_adj_ch > 0:
-            raise ValueError('mne backend does not supprot ``min_adj_ch`` '
-                             'filtering')
-
-        try:
-            from mne.stats.cluster_level import _setup_connectivity
-            argname = 'connectivity'
-        except ImportError:
-            from mne.stats.cluster_level import (_setup_adjacency
-                                                 as _setup_connectivity)
-            argname = 'adjacency'
-
-        if adjacency is not None and isinstance(adjacency, np.ndarray):
+        if adjacency is not None:
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
-            if adjacency.ndim == 2:
-                adjacency = _setup_connectivity(adjacency, np.prod(data.shape),
-                                                data.shape[0])
 
-        return _find_clusters_mne, adjacency, argname
+            if data.ndim > 1:
+                adjacency = mne.stats.combine_adjacency(
+                    adjacency, *data.shape[1:])
+
+        return _find_clusters_mne, adjacency, None
     else:
+        if adjacency is not None and sparse.issparse(adjacency):
+            # turn to dense
+            adjacency = adjacency.toarray()
         if cluster_fun is None:
             cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
                                            min_adj_ch=min_adj_ch,
@@ -262,28 +324,34 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0):
         return _find_clusters_borsar, adjacency, cluster_fun
 
 
-def _find_clusters_mne(data, threshold, adjacency, argname, min_adj_ch=0,
-                       full=True):
+# TODO: describe the ``full`` argument better
+# TODO: remove the ``not_used`` arg later
+def _find_clusters_mne(data, threshold, adjacency, not_used, min_adj_ch=0,
+                       full=True, filter_fun=None, filter_fun_post=None):
+    '''Perform clustering using mne functions.'''
     from mne.stats.cluster_level import (
         _find_clusters, _cluster_indices_to_mask)
 
     orig_data_shape = data.shape
-    kwargs = {argname: adjacency}
-    data = (data.ravel() if adjacency is not None else data)
+    if adjacency is not None:
+        data = data.ravel()
+
     clusters, cluster_stats = _find_clusters(
-        data, threshold=threshold, tail=0, **kwargs)
+        data, threshold=threshold, tail=0, adjacency=adjacency)
 
     if full:
         if adjacency is not None:
-            clusters = _cluster_indices_to_mask(clusters,
-                                                np.prod(data.shape))
+            clusters = _cluster_indices_to_mask(
+                clusters, np.prod(data.shape))
         clusters = [clst.reshape(orig_data_shape) for clst in clusters]
 
     return clusters, cluster_stats
 
 
+# TODO: DRY the pos and neg path
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
-                          min_adj_ch=0, full=True):
+                          min_adj_ch=0, full=True, filter_fun=None,
+                          filter_fun_post=None):
     if isinstance(threshold, list):
         assert len(threshold) == 2
         pos_threshold, neg_threshold = threshold
@@ -292,8 +360,13 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 
     # positive clusters
     # -----------------
-    pos_clusters = cluster_fun(data > pos_threshold, adjacency=adjacency,
+    pos_mask = data > pos_threshold
+    if filter_fun is not None:
+        pos_mask = filter_fun(pos_mask, adjacency=adjacency)
+    pos_clusters = cluster_fun(pos_mask, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
+    if filter_fun_post is not None:
+        pos_clusters = filter_fun_post(pos_clusters, adjacency=adjacency)
 
     # TODO - consider numba optimization of this part too:
     cluster_id = np.unique(pos_clusters)
@@ -303,8 +376,13 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 
     # negative clusters
     # -----------------
-    neg_clusters = cluster_fun(data < neg_threshold, adjacency=adjacency,
+    neg_mask = data < neg_threshold
+    if filter_fun is not None:
+        neg_mask = filter_fun(neg_mask, adjacency=adjacency)
+    neg_clusters = cluster_fun(neg_mask, adjacency=adjacency,
                                min_adj_ch=min_adj_ch)
+    if filter_fun_post is not None:
+        neg_clusters = filter_fun_post(neg_clusters, adjacency=adjacency)
 
     # TODO - consider numba optimization of this part too:
     cluster_id = np.unique(neg_clusters)
@@ -315,3 +393,30 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
     clusters = pos_clusters + neg_clusters
 
     return clusters, cluster_stats
+
+
+def get_supported_find_clusters_parameters():
+    from io import StringIO
+    import pandas as pd
+
+    table_text = """n dimensions,channel dimension,min_adj_ch,backend,supported
+        1,no,NA,numba,no
+        1,no,NA,numpy,yes
+        1,yes,yes,numba,no
+        1,yes,no,numba,no
+        1,yes,yes,numpy,no
+        1,yes,no,numpy,no
+        2,no,NA,numba,no
+        2,no,NA,numpy,yes
+        2,yes,no,numba,yes
+        2,yes,no,numpy,no
+        2,yes,yes,numba,yes
+        2,yes,yes,numpy,no
+        3,no,NA,numba,no
+        3,no,NA,numpy,no
+        3,yes,no,numba,yes
+        3,yes,no,numpy,yes
+        3,yes,yes,numba,yes
+        3,yes,yes,numpy,yes"""
+    supported = pd.read_csv(StringIO(table_text), keep_default_na=False)
+    return supported
