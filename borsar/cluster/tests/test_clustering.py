@@ -675,8 +675,6 @@ def test_custom_filter_function():
 
 
 def test_custom_postfilter_function():
-    from functools import partial
-
     # create data
     test_data = np.array(
         [[1, 0, 0, 1, 0, 0],
