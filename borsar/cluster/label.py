@@ -173,7 +173,7 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
         if not adjacency.ndim == 2 or not adj_shape[0] == adj_shape[1]:
             raise ValueError('Adjacency has to be a 2d square matrix. Got '
                              'array of {adj_shape} shape.')
-        if not len(adjacency) == len(data):
+        if not adj_shape[0] == len(data):
             raise ValueError('First data dimension has to correspond to the'
                              ' passed adjacency matrix. First data dimension'
                              f' is {len(data)} long, while adjacency is '
@@ -314,6 +314,11 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 
         return _find_clusters_mne, adjacency, None
     else:
+        if adjacency is not None and not isinstance(adjacency, np.ndarray):
+            # TODO: if array is not sparse, but something else, try throwing
+            #       a more informative error
+            # guess that adjacency is sparse and turn to dense
+            adjacency = adjacency.toarray()
         if cluster_fun is None:
             cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
                                            min_adj_ch=min_adj_ch,

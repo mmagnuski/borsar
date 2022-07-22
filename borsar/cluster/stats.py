@@ -92,23 +92,24 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     if stat_fun is None:
         stat_fun = compute_regression_t
 
-    cluster_fun = _get_cluster_fun(
-        data, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
-    find_func, adjacency, add_arg = _prepare_clustering(
-        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
-
-    pos_dist = np.zeros(n_permutations)
-    neg_dist = np.zeros(n_permutations)
-    perm_preds = preds.copy()
-
     if cluster_pred is None:
         cluster_pred = 1
 
     # regression on non-permuted data
     t_values = stat_fun(data, preds)[cluster_pred]
 
+    # set up clustering
+    cluster_fun = _get_cluster_fun(
+        t_values, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
+    find_func, adjacency, add_arg = _prepare_clustering(
+        t_values, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
+
+    pos_dist = np.zeros(n_permutations)
+    neg_dist = np.zeros(n_permutations)
+    perm_preds = preds.copy()
+
     clusters, cluster_stats = find_func(
-        data, stat_threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
+        t_values, stat_threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
         full=True)
 
     if not clusters:

@@ -206,10 +206,10 @@ def test_expected_find_clusters_errors():
         find_clusters(data, 0.7, adjacency=adj[:, 0], backend='mne')
 
     # mne does not support min_adj_ch
-    data_3d = np.random.random((5, 5, 3))
+    data_3d, adj2 = create_fake_data_for_cluster_test(ndim=3, adjacency=True)
     mssg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
     with pytest.raises(ValueError, match=mssg):
-        find_clusters(data_3d, 0.7, adjacency=adj, backend='mne',
+        find_clusters(data_3d, 0.7, adjacency=adj2, backend='mne',
                       min_adj_ch=1)
 
     # min_adj_ch > 0 is allowed only when adjacency is passed
@@ -526,10 +526,6 @@ def test_cluster_based_regression_3d_simulated():
     stat, clst, pvals = cluster_based_regression(
         reg_data, pred, adjacency=adjacency, stat_threshold=2.,
         progressbar=False)
-
-    # swapaxes back to orig size
-    stat = stat.swapaxes(0, -1)
-    clst = [c.swapaxes(0, -1) for c in clst]
 
     # find index of positive and negative clusters
     clst_stat = np.array([stat[c].sum() for c in clst])
