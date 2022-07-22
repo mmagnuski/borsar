@@ -44,4 +44,4 @@ workflows:
           matrix:
             parameters:
               use_numba: ["yes", "no"]
-              mne_version: ["current", "0.23.4", "0.20.8"]
+              mne_version: ["current", "0.23.4", "0.21.2"]
