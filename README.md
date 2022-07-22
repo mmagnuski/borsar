@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/mmagnuski/borsar.svg?branch=master)](https://travis-ci.org/mmagnuski/borsar)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/mmagnuski/borsar/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/mmagnuski/borsar/tree/master)
 [![Coverage Status](https://codecov.io/gh/mmagnuski/borsar/branch/master/graph/badge.svg)](https://codecov.io/gh/mmagnuski/borsar)
 
 Various tools, objects and functions for EEG/MEG data analysis and visualisation. Some functionality that is available here may
