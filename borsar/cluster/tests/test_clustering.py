@@ -182,7 +182,7 @@ def test_find_clusters():
     data = np.array([[1., 1.5, 2.1, 2.3, 1.8],
                      [1., 1.4, 1.9, 2.3, 2.2],
                      [0.1, 0.8, 1.5, 1.9, 2.1]])
-    correct_clst = data.T > threshold
+    correct_clst = data > threshold
 
     clst, stat = find_clusters(data, threshold, adjacency=adjacency,
                                backend='mne')
