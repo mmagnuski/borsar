@@ -491,8 +491,7 @@ def test_cluster_based_regression():
     adjacency = sparse.coo_matrix([[F, T, T, F], [T, F, T, F], [T, T, F, T],
                                    [F, F, T, F]])
 
-    tvals, clst, clst_p = cluster_based_regression(data, preds,
-                                                   adjacency=adjacency)
+    cluster_based_regression(data, preds, adjacency=adjacency)
 
 
 def test_cluster_based_regression_3d_simulated():
@@ -523,7 +522,7 @@ def test_cluster_based_regression_3d_simulated():
     data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
 
     # prepare data and run cluster_based_regression
-    reg_data = data.copy().swapaxes(1, -1)
+    reg_data = data.copy()
     stat, clst, pvals = cluster_based_regression(
         reg_data, pred, adjacency=adjacency, stat_threshold=2.,
         progressbar=False)

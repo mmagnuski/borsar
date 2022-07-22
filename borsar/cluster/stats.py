@@ -1,13 +1,10 @@
 import numpy as np
 
-from .label import find_clusters, _get_cluster_fun
+from .label import find_clusters, _get_cluster_fun, _prepare_clustering
 from ..stats import compute_regression_t, _handle_preds
 
 
-# - [x] permute only some predictors
-# - [x] better support for `cluster_pred`: idx with respect to `preds`,
-#       add intercept
-# - [ ] add min_adj_ch parameter passed to find_clusters
+# - [x] add min_adj_ch parameter passed to find_clusters
 # - [ ] FIXME: consider cluster_pred always adressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
@@ -15,7 +12,7 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
                              cluster_pred=None, backend='auto',
                              progressbar=True, return_distribution=False,
-                             stat_fun=None):
+                             stat_fun=None, min_adj_ch=0):
     '''Compute cluster-based permutation test with regression as the
     statistical function.
 
@@ -85,26 +82,20 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     # data has to have observations as 1st dim and channels/vert as last dim
     # FIXME: add checks for input types
     preds = _handle_preds(preds)
+    n_obs = data.shape[0]
 
     if stat_threshold is None:
         from scipy.stats import t
-        df = data.shape[0] - 2  # in future: preds.shape[1]
+        df = n_obs - 2
         stat_threshold = t.ppf(1 - alpha_threshold / 2, df)
 
     if stat_fun is None:
         stat_fun = compute_regression_t
 
-    use_3d_clustering = data.ndim > 3 and adjacency is not None
-
-    n_obs = data.shape[0]
-    if adjacency is not None and not use_3d_clustering:
-        try:
-            from mne.stats.cluster_level import _setup_connectivity
-        except ImportError:
-            from mne.stats.cluster_level import (_setup_adjacency
-                                                 as _setup_connectivity)
-        adjacency = _setup_connectivity(adjacency, np.prod(data.shape[1:]),
-                                        data.shape[1])
+    cluster_fun = _get_cluster_fun(
+        data, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
+    find_func, adjacency, add_arg = _prepare_clustering(
+        data, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
@@ -116,27 +107,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     # regression on non-permuted data
     t_values = stat_fun(data, preds)[cluster_pred]
 
-    if use_3d_clustering:
-        # use 3d clustering
-        cluster_fun = _get_cluster_fun(t_values, adjacency=adjacency,
-                                       backend=backend)
-        # we need to transpose dimensions for 3d clustering
-        # FIXME/TODO - this could be eliminated by creating a single unified
-        #              clustering function / API
-        data_dims = np.array(list(range(data.ndim)))
-        data_dims[1], data_dims[-1] = data_dims[-1], 1
-        data = data.transpose(data_dims)
-        t_values = t_values.transpose(data_dims[1:] - 1)
-    else:
-        backend = 'mne'
-        cluster_fun = None
-
-    clusters, cluster_stats = find_clusters(
-        t_values, stat_threshold, adjacency=adjacency, cluster_fun=cluster_fun,
-        backend=backend)
-
-    if use_3d_clustering:
-        t_values = t_values.transpose(data_dims[1:] - 1)
+    clusters, cluster_stats = find_func(
+        data, stat_threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
+        full=True)
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -159,10 +132,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         perm_tvals = stat_fun(data, perm_preds)[cluster_pred]
 
         # cluster
-        _, perm_cluster_stats = find_clusters(
-            perm_tvals, stat_threshold, adjacency=adjacency,
-            cluster_fun=cluster_fun, backend=backend,
-            mne_reshape_clusters=False)
+        _, perm_cluster_stats = find_func(
+            perm_tvals, stat_threshold, adjacency, add_arg,
+            min_adj_ch=min_adj_ch, full=True)
 
         # if any clusters were found - add max statistic
         if len(perm_cluster_stats) > 0:
@@ -188,9 +160,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     cluster_order = np.argsort(cluster_p)
     cluster_p = cluster_p[cluster_order]
     clusters = [clusters[i] for i in cluster_order]
-
-    if use_3d_clustering:
-        clusters = [clst.transpose(data_dims[1:] - 1) for clst in clusters]
 
     out = t_values, clusters, cluster_p
     if return_distribution:
