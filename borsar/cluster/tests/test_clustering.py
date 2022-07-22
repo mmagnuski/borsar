@@ -397,7 +397,7 @@ def test_2d_numpy_clustering_no_adjacency():
 
 
 def test_get_cluster_fun():
-    from borsar.cluster.label import _get_cluster_fun
+    from borsar.cluster.label import _get_cluster_fun, _check_backend
 
     # TODO: test errors in a separate function
     # check expected errors
@@ -411,18 +411,21 @@ def test_get_cluster_fun():
     if has_numba():
         from borsar.cluster.label_numba import (_cluster_2d_numba,
                                                 _cluster_3d_numba)
-        func = _get_cluster_fun(data, adj, backend='auto')
+        backend = _check_backend(data, adj, backend='auto')
+        func = _get_cluster_fun(data, adj, backend=backend)
         assert func == _cluster_2d_numba
 
         data = np.random.random((4, 10, 5)) > 0.75
-        func = _get_cluster_fun(data, adj, backend='auto')
+        backend = _check_backend(data, adj, backend='auto')
+        func = _get_cluster_fun(data, adj, backend=backend)
         assert func == _cluster_3d_numba
 
     if not has_numba():
         from borsar.cluster.label import _cluster_3d_numpy
 
         data = np.random.random((4, 10, 5)) > 0.75
-        func = _get_cluster_fun(data, adj, backend='auto')
+        backend = _check_backend(data, adj, backend='auto')
+        func = _get_cluster_fun(data, adj, backend=backend)
         assert func == _cluster_3d_numpy
 
 
