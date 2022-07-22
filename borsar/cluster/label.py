@@ -177,7 +177,7 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
             raise ValueError('First data dimension has to correspond to the'
                              ' passed adjacency matrix. First data dimension'
                              f' is {len(data)} long, while adjacency is '
-                             f'{len(adj_shape[0])} x {len(adj_shape[0])}.')
+                             f'{adj_shape[0]} x {adj_shape[0]}.')
 
     if min_adj_ch > 0:
         if backend == 'mne':
