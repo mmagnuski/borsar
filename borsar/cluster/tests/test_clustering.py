@@ -196,7 +196,7 @@ def test_expected_find_clusters_errors():
 
     # data has to match the shape of adjacency
     with pytest.raises(ValueError, match='of the correct size'):
-        find_clusters(data, 0.7, adjacency=adj, backend='mne')
+        find_clusters(data.T, 0.7, adjacency=adj, backend='mne')
 
     # mne does not support min_adj_ch
     data_3d = np.random.random((5, 5, 3))
