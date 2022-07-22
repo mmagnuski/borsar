@@ -307,9 +307,9 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
 
-        if data.ndim > 1:
-            adjacency = mne.stats.combine_adjacency(
-                adjacency, *data.shape[1:])
+            if data.ndim > 1:
+                adjacency = mne.stats.combine_adjacency(
+                    adjacency, *data.shape[1:])
             # if adjacency.ndim == 2:
             #     adjacency = _setup_connectivity(
             #         adjacency, np.prod(data.shape), data.shape[0])
