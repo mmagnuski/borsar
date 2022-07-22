@@ -294,11 +294,15 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
+        from packaging import version
+        mne_version = version.parse(mne.__version__)
+        has_adjacency = mne_version >= version.parse('0.21.0')
+
         # prepare mne clustering, maybe put this in a separate function?
-        try:
+        if not has_adjacency:
             from mne.stats.cluster_level import _setup_connectivity
             arg_name = 'connectivity'
-        except ImportError:
+        else:
             from mne.stats.cluster_level import (_setup_adjacency
                                                  as _setup_connectivity)
             arg_name = 'adjacency'
@@ -308,11 +312,12 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
                 adjacency = sparse.coo_matrix(adjacency)
 
             if data.ndim > 1:
-                adjacency = mne.stats.combine_adjacency(
-                    adjacency, *data.shape[1:])
-            # if adjacency.ndim == 2:
-            #     adjacency = _setup_connectivity(
-            #         adjacency, np.prod(data.shape), data.shape[0])
+                if has_adjacency:
+                    adjacency = mne.stats.combine_adjacency(
+                        adjacency, *data.shape[1:])
+                else:
+                    adjacency = _setup_connectivity(
+                        adjacency, np.prod(data.shape), data.shape[0])
 
         return _find_clusters_mne, adjacency, arg_name
     else:
