@@ -192,7 +192,8 @@ def test_find_clusters():
 def test_expected_find_clusters_errors():
     from borsar.cluster.label import _check_backend
 
-    data, adj = create_fake_data_for_cluster_test(ndim=2, adjacency=True)
+    data, adj = create_fake_data_for_cluster_test(ndim=2, adjacency=True,
+                                                  dim_size=[16, 150])
 
     # data has to match the shape of adjacency
     msg = ('First data dimension has to correspond to the passed '
