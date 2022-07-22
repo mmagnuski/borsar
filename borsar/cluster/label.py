@@ -304,7 +304,7 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 
     # mne_reshape_clusters=True,
     if backend == 'mne':
-        if adjacency is not None and isinstance(adjacency, np.ndarray):
+        if adjacency is not None:
             if not sparse.issparse(adjacency):
                 adjacency = sparse.coo_matrix(adjacency)
 
@@ -314,10 +314,8 @@ def _prepare_clustering(data, adjacency, cluster_fun, backend, min_adj_ch=0,
 
         return _find_clusters_mne, adjacency, None
     else:
-        if adjacency is not None and not isinstance(adjacency, np.ndarray):
-            # TODO: if array is not sparse, but something else, try throwing
-            #       a more informative error
-            # guess that adjacency is sparse and turn to dense
+        if adjacency is not None and sparse.issparse(adjacency):
+            # turn to dense
             adjacency = adjacency.toarray()
         if cluster_fun is None:
             cluster_fun = _get_cluster_fun(data, adjacency=adjacency,
@@ -350,6 +348,7 @@ def _find_clusters_mne(data, threshold, adjacency, not_used, min_adj_ch=0,
     return clusters, cluster_stats
 
 
+# TODO: DRY the pos and neg path
 def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
                           min_adj_ch=0, full=True, filter_fun=None,
                           filter_fun_post=None):

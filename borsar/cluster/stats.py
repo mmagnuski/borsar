@@ -100,10 +100,12 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
 
     # set up clustering
     backend = _check_backend(t_values, adjacency, backend, min_adj_ch)
+    print(backend)
     cluster_fun = _get_cluster_fun(
         t_values, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
     find_func, adjacency, add_arg = _prepare_clustering(
         t_values, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
+    print(find_func)
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
