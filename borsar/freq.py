@@ -173,6 +173,10 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         PowerSpectralDensity (PSD) object.
     """
     from mne.time_frequency import psd_welch
+    try:
+        from mne.selection import pick_types
+    except ImportError:
+        from mne.pick import pick_types
 
     if tmin is None:
         tmin = inst.times[0]
@@ -219,6 +223,8 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                         'formats, got {}'.format(type(inst)))
 
     # construct PSD object
+    # TODO: check in which mne version pick_types was relocated
+    #       so that this can be removed when dropping support of that version
     try:
         from mne.selection import pick_types
     except ModuleNotFoundError:
