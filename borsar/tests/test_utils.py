@@ -192,19 +192,17 @@ def test_silent_mne():
     raw.set_montage(mntg)
 
     # adding new reference channel without position gives a warning:
-    with pytest.warns(Warning):
+    with pytest.warns(Warning) as record_normal:
         mne.add_reference_channels(raw.copy(), ['nose'])
 
     # ... but not when using silent_mne() context manager:
-    with pytest.warns(None) as record:
+    with pytest.warns(None) as record_silent:
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
 
-    # new numpy (>= 1.20) raises warnings on older mne (<= 0.20)
-    mne_version = version.parse(mne.__version__)
-
-    if mne_version >= version.parse('0.21'):
-        assert len(record) == 0
+    # new numpy (>= 1.20) raised warnings on older mne (<= 0.20)
+    # but now we don't support mne 0.20, so we are good here
+    assert len(record) == 0
 
     # with `full_silence` no warnings are raised
     # (irrespective of mne and numpy)
