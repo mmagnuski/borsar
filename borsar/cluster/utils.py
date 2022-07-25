@@ -1,4 +1,7 @@
+import re
 import random
+from numbers import Integral, Real
+
 import numpy as np
 from scipy import sparse
 
@@ -492,10 +495,10 @@ def _ensure_correct_info(clst):
 
 
 # - [ ] add special functions for handling dims like vert or chan
-def _index_from_dim(dimnames, dimcoords, **kwargs):
+def _index_from_dim(dimnames, dimcoords, plan, **kwargs):
     '''
-    Find axis indices or slices given dimnames, dimcoords and dimname keyword
-    arguments of ``dimname=value`` form.
+    Find axis indices or slices given dimnames, dimcoords, dimindex plan and
+    dimname keyword arguments of ``dimname=value`` form.
 
     Parameters
     ----------
@@ -506,6 +509,8 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     dimcoords : list of arrays
         List of arrays, where each array contains coordinates (labels) for
         consecutive elements in corresponding dimension.
+    plan : list
+        Indexing plan created by ``_prepare_dimindex_plan``.
     **kwargs : additional keywords
         Keywords referring to dimension names. Value of these keyword has to be
         either:
@@ -528,46 +533,23 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     >>> _index_from_dim(dimnames, dimcoords, freq=[9, 11], time=(0.25, 0.5))
     ([1, 3], slice(9, 15, None))
     '''
-
     idx = list()
-    for dname, dcoord in zip(dimnames, dimcoords):
+    for dname, dcoord, planned in zip(dimnames, dimcoords, plan):
         # ignore dimensions that were not mentioned
-        if dname not in kwargs:
+        if planned is None or planned in ['mass', 'vol']:
             idx.append(slice(None))
             continue
         selection = kwargs.pop(dname)
 
         # find range or specific point-indices
-        if isinstance(selection, tuple) and len(selection) == 2:
+        if planned == 'range':
             idx.append(find_range(dcoord, selection))
-        elif isinstance(selection, list) or (isinstance(selection, np.ndarray)
-                                             and selection.ndim == 1):
-            # special-case spatial dim
-            if _is_spatial_dim(dname):
-                # find dtype of list/array
-                from numbers import Integral
-                is_int = isinstance(selection[0], Integral)
-
-                if is_int:
-                    # 1) channel indices
-                    idx.append(selection)
-                else:
-                    # 2) channel names? (labels?)
-                    if (dname == 'chan' and isinstance(selection, list)
-                        and isinstance(selection[0], str)):
-                        # find channel indices
-                        raise NotImplementedError('Sorry, not yet.')
-                    else:
-                        raise ValueError('Spatial dimension indexer has to '
-                                         'be either a list/array or int or '
-                                         'a list of channel names.')
-
-            else:
-                idx.append(find_index(dcoord, selection))
-        else:
-            sel_type = type(selection)
-            raise TypeError('Keyword arguments has to have tuple of length 2 '
-                            'list or 1d array, got {}.'.format(sel_type))
+        elif planned == 'spatial_idx':
+            idx.append(selection)
+        elif 'spatial_name' in planned:
+            raise NotImplementedError('Sorry, not yet.')
+        elif planned in ['multi', 'singular']:
+            idx.append(find_index(dcoord, selection))
     return tuple(idx)
 
 
@@ -575,18 +557,40 @@ def _is_spatial_dim(dimname):
     return dimname in SPATIAL_DIMS
 
 
-# throw error when kwarg not in dimnames?
+# - [ ] throw error when kwarg not in dimnames?
+# - [ ] original code had some basic support for slices, but it does not seem
+#       necessary now.
+# elif isinstance(dimindex, slice):
+#     if dimindex == slice(None):
+#         # "take everyting"
+#         plan[idx] = 'full'
 def _prepare_dimindex_plan(dimnames, **kwargs):
     '''Prepare indexing plan.
 
     The plan is a list of str where each string informs about detected
     indexing type/intent for respective dimension.
-    '''
-    import re
-    from numbers import Integral, Real
 
-    msg_template = ('Could not understand {}.\nAllowed indexers are: int, str,'
+    Possible plans:
+    * singular      - one simple index in data label coordinates, have to be
+                      translated
+    * range         - tuple of indices in data label coordinates, have to be
+                      translated to a slice
+    * multi         - list / array of indices in data label coordinates, have
+                      to be translated
+    * spatial_idx   - index/indices that are already in the right coordinates,
+                      no need for translation
+    * spatial_name  - channel/label name, have to be translated in a special way
+    * spatial_names - channel/label names, have to be translated in a special
+                      way
+    * volume
+    * mass
+    '''
+    msg_notfound = ('Could not understand {}.\nAllowed indexers are: int, str,'
                     ' list of int, list of str, tuple.')
+    msg_spatial = ('Indexing spatial dimension is allowed only with int, str, '
+                   'list/array of int or list/array of str. Got {}.')
+    msg_nonspat = ('Indexing non-spatial dimensions is allowed only with int, '
+                   'float, list/array of int or list/array of float. Got {}.')
 
     n_dims = len(dimnames)
     specified = [dim in kwargs for dim in dimnames]
@@ -595,8 +599,8 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
         return plan, kwargs
 
     for idx in np.where(specified)[0]:
-        this_name = dimnames[idx]
-        dimindex = kwargs[this_name]
+        this_dim_name = dimnames[idx]
+        dimindex = kwargs[this_dim_name]
 
         if isinstance(dimindex, tuple):
             # tuple -> range
@@ -617,64 +621,64 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                 msg = 'If indexing with a list, the list has to be non-empty.'
                 raise ValueError(msg)
             elif numel == 1:
+                # CONSIDER - not sure if this is the right thing to do, in
+                #            numpy this would mean select, but not drop the dim
                 dimindex = dimindex[0]
-                kwargs[this_name] = dimindex
+                plan[idx], kwargs[this_dim_name] = _check_singular_index(
+                    dimindex, this_dim_name, msg_notfound, msg_spatial)
             else:
-                if _is_spatial_dim(this_name):
+                if _is_spatial_dim(this_dim_name):
                     if all([isinstance(x, Integral) for x in dimindex]):
                         plan[idx] = 'spatial_idx'
                     elif all([isinstance(x, str) for x in dimindex]):
                         plan[idx] = 'spatial_names'
                     else:
-                        msg = ('Indexing spatial dimension is allowed only '
-                               'with int, str, list/array of int or list/array'
-                               ' of str. Got {}.')
-                        raise TypeError(msg.format(dimindex))
+                        raise TypeError(msg_spatial.format(dimindex))
                 else:
                     if all([isinstance(x, Real) for x in dimindex]):
                         plan[idx] = 'multi'
                     else:
-                        msg = ('Indexing non-spatial dimensions is allowed '
-                               'only with int, float, list/array of int or '
-                               'list/array of float. Got {}.')
-                        raise TypeError(msg.format(dimindex))
-        elif isinstance(dimindex, (Integral, float)):
-            plan[idx] = 'singular'
-        elif isinstance(dimindex, str):
-            pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
-            match = re.match(pat, dimindex)
-            if match is not None:
-                parts = match.groups()
-                plan[idx] = 'volume' if parts[-1] is not None else 'mass'
-                value = float(parts[0])
-                if value > 100. or value < 0.:
-                    msg = ('The mass/volume percentage indexer has to be >= 0'
-                           ' and <= 100, got {}.').format(dimindex)
-                    raise ValueError(msg)
-                kwargs[this_name] = value / 100
-            else:
-                # TODO: could be a channel \ label name
-                if _is_spatial_dim(this_name):
-                    plan[idx] = 'spatial_name'
-                else:
-                    raise ValueError('Str indexer has to be either a channel'
-                                     ' name or volume/mass percentage (for '
-                                     'example "50% vol")')
-
-        # not sure about slices now
-        # elif isinstance(dimindex, slice):
-        #     if dimindex == slice(None):
-        #         # "take everyting"
-        #         plan[idx] = 'full'
-        #     else:
-        #         # first it will be ValueError
-        #         msg = 'TEMP!'
-        #         raise ValueError(msg)
+                        raise TypeError(msg_nonspat.format(dimindex))
         else:
-            raise TypeError(msg_template.format(dimindex))
+            plan[idx], kwargs[this_dim_name] = _check_singular_index(
+                dimindex, this_dim_name, msg_notfound, msg_spatial)
 
     # LATER: check multi for channel/vertex indices or names
     return plan, kwargs
+
+
+def _check_singular_index(dimindex, dimname, msg_notfound, msg_spatial):
+    val = dimindex
+    if isinstance(dimindex, (Integral, float)):
+        if _is_spatial_dim(dimname):
+            if isinstance(dimindex, float):
+                raise TypeError(msg_spatial.format(dimindex))
+            return 'spatial_idx', val
+        else:
+            return 'singular', val
+    elif isinstance(dimindex, str):
+        pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
+        match = re.match(pat, dimindex)
+        if match is not None:
+            parts = match.groups()
+            plan = 'volume' if parts[-1] is not None else 'mass'
+            value = float(parts[0])
+            if value > 100. or value < 0.:
+                msg = ('The mass/volume percentage indexer has to be >= 0'
+                       ' and <= 100, got {}.').format(dimindex)
+                raise ValueError(msg)
+            val = value / 100
+            return plan, val
+        else:
+            # TODO: could be a channel \ label name
+            if _is_spatial_dim(dimname):
+                return 'spatial_name', val
+            else:
+                raise ValueError('String indexer has to be either a channel'
+                                 ' name or volume/mass percentage (for '
+                                 'example "50% vol"). Got {}'.format(dimindex))
+    else:
+        raise TypeError(msg_notfound.format(dimindex))
 
 
 def _clean_up_indices(idx):
