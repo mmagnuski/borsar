@@ -192,11 +192,11 @@ def test_silent_mne():
     raw.set_montage(mntg)
 
     # adding new reference channel without position gives a warning:
-    with pytest.warns(Warning) as record_normal:
+    with pytest.warns(Warning):
         mne.add_reference_channels(raw.copy(), ['nose'])
 
     # ... but not when using silent_mne() context manager:
-    with pytest.warns(None) as record_silent:
+    with pytest.warns(None) as record:
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
 
