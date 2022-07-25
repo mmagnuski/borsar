@@ -324,7 +324,6 @@ class PSD(*mixins):
         # set up default vars
         from packaging import version
         mne_version = version.parse(mne.__version__)
-<<<<<<< HEAD
         has_new_mne = mne_version >= version.parse('0.22.0')
 
         if has_new_mne:
@@ -350,27 +349,6 @@ class PSD(*mixins):
 
             make_label = len(ax_list) == len(fig.axes)
             xlabels_list = [False] * (len(ax_list) - 1) + [True]
-=======
-        test_versions = ['0.23.0', '0.20.0']
-        has_new_mne = [mne_version >= version.parse(ver)
-                       for ver in test_versions]
-        if not has_new_mne[0]:
-            from mne.viz.utils import _set_psd_plot_params
-        if has_new_mne[0]:
-            from mne.io.pick import _picks_to_idx
-            from mne.defaults import _handle_default
-            from mne.viz._figure import _line_figure, _split_picks_by_type
-
-            fig, ax_list = _line_figure(self, ax, picks)
-            make_label = len(ax_list) == len(fig.axes)
-            xlabels_list = [False] * (len(ax_list) - 1) + [True]
-
-            units = _handle_default('units', None)
-            titles = _handle_default('titles')
-            scalings = _handle_default('scalings')
-            picks = _picks_to_idx(self.info, picks, exclude=self.info['bads'])
-
->>>>>>> ebbd887 (FIX: new mne compat in freq.py)
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
         else:
@@ -393,26 +371,11 @@ class PSD(*mixins):
         for picks in picks_list:
             psd_list.append(inst.data[picks])
 
-<<<<<<< HEAD
         args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
         args += [sphere, xlabels_list]
-=======
-        if any(has_new_mne):
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha, sphere, xlabels_list)
-        else:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha)
->>>>>>> ebbd887 (FIX: new mne compat in freq.py)
 
         fig = _plot_psd(*args)
         plt_show(show)
