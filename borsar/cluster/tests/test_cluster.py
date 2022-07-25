@@ -219,6 +219,23 @@ def test_dimindex_plan():
     assert_allclose(kwargs['freq'], 0.666)
 
 
+def test_expected_errors_in_plot_indexing():
+    clst = _create_random_clusters()
+
+    msg = 'If indexing with a list, the list has to be non-empty.'
+    with pytest.raises(ValueError, match=msg):
+        clst.plot(time=np.array([]))
+
+    msg = 'Indexing spatial dimension is allowed only with'
+    with pytest.raises(TypeError, match=msg):
+        clst.plot(chan=[{'a': [1, 2, 3]}, {'b': [2, 3]}])
+
+    msg = ('Sorry, picking spatial dimension using strings is '
+           'not yet supported.')
+    with pytest.raises(NotImplementedError, match=msg):
+        clst.plot(chan='A')
+
+
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt

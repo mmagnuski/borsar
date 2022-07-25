@@ -609,7 +609,9 @@ def _index_from_dim(dimnames, dimcoords, plan, **kwargs):
         elif planned in ['spatial_idx', 'spatial_singular']:
             idx.append(selection)
         elif 'spatial_name' in planned:
-            raise NotImplementedError('Sorry, not yet.')
+            msg = ('Sorry, picking spatial dimension using strings is not yet'
+                   ' supported.')
+            raise NotImplementedError(msg)
         elif planned in ['multi', 'singular']:
             idx.append(find_index(dim_coord, selection))
     return tuple(idx)
