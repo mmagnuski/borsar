@@ -327,6 +327,7 @@ class Clusters(object):
         return clst
 
     def __repr__(self):
+        '''Clusters text representation.'''
         base_txt = '<borsar.Clusters  |  {} clusters in {} space>'
         n_clusters = len(self)
         dimnames = [_full_dimname(dimname) for dimname in self.dimnames]
@@ -490,6 +491,9 @@ class Clusters(object):
         return tuple(limits)
 
     # TODO - do not use get_index() for limit calculations - division of labor!
+    # TODO - make sure that when one dim is specified with coords and other
+    #        with mass to retain, the mass is taken only from the part
+    #        specified? (this is done in get_limits with `idx` variable)
     def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
                   **kwargs):
         '''
