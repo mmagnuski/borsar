@@ -33,7 +33,7 @@ def compute_regression_t(data, preds, return_p=False):
     df = n_obs - n_preds
     original_shape = data.shape
     data = data.reshape((original_shape[0], np.prod(original_shape[1:])))
-    coefs, _, _, _ = np.linalg.lstsq(preds, data)
+    coefs, _, _, _ = np.linalg.lstsq(preds, data, rcond=None)
     prediction = (preds[:, :, np.newaxis] * coefs[np.newaxis, :]
                   ).sum(axis=1)
     MSE = (((data - prediction) ** 2).sum(axis=0, keepdims=True) / df)

@@ -196,7 +196,7 @@ def test_silent_mne():
         mne.add_reference_channels(raw.copy(), ['nose'])
 
     # ... but not when using silent_mne() context manager:
-    with pytest.warns(None) as record:
+    with pytest.warns() as record:
         with silent_mne():
             mne.add_reference_channels(raw.copy(), ['nose'])
 
