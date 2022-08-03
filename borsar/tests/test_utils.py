@@ -183,6 +183,7 @@ def test_silent_mne():
     has_new_mne = version.parse(mne.__version__) >= version.parse('0.19.0')
     raw = create_fake_raw(n_channels=2, n_samples=10, sfreq=10.)
     pos = np.random.random((2, 3))
+    data = np.random.rand(25) - 0.5
 
     if has_new_mne:
         ch_pos = {'a': pos[0, :], 'b': pos[1, :]}
@@ -191,14 +192,16 @@ def test_silent_mne():
         mntg = mne.channels.Montage(pos, ['a', 'b'], 'eeg', 'fake')
     raw.set_montage(mntg)
 
-    # adding new reference channel without position gives a warning:
+    # adding new reference channel without position used to give a warning
+    # (but it no longer seems to?)
+    # so we pick something a bit random from mne that raises warnings
     with pytest.warns(Warning):
-        raw.copy().crop(tmax=2.)
+        mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
 
     # ... but not when using silent_mne() context manager:
     with pytest.warns() as record:
         with silent_mne():
-            raw.copy().crop(tmax=2.)
+            mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
 
     # new numpy (>= 1.20) raised warnings on older mne (<= 0.20)
     # but now we don't support mne 0.20, so we are good here
@@ -208,7 +211,7 @@ def test_silent_mne():
     # (irrespective of mne and numpy)
     with pytest.warns(None) as record:
         with silent_mne(full_silence=True):
-            raw.copy().crop(tmax=2.)
+            mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
             warn('annoying warning!', DeprecationWarning)
 
     assert len(record) == 0
