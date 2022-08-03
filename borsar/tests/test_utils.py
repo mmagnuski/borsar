@@ -193,12 +193,12 @@ def test_silent_mne():
 
     # adding new reference channel without position gives a warning:
     with pytest.warns(Warning):
-        mne.add_reference_channels(raw.copy(), ['nose'])
+        raw.copy().crop(tmax=2.)
 
     # ... but not when using silent_mne() context manager:
     with pytest.warns() as record:
         with silent_mne():
-            mne.add_reference_channels(raw.copy(), ['nose'])
+            raw.copy().crop(tmax=2.)
 
     # new numpy (>= 1.20) raised warnings on older mne (<= 0.20)
     # but now we don't support mne 0.20, so we are good here
@@ -208,7 +208,7 @@ def test_silent_mne():
     # (irrespective of mne and numpy)
     with pytest.warns(None) as record:
         with silent_mne(full_silence=True):
-            mne.add_reference_channels(raw.copy(), ['nose'])
+            raw.copy().crop(tmax=2.)
             warn('annoying warning!', DeprecationWarning)
 
     assert len(record) == 0
