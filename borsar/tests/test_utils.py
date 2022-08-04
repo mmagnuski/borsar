@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import warnings
 from warnings import warn
 
 import numpy as np
@@ -199,22 +200,21 @@ def test_silent_mne():
         mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
 
     # ... but not when using silent_mne() context manager:
-    with pytest.warns() as record:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         with silent_mne():
             mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
 
     # new numpy (>= 1.20) raised warnings on older mne (<= 0.20)
     # but now we don't support mne 0.20, so we are good here
-    assert len(record) == 0
 
     # with `full_silence` no warnings are raised
     # (irrespective of mne and numpy)
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         with silent_mne(full_silence=True):
             mne.viz.utils._setup_vmin_vmax(data, vmin=None, vmax=5., norm=True)
             warn('annoying warning!', DeprecationWarning)
-
-    assert len(record) == 0
 
 
 def test_group():
