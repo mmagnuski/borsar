@@ -45,20 +45,26 @@ def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# - [ ] multiple masks, multiple outline_colors, multiple alpha?
+# - [ ] multiple masks
+# - [ ] multiple outline_colors (can be done with ``line_kwargs``)
+# - [ ] multiple alpha?
+# - [ ] separate out (subfunction) the part with outlines?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
             vmin=None, vmax=None, line_kwargs=None, **kwargs):
-    '''Plot heatmap with defaults meaningful for big heatmaps like
-    time-frequency representations.
+    '''Plot heatmap with transparency masking.
+
+    The defaults should be meaningful for big heatmaps like time-frequency
+    representations.
 
     Parameters
     ----------
     array : 2d numpy array
         The array to be plotted as heatmap.
-    mask : 2d boolean array
-        Matrix specifying which pixels to unmask. Masking is done with
-        transparency.
+    mask : boolean array
+        Boolean matrix specifying which pixels to unmask. Can be 2d or 3d, a
+        3d mask is assumed to contain multiple cluster-specific masks in the
+        first dimension.
     axis : matplotlib axis
         Axis to draw in.
     x_axis : 1d array
@@ -82,7 +88,7 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
     Returns
     -------
-    axis : maplotlib axis
+    axis : matplotlib axis
         The axis drawn to.
     cbar : matplotlib colorbar
         The handle to the colorbar.
@@ -138,12 +144,11 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
 
 # TODOs:
-# - [x] docstring
 # - [ ] rename to create_contour?
 # - [ ] check timing and compare against numba version
 #       numba would require some changes, we'd have to remove all the dicts
 #
-# separate cluter_contour?
+# separate cluster_contour?
 # - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
@@ -255,8 +260,8 @@ def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
 
     def find_successive(vec):
         vec = vec.astype('int')
-        two_consec = np.where((vec[:-1] + vec[1:]) == 2)[0]
-        return two_consec
+        two_consecutive = np.where((vec[:-1] + vec[1:]) == 2)[0]
+        return two_consecutive
 
     for current_outlines in outlines:
         x_lim = (0, orig_mask_shape[1])
@@ -280,6 +285,7 @@ def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
                                             all_ind + 1, np.nan)
             current_outlines[0] = np.insert(current_outlines[0],
                                             all_ind + 1, np.nan)
+
         # compensate for padding
         current_outlines[0] = current_outlines[0] - 1.
         current_outlines[1] = current_outlines[1] - 1.
