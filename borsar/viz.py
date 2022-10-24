@@ -147,7 +147,7 @@ class Topo(object):
         self.fig.canvas.draw()
 
     # TODO: keywords: contours=x, outline=y,
-    def set_linewidth(self, contours=None, outline=None):
+    def set_linewidth(self, contours=None, outlines=None):
         '''
         Set contour lines line width.
 
@@ -164,9 +164,9 @@ class Topo(object):
             if contours is not None:
                 for line in topo.lines.collections:
                     line.set_linewidths(contours)
-            if outline is not None:
+            if outlines is not None:
                 for line in topo.head:
-                    line.set_linewidth(outline)
+                    line.set_linewidth(outlines)
 
     def mark_channels(self, chans, **kwargs):
         '''
