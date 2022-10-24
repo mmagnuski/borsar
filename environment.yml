@@ -2,7 +2,7 @@ name: borsar
 channels:
 - defaults
 dependencies:
-- python>=3.11
+- python>=3.10
 - pip
 - mkl>=2021.4.0
 - numpy>=1.20.1
