@@ -26,7 +26,7 @@ def test_topo():
 
     # currently a smoke test
     topo = Topo(alpha_topo, raw.info, show=False)
-    topo.set_linewidth(2.5)
+    topo.set_linewidth(contours=0.5, outlines=2.5)
     topo.solid_lines()
     topo.remove_levels(0.)
     topo.mark_channels([1, 2, 3, 6, 8], markersize=10.)
@@ -79,7 +79,7 @@ def test_multi_topo():
     tp = Topo(freq_topos, raw.info)
 
     # test changing line width
-    tp.set_linewidth(0.35)
+    tp.set_linewidth(contours=0.35)
 
     linewidths = list()
     for lines in tp.lines:
