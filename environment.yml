@@ -1,6 +1,6 @@
 name: borsar
 channels:
-- conda-forge
+- defaults
 dependencies:
 - python>=3.8
 - pip
@@ -14,21 +14,17 @@ dependencies:
 - scikit-image
 - h5py
 # dev/testing libraries:
-- statsmodels
+- statsmodels>=0.13.2
 - pytest
 - pytest-cov
 - psutil
 - numpydoc
 - flake8
 # likely not needed:
-- pillow
-- spyder
-- jupyter
 - joblib
 - pip:
   - mne
   - h5io
-  - neo
   - pydocstyle
   - codespell
   - sphinx_gallery
