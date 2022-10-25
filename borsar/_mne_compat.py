@@ -6,7 +6,7 @@ from packaging import version
 mne_version = version.parse(mne.__version__)
 has_0_21 = mne_version >= version.parse('0.21.dev0')
 has_1_1 = mne_version >= version.parse('1.1.dev0')
-has_1_2 = mne_version_ >= version.parse('1.1.dev0')
+has_1_2 = mne_version >= version.parse('1.1.dev0')
 
 _BORDER_DEFAULT = 'mean'
 _EXTRAPOLATE_DEFAULT = 'head' if has_0_21 else 'box'
