@@ -32,10 +32,11 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
     if has_1_2:
         return _plot_topomap(
             data, pos, vmin=vmin, vmax=vmin, cmap=cmap, sensors=sensors,
-            res=res, axes=axes, names=names, mask=mask, mask_params=mask_params,
-            outlines=outlines, contours=contours, image_interp=image_interp,
-            show=show, onselect=onselect, extrapolate=extrapolate, sphere=sphere,
-            border=border, ch_type=ch_type, cnorm=cnorm)
+            res=res, axes=axes, names=names, mask=mask,
+            mask_params=mask_params, outlines=outlines, contours=contours,
+            image_interp=image_interp, show=show, onselect=onselect,
+            extrapolate=extrapolate, sphere=sphere, border=border,
+            ch_type=ch_type, cnorm=cnorm)
     elif has_1_1:
         return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
                              names, show_names, mask, mask_params, outlines,
