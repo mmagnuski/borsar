@@ -46,7 +46,7 @@ class Topo(object):
     '''
 
     def __init__(self, values, info, side=None, **kwargs):
-        from ._mne_020_modified import plot_topomap
+        from ._mne_compat import plot_topomap
 
         self.info = info
         self.values = values
