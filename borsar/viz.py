@@ -226,7 +226,7 @@ class Topo(object):
 
             if hasattr(topo, 'head'):
                 [line.set_clip_on(True) for line in topo.head]
-            [line.set_clip_on(True) for line in topo.lines]
+            [line.set_clip_on(True) for line in topo.lines.collections]
 
     def update(self, values):
         '''
