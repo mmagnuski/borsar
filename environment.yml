@@ -2,10 +2,10 @@ name: borsar
 channels:
 - defaults
 dependencies:
-- python>=3.8
+- python>=3.10
 - pip
-- mkl=2020.2
-- numpy=1.20.1
+- mkl>=2021.4.0
+- numpy>=1.20.1
 - scipy
 - matplotlib
 - pandas
@@ -14,21 +14,17 @@ dependencies:
 - scikit-image
 - h5py
 # dev/testing libraries:
-- statsmodels
+- statsmodels>=0.13.2
 - pytest
 - pytest-cov
 - psutil
 - numpydoc
 - flake8
 # likely not needed:
-- pillow
-- spyder
-- jupyter
 - joblib
 - pip:
   - mne
   - h5io
-  - neo
   - pydocstyle
   - codespell
   - sphinx_gallery

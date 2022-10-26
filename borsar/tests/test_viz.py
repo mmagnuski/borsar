@@ -2,6 +2,7 @@ import os.path as op
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from scipy.stats import distributions
 
 import mne
 import pytest
@@ -26,7 +27,7 @@ def test_topo():
 
     # currently a smoke test
     topo = Topo(alpha_topo, raw.info, show=False)
-    topo.set_linewidth(2.5)
+    topo.set_linewidth(contours=0.5, outlines=2.5)
     topo.solid_lines()
     topo.remove_levels(0.)
     topo.mark_channels([1, 2, 3, 6, 8], markersize=10.)
@@ -79,7 +80,7 @@ def test_multi_topo():
     tp = Topo(freq_topos, raw.info)
 
     # test changing line width
-    tp.set_linewidth(0.35)
+    tp.set_linewidth(contours=0.35)
 
     linewidths = list()
     for lines in tp.lines:
@@ -161,6 +162,37 @@ def test_outlines():
 
     # TODO - add test for outlines with extent
     cntr = _create_cluster_contour(data, extent=(0, 10, 5.25, 7.75))
+
+
+def test_topo_simulated_data():
+    x_pos = np.arange(-3, 3.1, step=0.5)
+    y_pos = np.arange(-3, 3.1, step=0.5)
+    n_elem = x_pos.shape[0]
+
+    x_pos = np.tile(x_pos, (n_elem, 1))
+    y_pos = np.tile(y_pos[:, None], (1, n_elem))
+
+    xy_pos = np.stack([x_pos.ravel(), y_pos.ravel()], axis=1)
+
+    # gaussian effect at 0, 0
+    distances = np.linalg.norm(xy_pos, axis=1)
+    norm = distributions.norm()
+    y_val = norm.pdf(distances)
+
+    # plot topo and test zoom
+    within_limits = distances <= 3.
+    tp = Topo(y_val[within_limits], xy_pos[within_limits, :], sphere=2.5)
+    tp.zoom(xlim=(0, 3.5), ylim=(0, 3.5))
+
+    assert tp.axes.get_xlim() == (0., 3.5)
+    assert tp.axes.get_ylim() == (0., 3.5)
+
+    # optional matplotlib plotting
+    # y_val_mat = y_val.copy()
+    # y_val_mat[~within_limits] = np.nan
+    # y_val_mat = y_val_mat.reshape((n_elem, n_elem))
+    # plt.imshow(y_val_mat, extent=[-3.25, 3.25, -3.25, 3.25])
+    # plt.scatter(xy_pos[:, 0], xy_pos[:, 1], color='k')
 
 
 def test_heatmap():

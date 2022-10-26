@@ -7,6 +7,9 @@ from ._heatmap import heatmap
 from ._vizutils import add_colorbar_to_axis, color_limits
 
 
+# * add possibility to index topo object
+# * loop + tp.marks[0].set_markersize(4) -> method?
+
 # CONSIDER:
 # - [ ] save vmin and vmax and let modify?
 class Topo(object):
@@ -43,7 +46,7 @@ class Topo(object):
     '''
 
     def __init__(self, values, info, side=None, **kwargs):
-        from ._mne_020_modified import plot_topomap
+        from ._mne_compat import plot_topomap
 
         self.info = info
         self.values = values
@@ -139,19 +142,31 @@ class Topo(object):
             for line in topo.lines.collections:
                 line.set_linestyle(*args, **kwargs)
 
+        # changing linestyle to solid often goes without changes in interactive
+        # mode, we have to force a redraw:
+        self.fig.canvas.draw()
+
     # TODO: keywords: contours=x, outline=y,
-    def set_linewidth(self, lw):
+    def set_linewidth(self, contours=None, outlines=None):
         '''
         Set contour lines line width.
 
         Parameters
         ----------
-        lw : int | float
-            Desired line width of the contour lines.
+        contours : None | int | float
+            Desired line width of the contour lines. The contour line width
+            is not changed if ``None``. Defaults to ``None``.
+        outline : None | int | float
+            Desired line width of the head outline. The outline line width is
+            not changed if ``None``. Defaults to ``None``.
         '''
         for topo in self:
-            for line in topo.lines.collections:
-                line.set_linewidths(lw)
+            if contours is not None:
+                for line in topo.lines.collections:
+                    line.set_linewidths(contours)
+            if outlines is not None:
+                for line in topo.head:
+                    line.set_linewidth(outlines)
 
     def mark_channels(self, chans, **kwargs):
         '''
@@ -184,6 +199,34 @@ class Topo(object):
                 topo.chan_pos[chans, 0], topo.chan_pos[chans, 1],
                 **default_marker)[0]
             topo.marks.append(this_marks)
+
+    def zoom(self, xlim=None, ylim=None):
+        '''Change the x and y limits of the topography image.
+
+        Takes care of line clipping after changing limits.
+
+        Parameters
+        ----------
+        xlim : tuple
+            New x-axis limits. Defaults to ``None``, which does not change the
+            x-axis limits.
+        ylim : tuple
+            New y-axis limits. Defaults to ``None``, which does not change the
+            y-axis limits.
+        '''
+        if xlim is None and ylim is None:
+            return
+
+        for topo in self:
+            ax = topo.axes
+            if xlim is not None:
+                ax.set_xlim(xlim)
+            if ylim is not None:
+                ax.set_ylim(ylim)
+
+            if hasattr(topo, 'head'):
+                [line.set_clip_on(True) for line in topo.head]
+            [line.set_clip_on(True) for line in topo.lines.collections]
 
     def update(self, values):
         '''
@@ -277,6 +320,7 @@ class Topo(object):
 
     def _check_axes(self, kwargs):
         '''Handle axes checking for Topo.'''
+
         # handle multiple axes
         self.multi_axes = self.values.ndim > 1 and self.values.shape[1] > 1
         if self.multi_axes:
