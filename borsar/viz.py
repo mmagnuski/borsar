@@ -29,12 +29,12 @@ class Topo(object):
         length equal to the size of the second dimension
         (``values.shape[1]``).
     nrows : int | 'auto'
-        If ``axes`` are not defined and multiple topografies are plotted (see
+        If ``axes`` are not defined and multiple topographies are plotted (see
         ``values`` argument), ``nrows`` controls the number of rows in the
         supblot matrix. ``nrows='auto'`` (default) automatically tries to
         figure best number of rows.
     ncols : int | 'auto'
-        If ``axes`` are not defined and multiple topografies are plotted (see
+        If ``axes`` are not defined and multiple topographies are plotted (see
         ``values`` argument), ``ncols`` controls the number of columns in the
         supblot matrix. ``ncols='auto'`` (default) automatically tries to
         figure best number of columns.
