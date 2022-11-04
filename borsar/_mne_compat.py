@@ -31,7 +31,7 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
 
     if has_1_2:
         return _plot_topomap(
-            data, pos, vmin=vmin, vmax=vmin, cmap=cmap, sensors=sensors,
+            data, pos, vmin=vmin, vmax=vmax, cmap=cmap, sensors=sensors,
             res=res, axes=axes, names=names, mask=mask,
             mask_params=mask_params, outlines=outlines, contours=contours,
             image_interp=image_interp, show=show, onselect=onselect,
