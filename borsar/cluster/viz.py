@@ -55,8 +55,8 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     # ----
     picks = list(range(n_clusters)) if picks is None else picks
     ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
-                            retain_mass=1., axis=axis, cmap='viridis',
-                            **kwargs)
+                           retain_mass=1., axis=axis, cmap='viridis',
+                           **kwargs)
 
     # create "intensity" label
     # ------------------------

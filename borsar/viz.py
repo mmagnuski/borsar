@@ -23,10 +23,21 @@ class Topo(object):
     info : mne Info instance
         Info object containing channel positions.
     axes : matplotlib Axes, optional
-        Axes to plot in. Creates new by default. The axes handle is later
-        available in ``.axes`` attribute. If ``values`` is two dimensional
-        then ``axes`` has to be a list of matplotlib Axes of length equal
-        to the size of the second dimension (``values.shape[1]``).
+        Axes to plot in. New axes are created by default. The axes handle is
+        later available in ``.axes`` attribute. If ``values`` is two
+        dimensional then ``axes`` has to be a list of matplotlib Axes of
+        length equal to the size of the second dimension
+        (``values.shape[1]``).
+    nrows : int | 'auto'
+        If ``axes`` are not defined and multiple topografies are plotted (see
+        ``values`` argument), ``nrows`` controls the number of rows in the
+        supblot matrix. ``nrows='auto'`` (default) automatically tries to
+        figure best number of rows.
+    ncols : int | 'auto'
+        If ``axes`` are not defined and multiple topografies are plotted (see
+        ``values`` argument), ``ncols`` controls the number of columns in the
+        supblot matrix. ``ncols='auto'`` (default) automatically tries to
+        figure best number of columns.
     **kwargs : any additional keyword arguments
         Additional keyword arguments are passed to `mne.viz.plot_topomap`.
 
@@ -45,11 +56,13 @@ class Topo(object):
     topo.mark_channels([4, 5, 6], markerfacecolor='r', markersize=12)
     '''
 
-    def __init__(self, values, info, side=None, **kwargs):
+    def __init__(self, values, info, *, nrows='auto', ncols='auto', **kwargs):
         from ._mne_compat import plot_topomap
 
         self.info = info
         self.values = values
+        self.nrows = nrows
+        self.ncols = ncols
 
         # FIXME: should squeezing really be considered?
         self._squeezed = False
@@ -346,14 +359,37 @@ class Topo(object):
         else:
             # no axes passed, create figure and axes
             if self.multi_axes:
-                # create a row of topographies
-                n_per_topo = 2.5
-                fig_size = (n_per_topo * self.n_topos, n_per_topo)
-                fig, axes = plt.subplots(ncols=self.n_topos, figsize=fig_size)
-                self.axes = axes.tolist()
+                _create_topo_layout(self)
             else:
                 fig, axes = plt.subplots()
                 self.axes = [axes]
+
+
+# consider automatic scaling of inch_per_topo when too many topographies
+# (this could also be a size argument)
+def _create_topo_layout(topo, inch_per_topo=2.):
+    # create a rows x columns matrix of topographies
+    if topo.nrows == 'auto' and topo.ncols == 'auto':
+        if (topo.n_topos / 6) <= 4:
+            topo.ncols = 6
+        else:
+            topo.ncols = int(np.ceil(np.sqrt(topo.n_topos)))
+
+    if isinstance(topo.ncols, int) and topo.nrows == 'auto':
+        topo.nrows = int(np.ceil(topo.n_topos / topo.ncols))
+    elif topo.cols == 'auto' and isinstance(topo.nrows, int):
+        topo.ncols = int(np.ceil(topo.n_topos / topo.nrows))
+
+    gridspec_kw = {'left': 0.05, 'bottom': 0.02, 'top': 0.9, 'right': 0.95}
+    fig_size = (inch_per_topo * topo.ncols, inch_per_topo * topo.nrows * 0.95)
+    fig, axes = plt.subplots(ncols=topo.ncols, nrows=topo.nrows,
+                             figsize=fig_size, gridspec_kw=gridspec_kw)
+    topo.axes = axes.ravel().tolist()
+
+    n_empty = (topo.ncols * topo.nrows) - topo.n_topos
+    for _ in range(n_empty):
+        empty_ax = topo.axes.pop(-1)
+        empty_ax.remove()
 
 
 def _extract_topo_channels(ax):
