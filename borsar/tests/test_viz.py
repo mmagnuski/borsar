@@ -195,6 +195,38 @@ def test_topo_simulated_data():
     # plt.scatter(xy_pos[:, 0], xy_pos[:, 1], color='k')
 
 
+def test_topo_grid():
+    "Test that nrows and ncols are respected by Topo."
+    pos = (np.random.rand(10, 2) - 0.5) * 0.33
+    data = np.random.rand(10, 8)
+
+    def test_grid_shape(topo, nrows, ncols):
+        gridspec = topo.axes[0].get_gridspec()
+        assert gridspec.nrows == nrows
+        assert gridspec.ncols == ncols
+
+    topo = Topo(data, pos)
+    test_grid_shape(topo, 2, 6)
+    plt.close(topo.axes[0].figure)
+
+    topo = Topo(data, pos, nrows=3)
+    test_grid_shape(topo, 3, 3)
+    plt.close(topo.axes[0].figure)
+
+    topo = Topo(data, pos, ncols=2)
+    test_grid_shape(topo, 4, 2)
+    plt.close(topo.axes[0].figure)
+
+    topo = Topo(data, pos, nrows=5, ncols=5)
+    test_grid_shape(topo, 5, 5)
+    plt.close(topo.axes[0].figure)
+
+    data = np.random.rand(10, 40)
+    topo = Topo(data, pos)
+    test_grid_shape(topo, 6, 7)
+    plt.close(topo.axes[0].figure)
+
+
 def test_heatmap():
     data = np.random.random((5, 6))
     x = np.linspace(10, 12, num=6)
