@@ -248,10 +248,10 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             if labeldims:
                 _label_topos(clst, topo, dim_kwargs, idx)
 
-            if 'axes' not in plotfun_kwargs:
+            # if 'axes' not in plotfun_kwargs:
                 # we created the axes so we can reposition them for better
                 # topo titles visibility
-                _move_axes_to(topo.axes, y=0.05)
+                # _move_axes_to(topo.axes, y=0.05)
 
             return topo
         else:
