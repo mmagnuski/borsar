@@ -377,7 +377,7 @@ def _create_topo_layout(topo, inch_per_topo=2.):
 
     if isinstance(topo.ncols, int) and topo.nrows == 'auto':
         topo.nrows = int(np.ceil(topo.n_topos / topo.ncols))
-    elif topo.cols == 'auto' and isinstance(topo.nrows, int):
+    elif topo.ncols == 'auto' and isinstance(topo.nrows, int):
         topo.ncols = int(np.ceil(topo.n_topos / topo.nrows))
 
     gridspec_kw = {'left': 0.05, 'bottom': 0.02, 'top': 0.9, 'right': 0.95}
