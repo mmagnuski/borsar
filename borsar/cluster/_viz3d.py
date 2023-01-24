@@ -94,9 +94,13 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
 
     # set light
     if set_light:
-        fig = brain._figures[0][0]
-        camera_light0 = fig.scene.light_manager.lights[0]
-        camera_light0.azimuth = 0.
-        camera_light0.elevation = 42.
-        camera_light0.intensity = 1.0
+        try:
+            # works only for mayavi...
+            fig = brain._figures[0][0]
+            camera_light0 = fig.scene.light_manager.lights[0]
+            camera_light0.azimuth = 0.
+            camera_light0.elevation = 42.
+            camera_light0.intensity = 1.0
+        except:
+            pass
     return brain
