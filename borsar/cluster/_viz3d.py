@@ -101,6 +101,6 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
             camera_light0.azimuth = 0.
             camera_light0.elevation = 42.
             camera_light0.intensity = 1.0
-        except:
+        except AttributeError:
             pass
     return brain
