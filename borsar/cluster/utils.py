@@ -349,6 +349,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
 def _label_from_cluster(clst, clst_mask):
     '''Get pysurfer label from cluster mask.'''
     import mne
+
     clst.stc.data[:, 0] = clst_mask
     labels_l, labels_r = mne.stc_to_label(
         clst.stc, src=clst.src, subjects_dir=clst.subjects_dir, smooth=True)

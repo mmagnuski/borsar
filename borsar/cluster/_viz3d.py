@@ -63,6 +63,10 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     if clst_mask is not None:
         clst_mask = clst_mask.any(axis=0)
 
+    if clst_mask.ndim > 1 and clst_mask.shape[1] == 1:
+        clst_mask = clst_mask[:, 0]
+        clst_stat = clst_stat[:, 0]
+
     # create label from cluster
     if clst_mask is not None:
         clst_label = _label_from_cluster(clst, clst_mask.astype('float'))
@@ -90,9 +94,13 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
 
     # set light
     if set_light:
-        fig = brain._figures[0][0]
-        camera_light0 = fig.scene.light_manager.lights[0]
-        camera_light0.azimuth = 0.
-        camera_light0.elevation = 42.
-        camera_light0.intensity = 1.0
+        try:
+            # works only for mayavi...
+            fig = brain._figures[0][0]
+            camera_light0 = fig.scene.light_manager.lights[0]
+            camera_light0.azimuth = 0.
+            camera_light0.elevation = 42.
+            camera_light0.intensity = 1.0
+        except AttributeError:
+            pass
     return brain
