@@ -63,6 +63,10 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     if clst_mask is not None:
         clst_mask = clst_mask.any(axis=0)
 
+    if clst_mask.ndim > 1 and clst_mask.shape[1] == 1:
+        clst_mask = clst_mask[:, 0]
+        clst_stat = clst_stat[:, 0]
+
     # create label from cluster
     if clst_mask is not None:
         clst_label = _label_from_cluster(clst, clst_mask.astype('float'))
