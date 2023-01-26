@@ -438,11 +438,12 @@ class Clusters(object):
             dimensions except spatial.
         **kwargs : additional keyword arguments
             Additional arguments defining the cluster extent to retain along
-            specified dimensions. Float argument between 0. and 1. - defines
-            range that is dependent on cluster mass. For example ``time=0.75``
-            defines time range limits that retain at least 75% of the cluster
+            specified dimensions. String argument representing percentage,
+            for example ``'55.5%'`` defines a range that is dependent on
+            cluster mass. For example ``time='75 %'`` defines time range limits
+            that retain at least 75% of the cluster
             (calculated along given dimension - in this case time). If no kwarg
-            is passed for given dimension then the default value of 0.65 is
+            is passed for given dimension then the default value of '65%' is
             used - so that cluster limits are defined to retain at least 65%
             of the relevant cluster mass.
 
