@@ -27,6 +27,29 @@ from .utils import valid_windows, find_range, find_index
 from .viz import Topo
 
 
+def psd_welch(inst, tmin=None, tmax=None, n_fft=256, n_overlap=0,
+              n_per_seg=None, tmin=None, tmax=None, picks=picks,
+              average='mean', verbose=None):
+    """Compatibility layer to mimic old mne psd_welch behavior."""
+    try:
+        from mne.time_frequency import psd_welch
+        psd, freq = psd_welch(
+            inst, tmin=tmin, tmax=tmax, n_fft=n_fft, n_overlap=n_overlap,
+            n_per_seg=n_per_seg, picks=picks, average=average, verbose=verbose
+        )
+
+    except ImportError:
+        # Spectrum class was introduced to mne in 1.2 version
+        args = dict(n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
+                    average=average, verbose=verbose)
+        spectrum = inst.compute_psd(method='welch', tmin=tmin, tmax=tmax,
+                                    picks=picks, method_kw=args)
+        freq = spectrum.freqs
+        psd = spectrum.get_data()
+
+    return psd, freq
+
+
 # [ ] event_id should support dict!
 # [ ] change name to compute_psd_raw
 # [ ] use annotations when event_id was passed as str or list of str
@@ -77,8 +100,6 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
     freqs : numpy array
         Frequencies for which psd was calculated.
     '''
-    from mne.time_frequency import psd_welch
-
     sfreq = raw.info['sfreq']
     step = winlen / 4 if step is None else step
     n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
@@ -173,12 +194,6 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         PowerSpectralDensity (PSD) object.
     """
     try:
-        new_psd = False
-        from mne.time_frequency import psd_welch
-    except ImportError:
-        new_psd = True
-
-    try:
         from mne.selection import pick_types
     except ModuleNotFoundError:
         from mne.io.pick import pick_types
@@ -198,16 +213,9 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
             inst, winlen, step, padto)
 
-        if new_psd:
-            args = dict(n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg)
-            spectrum = inst.compute_psd(method='welch', tmin=tmin, tmax=tmax,
-                                        picks=picks, method_kw=args)
-            freq = spectrum.freqs
-            psd = spectrum.get_data()
-        else:
-            psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
-                                  picks=picks, n_per_seg=n_per_seg,
-                                  n_overlap=n_overlap)
+        psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
+                              picks=picks, n_per_seg=n_per_seg,
+                              n_overlap=n_overlap)
 
         # FIXME: this will need fixing:
         #  * inst has events and event_id
@@ -265,6 +273,7 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
 
 
 # - [ ] LATER: add .get_peak()
+# - [ ] TODO: compare with mne Spectrum class
 class PSD(*mixins):
     def __init__(self, psd, freqs, info, events=None, event_id=None,
                  metadata=None):
