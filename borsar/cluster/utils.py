@@ -235,7 +235,7 @@ def _find_mass_index(clst, cluster_idx, plan, kwargs, idx):
 
     # update plan for dropped dimensions
     if stat_sel.ndim < n_dims:
-        to_idx = [ix for ix in range(n_dims) if not plan[ix] == 'singular']
+        to_idx = [ix for ix in range(n_dims) if not 'singular' in plan[ix]]
         this_plan = [plan[ix] for ix in to_idx]
     else:
         this_plan = plan
@@ -597,22 +597,22 @@ def _index_from_dim(dimnames, dimcoords, plan, **kwargs):
     ([1, 3], slice(9, 15, None))
     '''
     idx = list()
-    for dname, dcoord, planned in zip(dimnames, dimcoords, plan):
+    for dim_name, dim_coord, planned in zip(dimnames, dimcoords, plan):
         # ignore dimensions that were not mentioned
         if planned is None or planned in ['mass', 'volume']:
             idx.append(slice(None))
             continue
-        selection = kwargs.pop(dname)
+        selection = kwargs.pop(dim_name)
 
         # find range or specific point-indices
         if planned == 'range':
-            idx.append(find_range(dcoord, selection))
-        elif planned == 'spatial_idx':
+            idx.append(find_range(dim_coord, selection))
+        elif planned in ['spatial_idx', 'spatial_singular']:
             idx.append(selection)
         elif 'spatial_name' in planned:
             raise NotImplementedError('Sorry, not yet.')
         elif planned in ['multi', 'singular']:
-            idx.append(find_index(dcoord, selection))
+            idx.append(find_index(dim_coord, selection))
     return tuple(idx)
 
 
@@ -717,7 +717,7 @@ def _check_singular_index(dimindex, dimname, msg_notfound, msg_spatial):
         if _is_spatial_dim(dimname):
             if isinstance(dimindex, float):
                 raise TypeError(msg_spatial.format(dimindex))
-            return 'spatial_idx', val
+            return 'spatial_singular', val
         else:
             return 'singular', val
     elif isinstance(dimindex, str):
