@@ -172,9 +172,6 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     psd : borsar.freq.PSD
         PowerSpectralDensity (PSD) object.
     """
-<<<<<<< Updated upstream
-    from mne.time_frequency import psd_welch
-=======
     try:
         new_psd = False
         from mne.time_frequency import psd_welch
@@ -185,7 +182,6 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
         from mne.selection import pick_types
     except ModuleNotFoundError:
         from mne.io.pick import pick_types
->>>>>>> Stashed changes
 
     if tmin is None:
         tmin = inst.times[0]
