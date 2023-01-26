@@ -323,35 +323,17 @@ class PSD(*mixins):
         # set up default vars
         from packaging import version
         mne_version = version.parse(mne.__version__)
-        has_new_mne = mne_version >= version.parse('0.22.0')
-
-        if has_new_mne:
+        test_versions = ['0.23.0', '0.20.0']
+        has_new_mne = [mne_version >= version.parse(ver)
+                       for ver in test_versions]
+        if has_new_mne[0]:
             from mne.defaults import _handle_default
-            from mne.io.pick import _picks_to_idx
-            try:
-                from mne.viz._figure import _split_picks_by_type
-            except ImportError:
-                # this was changed around 1.0 mne version
-                from mne.viz._mpl_figure import _split_picks_by_type
-
-            if ax is None:
-                import matplotlib.pyplot as plt
-                fig, ax = plt.subplots()
-            else:
-                fig = ax.figure
-            ax_list = [ax]
-
+            from mne.viz._figure import _line_figure, _split_picks_by_type
+            fig, axes = _line_figure(self, ax, picks)
             units = _handle_default('units', None)
-            picks = _picks_to_idx(self.info, picks)
-            titles = _handle_default('titles', None)
-            scalings = _handle_default('scalings', None)
-
-            make_label = len(ax_list) == len(fig.axes)
-            xlabels_list = [False] * (len(ax_list) - 1) + [True]
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
-        else:
-            from mne.viz.utils import _set_psd_plot_params
+        elif has_new_mne[1]:
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
