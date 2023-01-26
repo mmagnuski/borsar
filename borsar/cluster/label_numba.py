@@ -33,7 +33,7 @@ def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
         3d integer matrix with cluster labels.
     """
     # data has to be bool
-    assert data.dtype == np.bool
+    assert data.dtype == bool
 
     if min_adj_ch > 0:
         adj_ch = _check_adj_ch_3d(data, adjacency)
@@ -72,7 +72,7 @@ def _cluster_2d_numba(data, adjacency=None, min_adj_ch=0):
         3d integer matrix with cluster labels.
     """
     # data has to be bool
-    assert data.dtype == np.bool
+    assert data.dtype == bool
 
     if min_adj_ch > 0:
         adj_ch = _check_adj_ch_2d(data, adjacency)
