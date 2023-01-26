@@ -361,15 +361,6 @@ class PSD(*mixins):
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-<<<<<<< HEAD
-            psd_list.append(inst.data[picks])
-
-        args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
-                units_list, scalings_list, ax_list, make_label, color,
-                area_mode, area_alpha, dB, estimate, average, spatial_colors,
-                xscale, line_alpha]
-        args += [sphere, xlabels_list]
-=======
             this_psd = self.data[..., picks, rng]
             if self._has_epochs:
                 this_psd = this_psd.mean(axis=0)
@@ -387,7 +378,6 @@ class PSD(*mixins):
                             make_label, color, area_mode, area_alpha, dB,
                             estimate, average, spatial_colors, xscale,
                             line_alpha)
->>>>>>> ebbd887 (FIX: new mne compat in freq.py)
 
         fig = _plot_psd(*args)
         plt_show(show)
