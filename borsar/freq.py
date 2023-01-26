@@ -239,6 +239,7 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                         'formats, got {}'.format(type(inst)))
 
     # construct PSD object
+    # TODO: see if this is necessary on mne >= 0.20
     try:
         from mne.selection import pick_types
     except ModuleNotFoundError:

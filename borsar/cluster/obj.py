@@ -47,10 +47,6 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
-#      - [x] add repr so that Cluster has nice text representation
-#      - [x] make stat, clusters and pvals keyword
-#            * clusters=None and pvals=None by default
-#      - [x] change order to stat, clusters, pvals
 #      - [ ] sometime: make only stat necessary
 #      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
@@ -167,6 +163,7 @@ class Clusters(object):
         self.src = src
 
         # FIXME: find better way for this (maybe during safety checks earlier)
+        #        maybe just a private constructor?
         if self.info is not None and safety_checks:
             _ensure_correct_info(self)
 
