@@ -28,24 +28,18 @@ from .viz import Topo
 
 
 def psd_welch(inst, tmin=None, tmax=None, n_fft=256, n_overlap=0,
-              n_per_seg=None, tmin=None, tmax=None, picks=picks,
-              average='mean', verbose=None):
+              n_per_seg=None, picks=None, average='mean', verbose=None):
     """Compatibility layer to mimic old mne psd_welch behavior."""
+    args = dict(tmin=tmin, tmax=tmax, picks=picks, n_fft=n_fft,
+                n_overlap=n_overlap, n_per_seg=n_per_seg, average=average,
+                verbose=verbose)
     try:
         from mne.time_frequency import psd_welch
-        psd, freq = psd_welch(
-            inst, tmin=tmin, tmax=tmax, n_fft=n_fft, n_overlap=n_overlap,
-            n_per_seg=n_per_seg, picks=picks, average=average, verbose=verbose
-        )
-
+        psd, freq = psd_welch(inst, **args)
     except ImportError:
         # Spectrum class was introduced to mne in 1.2 version
-        args = dict(n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                    average=average, verbose=verbose)
-        spectrum = inst.compute_psd(method='welch', tmin=tmin, tmax=tmax,
-                                    picks=picks, method_kw=args)
-        freq = spectrum.freqs
-        psd = spectrum.get_data()
+        spectrum = inst.compute_psd(method='welch', **args)
+        psd, freq = spectrum.get_data(return_freqs=True)
 
     return psd, freq
 
