@@ -172,7 +172,20 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     psd : borsar.freq.PSD
         PowerSpectralDensity (PSD) object.
     """
+<<<<<<< Updated upstream
     from mne.time_frequency import psd_welch
+=======
+    try:
+        new_psd = False
+        from mne.time_frequency import psd_welch
+    except ImportError:
+        new_psd = True
+
+    try:
+        from mne.selection import pick_types
+    except ModuleNotFoundError:
+        from mne.io.pick import pick_types
+>>>>>>> Stashed changes
 
     if tmin is None:
         tmin = inst.times[0]
@@ -188,9 +201,18 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     if isinstance(inst, mne.BaseEpochs):
         n_per_seg, n_overlap, n_fft = _psd_welch_input_seconds_to_samples(
             inst, winlen, step, padto)
-        psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
-                              picks=picks, n_per_seg=n_per_seg,
-                              n_overlap=n_overlap)
+
+        if new_psd:
+            args = dict(n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg)
+            spectrum = inst.compute_psd(method='welch', tmin=tmin, tmax=tmax,
+                                        picks=picks, method_kw=args)
+            freq = spectrum.freqs
+            psd = spectrum.get_data()
+        else:
+            psd, freq = psd_welch(inst, tmin=tmin, tmax=tmax, n_fft=n_fft,
+                                  picks=picks, n_per_seg=n_per_seg,
+                                  n_overlap=n_overlap)
+
         # FIXME: this will need fixing:
         #  * inst has events and event_id
         #  * can the user pass events? should it be ignored?
