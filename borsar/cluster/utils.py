@@ -255,7 +255,6 @@ def _find_mass_index(clst, cluster_idx, plan, kwargs, idx):
     return tuple(idx)
 
 
-# - [ ] unwrap _get_contrib part?
 def _find_mass_index_for_dim(stat_sel, clst_sel, type, mass, dim_idx,
                              adjacent=True):
     n_dims = stat_sel.ndim
@@ -268,7 +267,7 @@ def _find_mass_index_for_dim(stat_sel, clst_sel, type, mass, dim_idx,
         contrib = (stat_sel * clst_sel).sum(axis=tuple(reduce_dims))
     contrib = contrib / contrib.sum(axis=-1, keepdims=True)
 
-    # curent method - start at max and extend
+    # current method - start at max and extend
     lims = _get_mass_range(contrib, mass, adjacent=adjacent)
     return lims
 
@@ -331,8 +330,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         Indexers for the aggregated dimensions.
         See ``borsar.Cluster.get_index``
     '''
-    listlikes = (list, np.ndarray)
-    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, listlikes)
+    list_likes = (list, np.ndarray)
+    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list_likes)
                    else cluster_idx)
     n_clusters = len(cluster_idx)
 
