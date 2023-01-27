@@ -230,7 +230,7 @@ def test_dimindex_plan():
     assert 'time' not in kwargs
 
     plan, kwargs = _update_plan(
-        dimnames, plan, kwargs, select='75%', ignore=None)
+        ['chan', 'time'], plan, kwargs, select='75%', ignore=None)
     assert plan == ['spatial_singular', 'mass']
     assert kwargs['time'] == 0.75
 
