@@ -802,6 +802,8 @@ def test_cluster_ignore_dims():
     data = np.array(axs[0].images[0].get_array())
     data_agg = (clst.stat * clst.clusters[0]).sum(axis=(1, 2))
     ix = np.sort(data_agg.argsort()[::-1][:2])
+    # or this:
+    # ix = slice(4, 6) if data_agg.argmax() == 4 else slice(5, 7)
     assert (clst.stat[ix].mean(axis=0) == data).all()
 
     # (A2) 65% volume if requested
