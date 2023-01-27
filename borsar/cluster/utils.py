@@ -879,28 +879,59 @@ def _check_singular_index(dimindex, dimname, msg_notfound, msg_spatial):
         else:
             return 'singular', val
     elif isinstance(dimindex, str):
-        pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
-        match = re.match(pat, dimindex)
-        if match is not None:
-            parts = match.groups()
-            plan = 'volume' if parts[-1] is not None else 'mass'
-            value = float(parts[0])
-            if value > 100. or value < 0.:
-                msg = ('The mass/volume percentage indexer has to be >= 0'
-                       ' and <= 100, got {}.').format(dimindex)
-                raise ValueError(msg)
-            val = value / 100
-            return plan, val
+        plan, perc_val = parse_percent_str_index(dimindex, throw_error=False)
+        if plan:
+            return plan, perc_val
         else:
             # TODO: could be a channel \ label name
             if _is_spatial_dim(dimname):
-                return 'spatial_name', val
+                plan, perc_val = parse_percent_str_index(dimindex,
+                                                         throw_error=False)
+                if plan:
+                    return plan, perc_val
+                else:
+                    return 'spatial_name', val
             else:
                 raise ValueError('String indexer has to be either a channel'
                                  ' name or volume/mass percentage (for '
                                  'example "50% vol"). Got {}'.format(dimindex))
     else:
         raise TypeError(msg_notfound.format(dimindex))
+
+
+def parse_percent_str_index(dimindex, throw_error=True):
+    pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
+    match = re.match(pat, dimindex)
+    if match is None:
+        if throw_error:
+            msg = 'Could not understand {} as a string percent indexer.'
+            raise ValueError(msg.format(dimindex))
+        else:
+            return False, None
+    parts = match.groups()
+    plan = 'volume' if parts[-1] is not None else 'mass'
+    value = float(parts[0])
+    if value > 100. or value < 0.:
+        msg = ('The mass/volume percentage indexer has to be >= 0'
+               ' and <= 100, got {}.').format(dimindex)
+        raise ValueError(msg)
+    value = value / 100
+    return plan, value
+
+
+def _update_plan(dimnames, plan, kwargs, select=0.65, ignore=None):
+    '''Update dimindex plan wrt default mass indexing and ignored dims.'''
+    ignore = list() if ignore is None else ignore
+    if isinstance(select, float):
+        sel_type, sel_value = 'mass', select
+    elif isinstance(select, str):
+        sel_type, sel_value = parse_percent_str_index(select)
+
+    for idx, (dimname, planned) in enumerate(zip(dimnames, plan)):
+        if planned is None and dimname not in ignore:
+            plan[idx] = sel_type
+            kwargs[dimname] = sel_value
+    return plan, kwargs
 
 
 def _clean_up_indices(idx):
