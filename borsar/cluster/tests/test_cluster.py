@@ -213,10 +213,27 @@ def test_dimindex_plan():
     plan, kwargs = _prepare_dimindex_plan(['chan', 'freq', 'time'],
                                           chan='F3', freq='66.6% mass',
                                           time=0.3)
-    assert plan[0] == 'spatial_name'
+    assert plan[0] == 'spatial_name'  # could have also 'singular' in plan type
     assert plan[1] == 'mass'
     assert plan[2] == 'singular'
     assert_allclose(kwargs['freq'], 0.666)
+
+    # single channel index
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=1)
+    assert plan[0] == 'spatial_singular'
+    assert kwargs['chan'] == 1
+
+    # wrong variable type for chan
+    with pytest.raises(TypeError, match='Could not understand'):
+        _prepare_dimindex_plan(['chan', 'time'], chan=set([1, 2, 3]))
+
+    # str, but not percentage
+    with pytest.raises(ValueError, match='Could not understand'):
+        _prepare_dimindex_plan(['chan', 'time'], time='abc')
+
+    # wrong percentage value
+    with pytest.raises(ValueError, match='has to be >= 0 and <= 100'):
+        _prepare_dimindex_plan(['chan', 'time'], time='123%')
 
 
 def test_expected_errors_in_plot_indexing():
