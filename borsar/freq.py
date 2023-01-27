@@ -379,9 +379,7 @@ class PSD(*mixins):
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-            this_psd = self.data[..., picks, rng]
-            if self._has_epochs:
-                this_psd = this_psd.mean(axis=0)
+            this_psd = inst.data[..., picks, :]
             psd_list.append(this_psd)
 
         args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
