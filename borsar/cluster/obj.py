@@ -417,9 +417,7 @@ class Clusters(object):
             return contrib[0]
 
     # TODO: consider continuous vs discontinuous limits
-    # TODO: consider merging more with get_index?
-    # TODO: rename to `get_limits()`
-    def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
+    def get_limits(self, cluster_idx, retain_mass=0.65,
                            dims=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
@@ -433,7 +431,7 @@ class Clusters(object):
             Percentage of cluster mass to retain in cluster limits for
             dimensions not specified with keyword arguments (see `kwargs`).
             Defaults to 0.65.
-        dims : list-like of int | list-like of str | None, optional
+        dims : list-like of str | None, optional
             Which dimensions to check. Defaults to None which checks all
             dimensions except spatial.
         **kwargs : additional keyword arguments
@@ -458,34 +456,18 @@ class Clusters(object):
             of indices.
         '''
         # TODO: add safety checks
-        has_space = (self.dimnames is not None
-                     and self.dimnames[0] in ['vert', 'chan'])
 
         if dims is None:
-            check_dims = list(range(self.stat.ndim))
-            if has_space:
-                check_dims.remove(0)
+            has_space = (self.dimnames is not None
+                         and self.dimnames[0] in ['vert', 'chan'])
+            ignore_dims = None if not has_space else [self.dimnames[0]]
         else:
-            if isinstance(dims[0], str):
-                check_dims = _handle_dims(self, dims)
-            else:
-                check_dims = dims
+            ignore_dims = [d for d in self.dimnames if d not in dims]
 
-        limits = list()
-        for dim_idx in range(self.stat.ndim):
-            if dim_idx in check_dims:
-                # use _find_mass_index_for_dim() !
-                dimname = self.dimnames[dim_idx]
-                mass = kwargs[dimname] if dimname in kwargs else retain_mass
-                contrib = self.get_contribution(cluster_idx, along=dimname)
-
-                # current method - start at max and extend
-                adj = not (dim_idx == 0 and has_space)
-                lims = _get_mass_range(contrib, mass, adjacent=adj)
-                limits.append(lims)
-            else:
-                limits.append(slice(None))
-        return tuple(limits)
+        limits = self.get_index(
+            cluster_idx=cluster_idx, ignore_dims=ignore_dims,
+            retain_mass=retain_mass, **kwargs)
+        return limits
 
     # TODO - do not use get_index() for limit calculations - division of labor!
     # TODO - make sure that when one dim is specified with coords and other

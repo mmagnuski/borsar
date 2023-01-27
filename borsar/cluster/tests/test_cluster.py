@@ -150,13 +150,13 @@ def test_cluster_limits():
     clst = Clusters(stat, [clusters], pvals, dimnames=['chan', 'freq'],
                     dimcoords=dimcoords, info=info)
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
 
 
@@ -384,7 +384,7 @@ def test_clusters():
 
     # get index and limits
     # --------------------
-    idx = clst2.get_cluster_limits(0, retain_mass=0.75)
+    idx = clst2.get_limits(0, retain_mass=0.75)
     assert clst_0_freq_contrib[idx[1]].sum() > 0.75
 
     idx = clst2.get_index(freq=(8, 10))
