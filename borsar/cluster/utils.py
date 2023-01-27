@@ -775,8 +775,10 @@ def _update_plan(dimnames, plan, kwargs, select=0.65, ignore=None):
     return plan, kwargs
 
 
-# TODO: add _is_spatial_dim
-# TODO: add errors
+def _is_spatial_dim(dimname):
+    return dimname in SPATIAL_DIMS
+
+
 # throw error when kwarg not in dimnames?
 def _prepare_dimindex_plan(dimnames, **kwargs):
     '''Prepare indexing plan.
