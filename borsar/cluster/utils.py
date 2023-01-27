@@ -1,10 +1,16 @@
+import re
 import random
+
 import numpy as np
 from scipy import sparse
+from numbers import Integral, Real
 
 from ..utils import group_mask, find_range, find_index
 from ..stats import format_pvalue
 from ..channels import find_channels
+
+
+SPATIAL_DIMS = ['chan', 'vert']
 
 
 # FIXME - currently the reading of neighbours seems to be a bit
@@ -192,7 +198,7 @@ def _get_clim(data, vmin=None, vmax=None, pysurfer=False):
 def _handle_dims(clst, dims):
     '''Find indices of dimension names.'''
     if dims is None:
-        if clst.dimnames[0] in ['chan', 'vert']:
+        if _is_spatial_dim(clst.dimnames[0]):
             return [0]
         else:
             n_dims = len(clst.dimnames)
@@ -210,6 +216,60 @@ def _handle_dims(clst, dims):
             dims = [dims]
         dim_idx = [clst.dimnames.index(dim) for dim in dims]
         return dim_idx
+
+
+# - [ ] consider unwrapping into two-three functions (for example selection
+#       with update for dropped dimensions)
+def _find_mass_index(clst, cluster_idx, plan, kwargs, idx):
+    # ignore if no mass/volume indices
+    is_mass = [pln in ['mass', 'volume'] for pln in plan]
+    if not any(is_mass):
+        return idx
+
+    # select stats and cluster mask
+    idx = list(idx)
+    n_dims = len(plan)
+    orig_idx = tuple(_clean_up_indices(idx.copy()))
+    stat_sel = clst.stat[orig_idx]
+    mask_sel = clst.clusters[cluster_idx][orig_idx]
+
+    # update plan for dropped dimensions
+    if stat_sel.ndim < n_dims:
+        to_idx = [ix for ix in range(n_dims) if 'singular' not in plan[ix]]
+        this_plan = [plan[ix] for ix in to_idx]
+    else:
+        this_plan = plan
+        to_idx = list(range(n_dims))
+
+    # find percentage range for each relevant dimension
+    for dim_idx, (pln, real_idx) in enumerate(zip(this_plan, to_idx)):
+        if is_mass[real_idx]:
+            dimname = clst.dimnames[real_idx]
+            mass_val = kwargs[dimname]
+            if_adjacent = not (real_idx == 0 and _is_spatial_dim(dimname))
+            found_range = _find_mass_index_for_dim(stat_sel, mask_sel, pln,
+                                                   mass_val, dim_idx,
+                                                   adjacent=if_adjacent)
+            idx[real_idx] = found_range
+
+    return tuple(idx)
+
+
+def _find_mass_index_for_dim(stat_sel, clst_sel, type, mass, dim_idx,
+                             adjacent=True):
+    n_dims = stat_sel.ndim
+    reduce_dims = list(range(n_dims))
+    reduce_dims.pop(dim_idx)
+
+    if type == 'volume':
+        contrib = clst_sel.sum(axis=tuple(reduce_dims))
+    elif type == 'mass':
+        contrib = (stat_sel * clst_sel).sum(axis=tuple(reduce_dims))
+    contrib = contrib / contrib.sum(axis=-1, keepdims=True)
+
+    # current method - start at max and extend
+    lims = _get_mass_range(contrib, mass, adjacent=adjacent)
+    return lims
 
 
 # TODO:
@@ -252,13 +312,15 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
         defines specific points to pick: for example ``time=[0.1, 0.2]``
         selects time points corresponding to 0.1 and 0.2 seconds.
-        Float argument between 0. and 1. defines range that is dependent on
-        cluster mass or extent. For example ``time=0.75`` defines time
-        range that retains at least 75% of the cluster extent (calculated
-        along the aggregated dimension - in this case time). If no kwarg is
-        passed for given dimension then the default value is ``0.65``.
-        This means that the range for such dimension is defined to retain
-        at least 65% of the cluster extent.
+        String argument representing percentage, for example ``'55.5%'``
+        defines a range that is dependent on cluster mass. For example
+        ``time='75 %'`` defines time range limits that retain at least 75% of
+        the cluster mass (calculated along given dimension - in this case
+        time). To define range based on volume, you can append ``' vol'`` to
+        the string, for example ``'33.3% vol'``. If no kwarg is passed for
+        given dimension then the default value of '65%' is used - so that
+        cluster limits are defined to retain at least 65% of the relevant
+        cluster mass.
 
     Returns
     -------
@@ -270,8 +332,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         Indexers for the aggregated dimensions.
         See ``borsar.Cluster.get_index``
     '''
-    listlikes = (list, np.ndarray)
-    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, listlikes)
+    list_likes = (list, np.ndarray)
+    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list_likes)
                    else cluster_idx)
     n_clusters = len(cluster_idx)
 
@@ -312,12 +374,19 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     idx = _clean_up_indices(idx)
 
     if do_aggregation:
-        reduce_axes = tuple(ix for ix in range(0, clst.stat.ndim)
-                            if not (isinstance(idx[ix], (list, np.ndarray))
-                            or ix in dim_idx))
+        reduce_axes = list()
+        set_idx = 0
+        for ix in range(0, clst.stat.ndim):
+            if isinstance(idx[ix], Integral):
+                continue
+            if not (isinstance(idx[ix], (list, np.ndarray))
+                    or ix in dim_idx):
+                reduce_axes.append(set_idx)
+            set_idx += 1
+        reduce_axes = tuple(reduce_axes)
 
         # reduce spatial if present, not in dim_idx and list / array
-        if (0 not in reduce_axes and clst.dimnames[0] in ['chan', 'vert']
+        if (0 not in reduce_axes and _is_spatial_dim(clst.dimnames[0])
             and 0 not in dim_idx and isinstance(idx[0], (list, np.ndarray))):
             reduce_axes = (0, ) + reduce_axes
 
@@ -413,6 +482,8 @@ def _get_mass_range(contrib, mass, adjacent=True):
         Slice (when `adjacency=True`) or indices (when `adjacency=False`)
         retaining the required mass.
     '''
+    if contrib.ndim > 1:
+        contrib = np.squeeze(contrib)
     contrib_len = contrib.shape[0]
     max_idx = np.argmax(contrib)
     current_mass = contrib[max_idx]
@@ -490,10 +561,10 @@ def _ensure_correct_info(clst):
 
 
 # - [ ] add special functions for handling dims like vert or chan
-def _index_from_dim(dimnames, dimcoords, **kwargs):
+def _index_from_dim(dimnames, dimcoords, plan, **kwargs):
     '''
-    Find axis indices or slices given dimnames, dimcoords and dimname keyword
-    arguments of ``dimname=value`` form.
+    Find axis indices or slices given dimnames, dimcoords, dimindex plan and
+    dimname keyword arguments of ``dimname=value`` form.
 
     Parameters
     ----------
@@ -504,6 +575,8 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     dimcoords : list of arrays
         List of arrays, where each array contains coordinates (labels) for
         consecutive elements in corresponding dimension.
+    plan : list
+        Indexing plan created by ``_prepare_dimindex_plan``.
     **kwargs : additional keywords
         Keywords referring to dimension names. Value of these keyword has to be
         either:
@@ -526,47 +599,187 @@ def _index_from_dim(dimnames, dimcoords, **kwargs):
     >>> _index_from_dim(dimnames, dimcoords, freq=[9, 11], time=(0.25, 0.5))
     ([1, 3], slice(9, 15, None))
     '''
-
     idx = list()
-    for dname, dcoord in zip(dimnames, dimcoords):
+    for dim_name, dim_coord, planned in zip(dimnames, dimcoords, plan):
         # ignore dimensions that were not mentioned
-        if dname not in kwargs:
+        if planned is None or planned in ['mass', 'volume']:
             idx.append(slice(None))
             continue
-        selection = kwargs.pop(dname)
+        selection = kwargs.pop(dim_name)
 
         # find range or specific point-indices
-        if isinstance(selection, tuple) and len(selection) == 2:
-            idx.append(find_range(dcoord, selection))
-        elif isinstance(selection, list) or (isinstance(selection, np.ndarray)
-                                             and selection.ndim == 1):
-            # special-case spatial dim
-            if dname in ['chan', 'vert']:
-                # find dtype of list/array
-                from numbers import Integral
-                is_int = isinstance(selection[0], Integral)
-
-                if is_int:
-                    # 1) channel indices
-                    idx.append(selection)
-                else:
-                    # 2) channel names? (labels?)
-                    if (dname == 'chan' and isinstance(selection, list)
-                        and isinstance(selection[0], str)):
-                        # find channel indices
-                        raise NotImplementedError('Sorry, not yet.')
-                    else:
-                        raise ValueError('Spatial dimension indexer has to '
-                                         'be either a list/array or int or '
-                                         'a list of channel names.')
-
-            else:
-                idx.append(find_index(dcoord, selection))
-        else:
-            sel_type = type(selection)
-            raise TypeError('Keyword arguments has to have tuple of length 2 '
-                            'list or 1d array, got {}.'.format(sel_type))
+        if planned == 'range':
+            idx.append(find_range(dim_coord, selection))
+        elif planned in ['spatial_idx', 'spatial_singular']:
+            idx.append(selection)
+        elif 'spatial_name' in planned:
+            msg = ('Sorry, picking spatial dimension using strings is not yet'
+                   ' supported.')
+            raise NotImplementedError(msg)
+        elif planned in ['multi', 'singular']:
+            idx.append(find_index(dim_coord, selection))
     return tuple(idx)
+
+
+def _is_spatial_dim(dimname):
+    return dimname in SPATIAL_DIMS
+
+
+# - [ ] throw error when kwarg not in dimnames?
+# - [ ] original code had some basic support for slices, but it does not seem
+#       necessary now.
+# elif isinstance(dimindex, slice):
+#     if dimindex == slice(None):
+#         # "take everyting"
+#         plan[idx] = 'full'
+def _prepare_dimindex_plan(dimnames, **kwargs):
+    '''Prepare indexing plan.
+
+    The plan is a list of str where each string informs about detected
+    indexing type/intent for respective dimension.
+
+    Possible plans:
+    * singular      - one simple index in data label coordinates, have to be
+                      translated
+    * range         - tuple of indices in data label coordinates, have to be
+                      translated to a slice
+    * multi         - list / array of indices in data label coordinates, have
+                      to be translated
+    * spatial_idx   - index/indices that are already in the indexing
+                      coordinates, no need for translation
+    * spatial_singular - one simple index, already in the indexing coordinates
+    * spatial_name  - channel/label name, have to be translated in a special
+                      way
+    * spatial_names - channel/label names, have to be translated in a special
+                      way
+    * volume
+    * mass
+    '''
+    msg_notfound = ('Could not understand {}.\nAllowed indexers are: int, str,'
+                    ' list of int, list of str, tuple.')
+    msg_spatial = ('Indexing spatial dimension is allowed only with int, str, '
+                   'list/array of int or list/array of str. Got {}.')
+    msg_nonspat = ('Indexing non-spatial dimensions is allowed only with int, '
+                   'float, list/array of int or list/array of float. Got {}.')
+
+    n_dims = len(dimnames)
+    specified = [dim in kwargs for dim in dimnames]
+    plan = [None] * n_dims
+    if not any(specified):
+        return plan, kwargs
+
+    for idx in np.where(specified)[0]:
+        this_dim_name = dimnames[idx]
+        dimindex = kwargs[this_dim_name]
+
+        if isinstance(dimindex, tuple):
+            # tuple -> range
+            # --------------
+            if len(dimindex) == 2:
+                plan[idx] = 'range'
+            else:
+                msg = ('Indexing with a tuple means specifying a range: '
+                       '(from, to). For this reason the tuple has to be of '
+                       'length 2.')
+                raise ValueError(msg)
+        elif isinstance(dimindex, (list, np.ndarray)):
+            # list or array
+            # -------------
+            # squeeze array?
+            numel = len(dimindex)
+            if numel == 0:
+                msg = 'If indexing with a list, the list has to be non-empty.'
+                raise ValueError(msg)
+            elif numel == 1:
+                # CONSIDER - not sure if this is the right thing to do, in
+                #            numpy this would mean select, but not drop the dim
+                dimindex = dimindex[0]
+                plan[idx], kwargs[this_dim_name] = _check_singular_index(
+                    dimindex, this_dim_name, msg_notfound, msg_spatial)
+            else:
+                if _is_spatial_dim(this_dim_name):
+                    if all([isinstance(x, Integral) for x in dimindex]):
+                        plan[idx] = 'spatial_idx'
+                    elif all([isinstance(x, str) for x in dimindex]):
+                        plan[idx] = 'spatial_names'
+                    else:
+                        raise TypeError(msg_spatial.format(dimindex))
+                else:
+                    if all([isinstance(x, Real) for x in dimindex]):
+                        plan[idx] = 'multi'
+                    else:
+                        raise TypeError(msg_nonspat.format(dimindex))
+        else:
+            plan[idx], kwargs[this_dim_name] = _check_singular_index(
+                dimindex, this_dim_name, msg_notfound, msg_spatial)
+
+    # LATER: check multi for channel/vertex indices or names
+    return plan, kwargs
+
+
+def _check_singular_index(dimindex, dimname, msg_notfound, msg_spatial):
+    val = dimindex
+    if isinstance(dimindex, (Integral, float)):
+        if _is_spatial_dim(dimname):
+            if isinstance(dimindex, float):
+                raise TypeError(msg_spatial.format(dimindex))
+            return 'spatial_singular', val
+        else:
+            return 'singular', val
+    elif isinstance(dimindex, str):
+        plan, perc_val = parse_percent_str_index(dimindex, throw_error=False)
+        if plan:
+            return plan, perc_val
+        else:
+            # TODO: could be a channel \ label name
+            if _is_spatial_dim(dimname):
+                plan, perc_val = parse_percent_str_index(dimindex,
+                                                         throw_error=False)
+                if plan:
+                    return plan, perc_val
+                else:
+                    return 'spatial_name', val
+            else:
+                raise ValueError('String indexer has to be either a channel'
+                                 ' name or volume/mass percentage (for '
+                                 'example "50% vol"). Got {}'.format(dimindex))
+    else:
+        raise TypeError(msg_notfound.format(dimindex))
+
+
+def parse_percent_str_index(dimindex, throw_error=True):
+    pat = r'([0-9]{1,3}(\.[0-9]*)?)(%)( mass)?( vol)?'
+    match = re.match(pat, dimindex)
+    if match is None:
+        if throw_error:
+            msg = 'Could not understand {} as a string percent indexer.'
+            raise ValueError(msg.format(dimindex))
+        else:
+            return False, None
+    parts = match.groups()
+    plan = 'volume' if parts[-1] is not None else 'mass'
+    value = float(parts[0])
+    if value > 100. or value < 0.:
+        msg = ('The mass/volume percentage indexer has to be >= 0'
+               ' and <= 100, got {}.').format(dimindex)
+        raise ValueError(msg)
+    value = value / 100
+    return plan, value
+
+
+def _update_plan(dimnames, plan, kwargs, select=0.65, ignore=None):
+    '''Update dimindex plan wrt default mass indexing and ignored dims.'''
+    ignore = list() if ignore is None else ignore
+    if isinstance(select, float):
+        sel_type, sel_value = 'mass', select
+    elif isinstance(select, str):
+        sel_type, sel_value = parse_percent_str_index(select)
+
+    for idx, (dimname, planned) in enumerate(zip(dimnames, plan)):
+        if planned is None and dimname not in ignore:
+            plan[idx] = sel_type
+            kwargs[dimname] = sel_value
+    return plan, kwargs
 
 
 def _clean_up_indices(idx):

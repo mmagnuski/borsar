@@ -4,7 +4,8 @@ import numpy as np
 from .viz import plot_cluster_contribution, plot_cluster_chan
 from ._viz3d import plot_cluster_src
 from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
-                    _ensure_correct_info, _handle_dims, _full_dimname)
+                    _ensure_correct_info, _handle_dims, _full_dimname,
+                    _prepare_dimindex_plan, _update_plan, _find_mass_index)
 from .checks import (_clusters_safety_checks, _clusters_chan_vert_checks,
                      _check_dimnames_kwargs, _check_dimname_arg,
                      _check_description)
@@ -46,10 +47,6 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
 
 # TODO - consider empty lists/arrays instead of None when no clusters...
-#      - [x] add repr so that Cluster has nice text representation
-#      - [x] make clusters and pvals keyword
-#            * clusters=None and pvals=None by default
-#      - [x] change order to stat, clusters, pvals
 #      - [ ] sometime: make only stat necessary
 #      - [ ] add reading and writing to FieldTrip cluster structs
 class Clusters(object):
@@ -166,6 +163,7 @@ class Clusters(object):
         self.src = src
 
         # FIXME: find better way for this (maybe during safety checks earlier)
+        #        maybe just a private constructor?
         if self.info is not None and safety_checks:
             _ensure_correct_info(self)
 
@@ -253,7 +251,9 @@ class Clusters(object):
             # kwargs check should be in a separate function
             if len(kwargs) > 0:
                 _check_dimnames_kwargs(self, allow_lists=False, **kwargs)
-            dim_idx = _index_from_dim(self.dimnames, self.dimcoords, **kwargs)
+            plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
+            dim_idx = _index_from_dim(self.dimnames, self.dimcoords, plan,
+                                      **kwargs)
 
             dims = np.arange(self.stat.ndim) + 1
             clst_idx = (slice(None),) + dim_idx
@@ -324,6 +324,7 @@ class Clusters(object):
         return clst
 
     def __repr__(self):
+        '''Clusters text representation.'''
         base_txt = '<borsar.Clusters  |  {} clusters in {} space>'
         n_clusters = len(self)
         dimnames = [_full_dimname(dimname) for dimname in self.dimnames]
@@ -357,6 +358,7 @@ class Clusters(object):
 
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
+    # - [ ] change to use some parts of _find_mass_index (moved out)
     def get_contribution(self, cluster_idx=None, along=None, norm=True,
                          idx=None):
         '''
@@ -415,13 +417,8 @@ class Clusters(object):
             return contrib[0]
 
     # TODO: consider continuous vs discontinuous limits
-    # TODO: consider merging more with get_index?
-    # TODO: rename to `get_limits()`
-    # TODO: `idx` variable was ad-hoc and is not a good API choice
-    #       this will have to be cleaned-up, preferably when writing
-    #       an example on handling cluster limits
-    def get_cluster_limits(self, cluster_idx, retain_mass=0.65,
-                           dims=None, idx=None, **kwargs):
+    def get_limits(self, cluster_idx, retain_mass=0.65,
+                           dims=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
@@ -434,18 +431,20 @@ class Clusters(object):
             Percentage of cluster mass to retain in cluster limits for
             dimensions not specified with keyword arguments (see `kwargs`).
             Defaults to 0.65.
-        dims : list-like of int | list-like of str | None, optional
+        dims : list-like of str | None, optional
             Which dimensions to check. Defaults to None which checks all
             dimensions except spatial.
         **kwargs : additional keyword arguments
             Additional arguments defining the cluster extent to retain along
-            specified dimensions. Float argument between 0. and 1. - defines
-            range that is dependent on cluster mass. For example ``time=0.75``
-            defines time range limits that retain at least 75% of the cluster
-            (calculated along given dimension - in this case time). If no kwarg
-            is passed for given dimension then the default value of 0.65 is
-            used - so that cluster limits are defined to retain at least 65%
-            of the relevant cluster mass.
+            specified dimensions. String argument representing percentage,
+            for example ``'55.5%'`` defines a range that is dependent on
+            cluster mass. For example ``time='75 %'`` defines time range limits
+            that retain at least 75% of the cluster mass (calculated along
+            given dimension - in this case time). To define range based on
+            volume, you can append `' vol'` to the string, for example
+            ``'33.3% vol'``. If no kwarg is passed for given dimension then the
+            default value of '65%' is used - so that cluster limits are
+            defined to retain at least 65% of the relevant cluster mass.
 
         Returns
         -------
@@ -457,36 +456,23 @@ class Clusters(object):
             of indices.
         '''
         # TODO: add safety checks
-        has_space = (self.dimnames is not None
-                     and self.dimnames[0] in ['vert', 'chan'])
 
         if dims is None:
-            check_dims = list(range(self.stat.ndim))
-            if has_space:
-                check_dims.remove(0)
+            has_space = (self.dimnames is not None
+                         and self.dimnames[0] in ['vert', 'chan'])
+            ignore_dims = None if not has_space else [self.dimnames[0]]
         else:
-            if isinstance(dims[0], str):
-                check_dims = _handle_dims(self, dims)
-            else:
-                check_dims = dims
+            ignore_dims = [d for d in self.dimnames if d not in dims]
 
-        limits = list()
-        for dim_idx in range(self.stat.ndim):
-            if dim_idx in check_dims:
-                dimname = self.dimnames[dim_idx]
-                mass = kwargs[dimname] if dimname in kwargs else retain_mass
-                contrib = self.get_contribution(cluster_idx, along=dimname,
-                                                idx=idx)
-
-                # current method - start at max and extend
-                adj = not (dim_idx == 0 and has_space)
-                lims = _get_mass_range(contrib, mass, adjacent=adj)
-                limits.append(lims)
-            else:
-                limits.append(slice(None))
-        return tuple(limits)
+        limits = self.get_index(
+            cluster_idx=cluster_idx, ignore_dims=ignore_dims,
+            retain_mass=retain_mass, **kwargs)
+        return limits
 
     # TODO - do not use get_index() for limit calculations - division of labor!
+    # TODO - make sure that when one dim is specified with coords and other
+    #        with mass to retain, the mass is taken only from the part
+    #        specified? (this is done in get_limits with `idx` variable)
     def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
                   **kwargs):
         '''
@@ -517,13 +503,15 @@ class Clusters(object):
             ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
             defines specific points to pick: for example ``time=[0.1, 0.2]``
             selects time points corresponding to 0.1 and 0.2 seconds.
-            Float argument between 0. and 1. defines range that is dependent on
-            cluster mass or extent. For example ``time=0.75`` defines time
-            range that retains at least 75% of the cluster extent (calculated
-            along the aggregated dimension - in this case time). If no kwarg is
-            passed for given dimension then the default value is ``0.65``.
-            This means that the range for such dimension is defined to retain
-            at least 65% of the cluster extent.
+            String argument representing percentage, for example ``'55.5%'``
+            defines a range that is dependent on cluster mass. For example
+            ``time='75 %'`` defines time range limits that retain at least 75%
+            of the cluster mass (calculated along given dimension - in this
+            case time). To define range based on volume, you can append
+            ``' vol'`` to the string, for example ``'33.3% vol'``. If no kwarg
+            is passed for given dimension then the default value of '65%' is
+            used - so that cluster limits are defined to retain at least 65% of
+            the relevant cluster mass.
 
         Returns
         -------
@@ -532,41 +520,18 @@ class Clusters(object):
             used in indexing stat (`clst.stat[idx]`) or clusters (
             `clst.clusters[:, *idx]`) for example.
         '''
-
-        if len(kwargs) > 0:
-            # check correctness of keyword arguments
-            # CHECK - is check_dimcoords necessary?
-            normal_indexing, mass_indexing = _check_dimnames_kwargs(
-                self, **kwargs, ignore_dims=ignore_dims, check_dimcoords=True,
-                split_range_mass=True)
-        else:
-            normal_indexing, mass_indexing = kwargs, dict()
-
-        idx = _index_from_dim(self.dimnames, self.dimcoords,
-                              **normal_indexing)
+        _check_dimnames_kwargs(self, check_dimcoords=True, **kwargs)
+        plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
+        idx = _index_from_dim(self.dimnames, self.dimcoords, plan, **kwargs)
+        plan, kwargs = _update_plan(self.dimnames, plan, kwargs,
+                                    select=retain_mass, ignore=ignore_dims)
 
         # when retain_mass is specified it is used to get ranges for
-        # dimensions not addressed with kwargs
-        # FIXME - error if mass_indexing specified but no cluster_idx
+        # dimensions not adressed with kwargs
+        # FIXME - add error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
-            check_dims = [idx for idx, val in enumerate(idx)
-                          if isinstance(val, slice) and val == slice(None)]
-
-            # ignore dimensions
-            if ignore_dims is not None:
-                dim_idx = _handle_dims(self, ignore_dims)
-                for ignored in dim_idx:
-                    if ignored in check_dims:
-                        check_dims.remove(ignored)
-
-            # check cluster limits only if some dim limits were not specified
-            # TODO: idx arg may be unnecessary if I clean things up
-            if len(check_dims) > 0:
-                idx_mass = self.get_cluster_limits(
-                    cluster_idx, dims=check_dims, retain_mass=retain_mass,
-                    idx=idx, **mass_indexing)
-                idx = tuple([idx_mass[i] if i in check_dims else idx[i]
-                             for i in range(len(idx))])
+            # check cluster limits only for non-indexed dimensions
+            idx = _find_mass_index(self, cluster_idx, plan, kwargs, idx)
         return idx
 
     # maybe rename to `plot mass`?
@@ -624,13 +589,15 @@ class Clusters(object):
             ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
             defines specific points to pick: for example ``time=[0.1, 0.2]``
             selects time points corresponding to 0.1 and 0.2 seconds.
-            Float argument between 0. and 1. defines range that is dependent on
-            cluster mass or extent. For example ``time=0.75`` defines time
-            range that retains at least 75% of the cluster extent (calculated
-            along the aggregated dimension - in this case time). If no kwarg is
-            passed for given dimension then the default value is ``0.65``.
-            This means that the range for such dimension is defined to retain
-            at least 65% of the cluster extent.
+            String argument representing percentage, for example ``'55.5%'``
+            defines a range that is dependent on cluster mass. For example
+            ``time='75 %'`` defines time range limits that retain at least 75%
+            of the cluster mass (calculated along given dimension - in this
+            case time). To define range based on volume, you can append
+            ``' vol'`` to the string, for example ``'33.3% vol'``. If no kwarg
+            is passed for given dimension then the default value of '65%' is
+            used - so that cluster limits are defined to retain at least 65% of
+            the relevant cluster mass.
 
         Returns
         -------
@@ -644,7 +611,7 @@ class Clusters(object):
         > clst.plot(cluster_idx=0, freq=(8, 10))
         > # to plot the second cluster selecting frequencies that make up at
         > # least 70% of the cluster mass:
-        > clst.plot(cluster_idx=1, freq=0.7)
+        > clst.plot(cluster_idx=1, freq='70%')
         '''
         if self.dimnames is None:
             raise TypeError('To plot the data you need to construct the '

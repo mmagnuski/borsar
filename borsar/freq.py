@@ -239,6 +239,8 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
                         'formats, got {}'.format(type(inst)))
 
     # construct PSD object
+    # TODO: check in which mne version pick_types was relocated
+    #       so that this can be removed when dropping support of that version
     try:
         from mne.selection import pick_types
     except ModuleNotFoundError:
@@ -339,35 +341,36 @@ class PSD(*mixins):
         # set up default vars
         from packaging import version
         mne_version = version.parse(mne.__version__)
-        has_new_mne = mne_version >= version.parse('0.22.0')
-
-        if has_new_mne:
-            from mne.defaults import _handle_default
+        test_versions = ['0.23.0', '0.20.0']
+        has_new_mne = [mne_version >= version.parse(ver)
+                       for ver in test_versions]
+        if not has_new_mne[0]:
+            from mne.viz.utils import _set_psd_plot_params
+        if has_new_mne[0]:
             from mne.io.pick import _picks_to_idx
+            from mne.defaults import _handle_default
+
+            # TODO: check which version this changed or just give up, and
+            #       use Spectrum class instead (but this would still require
+            #       mne version checking)
             try:
-                from mne.viz._figure import _split_picks_by_type
+                from mne.viz._figure import _line_figure, _split_picks_by_type
             except ImportError:
-                # this was changed around 1.0 mne version
-                from mne.viz._mpl_figure import _split_picks_by_type
+                from mne.viz._mpl_figure import (
+                    _line_figure, _split_picks_by_type)
 
-            if ax is None:
-                import matplotlib.pyplot as plt
-                fig, ax = plt.subplots()
-            else:
-                fig = ax.figure
-            ax_list = [ax]
-
-            units = _handle_default('units', None)
-            picks = _picks_to_idx(self.info, picks)
-            titles = _handle_default('titles', None)
-            scalings = _handle_default('scalings', None)
-
+            fig, ax_list = _line_figure(self, ax, picks)
             make_label = len(ax_list) == len(fig.axes)
             xlabels_list = [False] * (len(ax_list) - 1) + [True]
+
+            units = _handle_default('units', None)
+            titles = _handle_default('titles')
+            scalings = _handle_default('scalings')
+            picks = _picks_to_idx(self.info, picks, exclude=self.info['bads'])
+
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
-        else:
-            from mne.viz.utils import _set_psd_plot_params
+        elif has_new_mne[1]:
             fig, picks_list, titles_list, units_list, scalings_list, \
                 ax_list, make_label, xlabels_list = _set_psd_plot_params(
                     self.info, proj, picks, ax, area_mode)
@@ -384,13 +387,16 @@ class PSD(*mixins):
         # create list of psd's (one element for each channel type)
         psd_list = list()
         for picks in picks_list:
-            psd_list.append(inst.data[picks])
+            this_psd = inst.data[..., picks, :]
+            psd_list.append(this_psd)
 
         args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
-        args += [sphere, xlabels_list]
+
+        if any(has_new_mne):
+            args += [sphere, xlabels_list]
 
         fig = _plot_psd(*args)
         plt_show(show)

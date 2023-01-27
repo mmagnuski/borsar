@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from numpy.testing import assert_allclose
+
 import mne
 
 import borsar
@@ -22,7 +24,8 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _aggregate_cluster, _get_units,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
-                                  _full_dimname, _human_readable_dimlabel)
+                                  _full_dimname, _human_readable_dimlabel,
+                                  _prepare_dimindex_plan)
 from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
@@ -102,18 +105,31 @@ def test_index_from_dim():
     dimnames = ['chan', 'freq', 'time']
     dimcoords = [None, np.arange(8., 12.1, step=0.5),
                  np.arange(-0.2, 0.51, step=0.1)]
-    assert _index_from_dim(dimnames[1:2], dimcoords[1:2]) == (slice(None),)
-    assert _index_from_dim(dimnames[1:], dimcoords[1:]) == (slice(None),) * 2
-    assert (_index_from_dim(dimnames, dimcoords, freq=(10, 11.5))
-            == (slice(None), slice(4, 8), slice(None)))
-    assert (_index_from_dim(dimnames, dimcoords, freq=(9.5, 10), time=(0, 0.3))
-            == (slice(None), slice(3, 5), slice(2, 6)))
-    print(_index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3)))
-    idx = _index_from_dim(dimnames, dimcoords, freq=[9.5, 10], time=(0, 0.3))
-    assert (idx[0] == slice(None) and (idx[1] == [3, 4]).all()
-            and idx[2] == slice(2, 6))
-    with pytest.raises(TypeError):
-        _index_from_dim(dimnames, dimcoords, freq=[9.5], time=(0, 0.2, 0.3))
+
+    idx = _index_from_dim(dimnames[1:2], dimcoords[1:2], [None])
+    assert idx == (slice(None),)
+
+    idx = _index_from_dim(dimnames[1:], dimcoords[1:], [None, None])
+    assert idx == (slice(None),) * 2
+
+    plan, _ = _prepare_dimindex_plan(dimnames, freq=(10, 11.5))
+    idx = _index_from_dim(dimnames, dimcoords, plan, freq=(10, 11.5))
+    assert idx == (slice(None), slice(4, 8), slice(None))
+
+    kwargs = dict(freq=(9.5, 10), time=(0, 0.3))
+    plan, kwargs = _prepare_dimindex_plan(dimnames, **kwargs)
+    idx = _index_from_dim(dimnames, dimcoords, plan, **kwargs)
+    assert idx == (slice(None), slice(3, 5), slice(2, 6))
+
+    kwargs['freq'] = [9.5, 10]
+    plan, kwargs = _prepare_dimindex_plan(dimnames, **kwargs)
+    idx = _index_from_dim(dimnames, dimcoords, plan, **kwargs)
+    assert idx[0] == slice(None)
+    assert (idx[1] == [3, 4]).all()
+    assert idx[2] == slice(2, 6)
+
+    with pytest.raises(ValueError):
+        _prepare_dimindex_plan(dimnames, freq=[9.5], time=(0, 0.2, 0.3))
 
 
 def test_cluster_limits():
@@ -134,13 +150,13 @@ def test_cluster_limits():
     clst = Clusters(stat, [clusters], pvals, dimnames=['chan', 'freq'],
                     dimcoords=dimcoords, info=info)
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.66, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.68, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4])).all()
 
-    lmts = clst.get_cluster_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
+    lmts = clst.get_limits(0, retain_mass=0.83, dims=['chan', 'freq'])
     assert (lmts[0] == np.array([0, 2, 4, 6])).all()
 
 
@@ -167,6 +183,89 @@ def test_cluster_utils():
     _move_axes_to(ax, x=0.123)
     assert ax[0].get_position().bounds[0] == 0.123
     assert ax[1].get_position().bounds[0] == 0.123
+
+
+def test_dimindex_plan():
+    from borsar.cluster.utils import (
+        _prepare_dimindex_plan, parse_percent_str_index, _update_plan)
+
+    # range
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
+    assert plan[0] is None
+    assert plan[1] == 'range'
+
+    # points and mass
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=[1, 4, 5],
+                                          time='50%')
+    assert plan[0] == 'spatial_idx'
+    assert plan[1] == 'mass'
+    assert kwargs['time'] == 0.5
+
+    # channel names, range and volume
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'freq', 'time'],
+                                          chan=['Cz', 'F3', 'Fz'],
+                                          freq=(7, 13), time='75% vol')
+    assert plan[0] == 'spatial_names'
+    assert plan[1] == 'range'
+    assert plan[2] == 'volume'
+    assert kwargs['time'] == 0.75
+
+    # single name, single
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'freq', 'time'],
+                                          chan='F3', freq='66.6% mass',
+                                          time=0.3)
+    assert plan[0] == 'spatial_name'  # could have also 'singular' in plan type
+    assert plan[1] == 'mass'
+    assert plan[2] == 'singular'
+    assert_allclose(kwargs['freq'], 0.666)
+
+    # single channel index
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=1)
+    assert plan[0] == 'spatial_singular'
+    assert kwargs['chan'] == 1
+
+    # check plan updating with string percentage
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=1)
+    assert plan == ['spatial_singular', None]
+    assert 'time' not in kwargs
+
+    plan, kwargs = _update_plan(
+        ['chan', 'time'], plan, kwargs, select='75%', ignore=None)
+    assert plan == ['spatial_singular', 'mass']
+    assert kwargs['time'] == 0.75
+
+    # wrong variable type for chan
+    with pytest.raises(TypeError, match='Could not understand'):
+        _prepare_dimindex_plan(['chan', 'time'], chan=set([1, 2, 3]))
+
+    # str, but not percentage
+    msg = 'String indexer has to be either a channel name or'
+    with pytest.raises(ValueError, match=msg):
+        _prepare_dimindex_plan(['chan', 'time'], time='abc')
+
+    with pytest.raises(ValueError, match='Could not understand'):
+        parse_percent_str_index('abc')
+
+    # wrong percentage value
+    with pytest.raises(ValueError, match='has to be >= 0 and <= 100'):
+        parse_percent_str_index('123%')
+
+
+def test_expected_errors_in_plot_indexing():
+    clst = _create_random_clusters()
+
+    msg = 'If indexing with a list, the list has to be non-empty.'
+    with pytest.raises(ValueError, match=msg):
+        clst.plot(time=np.array([]))
+
+    msg = 'Indexing spatial dimension is allowed only with'
+    with pytest.raises(TypeError, match=msg):
+        clst.plot(chan=[{'a': [1, 2, 3]}, {'b': [2, 3]}])
+
+    msg = ('Sorry, picking spatial dimension using strings is '
+           'not yet supported.')
+    with pytest.raises(NotImplementedError, match=msg):
+        clst.plot(chan='A')
 
 
 def test_clusters():
@@ -285,8 +384,8 @@ def test_clusters():
 
     # get index and limits
     # --------------------
-    idx = clst2.get_cluster_limits(0, retain_mass=0.75)
-    clst_0_freq_contrib[idx[1]].sum() > 0.75
+    idx = clst2.get_limits(0, retain_mass=0.75)
+    assert clst_0_freq_contrib[idx[1]].sum() > 0.75
 
     idx = clst2.get_index(freq=(8, 10))
     assert idx[1] == slice(2, 7)
@@ -294,7 +393,7 @@ def test_clusters():
     idx = clst2.get_index(freq=[8, 10])
     assert (idx[1] == [2, 6]).all()
 
-    idx = clst2.get_index(cluster_idx=1, freq=0.6)
+    idx = clst2.get_index(cluster_idx=1, freq='60%')
     contrib = clst2.get_contribution(1, 'freq')
     assert contrib[idx[1]].sum() >= 0.6
 
@@ -312,9 +411,9 @@ def test_clusters():
         clst2.dimcoords = None
         clst2.get_index(freq=(8.5, 10))
     clst2.dimcoords = dcoords
-    match = (r'either specific points \(list or array of values\), ranges '
-             r'\(tuple of two values\) or cluster extent to retain \(float\)')
-    with pytest.raises(TypeError, match=match):
+    match = ('String indexer has to be either a channel name or volume/mass'
+             ' percentage')
+    with pytest.raises(ValueError, match=match):
         clst2.get_index(freq='abc')
 
     # test iteration
@@ -745,15 +844,26 @@ def test_cluster_ignore_dims():
     clst.clusters[0] = np.zeros(clst.stat.shape, dtype='bool')
     clst.clusters[0, 4:7, 8:13, 20:26] = True
 
-    # (A) 65% channels reduced automatically
+    # (A1) 65% channels mass reduced automatically
     axs = clst.plot(cluster_idx=0, dims=['freq', 'time'])
+
+    # make sure image data is correct
+    data = np.array(axs[0].images[0].get_array())
+    data_agg = (clst.stat * clst.clusters[0]).sum(axis=(1, 2))
+    ix = np.sort(data_agg.argsort()[::-1][:2])
+    # or this:
+    # ix = slice(4, 6) if data_agg.argmax() == 4 else slice(5, 7)
+    assert (clst.stat[ix].mean(axis=0) == data).all()
+
+    # (A2) 65% volume if requested
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan='65% vol')
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
     assert (clst.stat[5:7].mean(axis=0) == data).all()
 
     # (B) we request all channels reduced
-    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan=1.)
+    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan='100%')
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
@@ -768,7 +878,7 @@ def test_cluster_ignore_dims():
     # (D) test that axes are inverted when dimension order is
     axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
     data = np.array(axs[0].images[0].get_array())
-    assert (clst.stat[5:7].mean(axis=0).T == data).all()
+    assert (clst.stat[ix].mean(axis=0).T == data).all()
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
     assert axs[0].get_ylabel() == 'Time (s)'
 
