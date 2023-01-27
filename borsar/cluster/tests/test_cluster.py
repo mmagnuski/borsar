@@ -186,8 +186,8 @@ def test_cluster_utils():
 
 
 def test_dimindex_plan():
-    from borsar.cluster.utils import (_prepare_dimindex_plan,
-                                      parse_percent_str_index)
+    from borsar.cluster.utils import (
+        _prepare_dimindex_plan, parse_percent_str_index, _update_plan)
 
     # range
     plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
@@ -223,6 +223,16 @@ def test_dimindex_plan():
     plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=1)
     assert plan[0] == 'spatial_singular'
     assert kwargs['chan'] == 1
+
+    # check plan updating with string percentage
+    plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], chan=1)
+    assert plan == ['spatial_singular', None]
+    assert 'time' not in kwargs
+
+    plan, kwargs = _update_plan(
+        dimnames, plan, kwargs, select='75%', ignore=None)
+        assert plan == ['spatial_singular', 'mass']
+    assert kwargs['time'] == 0.75
 
     # wrong variable type for chan
     with pytest.raises(TypeError, match='Could not understand'):
