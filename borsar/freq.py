@@ -349,7 +349,15 @@ class PSD(*mixins):
         if has_new_mne[0]:
             from mne.io.pick import _picks_to_idx
             from mne.defaults import _handle_default
-            from mne.viz._figure import _line_figure, _split_picks_by_type
+
+            # TODO: check which version this changed or just give up, and
+            #       use Spectrum class instead (but this would still require
+            #       mne version checking)
+            try:
+                from mne.viz._figure import _line_figure, _split_picks_by_type
+            except ImportError:
+                from mne.viz._mpl_figure import (
+                    _line_figure, _split_picks_by_type)
 
             fig, ax_list = _line_figure(self, ax, picks)
             make_label = len(ax_list) == len(fig.axes)
