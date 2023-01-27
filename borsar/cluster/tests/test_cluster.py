@@ -231,7 +231,7 @@ def test_dimindex_plan():
 
     plan, kwargs = _update_plan(
         dimnames, plan, kwargs, select='75%', ignore=None)
-        assert plan == ['spatial_singular', 'mass']
+    assert plan == ['spatial_singular', 'mass']
     assert kwargs['time'] == 0.75
 
     # wrong variable type for chan
