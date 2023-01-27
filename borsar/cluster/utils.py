@@ -312,13 +312,15 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         ``freq=(6, 8)`` aggregates the 6 - 8 Hz range. List of floats
         defines specific points to pick: for example ``time=[0.1, 0.2]``
         selects time points corresponding to 0.1 and 0.2 seconds.
-        Float argument between 0. and 1. defines range that is dependent on
-        cluster mass or extent. For example ``time=0.75`` defines time
-        range that retains at least 75% of the cluster extent (calculated
-        along the aggregated dimension - in this case time). If no kwarg is
-        passed for given dimension then the default value is ``0.65``.
-        This means that the range for such dimension is defined to retain
-        at least 65% of the cluster extent.
+        String argument representing percentage, for example ``'55.5%'``
+        defines a range that is dependent on cluster mass. For example
+        ``time='75 %'`` defines time range limits that retain at least 75% of
+        the cluster mass (calculated along given dimension - in this case
+        time). To define range based on volume, you can append ``' vol'`` to
+        the string, for example ``'33.3% vol'``. If no kwarg is passed for
+        given dimension then the default value of '65%' is used - so that
+        cluster limits are defined to retain at least 65% of the relevant
+        cluster mass.
 
     Returns
     -------
@@ -641,8 +643,9 @@ def _prepare_dimindex_plan(dimnames, **kwargs):
                       translated to a slice
     * multi         - list / array of indices in data label coordinates, have
                       to be translated
-    * spatial_idx   - index/indices that are already in the right coordinates,
-                      no need for translation
+    * spatial_idx   - index/indices that are already in the indexing
+                      coordinates, no need for translation
+    * spatial_singular - one simple index, already in the indexing coordinates
     * spatial_name  - channel/label name, have to be translated in a special
                       way
     * spatial_names - channel/label names, have to be translated in a special
