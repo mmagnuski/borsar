@@ -186,7 +186,8 @@ def test_cluster_utils():
 
 
 def test_dimindex_plan():
-    from borsar.cluster.utils import _prepare_dimindex_plan
+    from borsar.cluster.utils import (_prepare_dimindex_plan,
+                                      parse_percent_str_index)
 
     # range
     plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
@@ -228,12 +229,16 @@ def test_dimindex_plan():
         _prepare_dimindex_plan(['chan', 'time'], chan=set([1, 2, 3]))
 
     # str, but not percentage
-    with pytest.raises(ValueError, match='Could not understand'):
+    msg = 'String indexer has to be either a channel name or'
+    with pytest.raises(ValueError, match=msg):
         _prepare_dimindex_plan(['chan', 'time'], time='abc')
+
+    with pytest.raises(ValueError, match='Could not understand'):
+        parse_percent_str_index('abc')
 
     # wrong percentage value
     with pytest.raises(ValueError, match='has to be >= 0 and <= 100'):
-        _prepare_dimindex_plan(['chan', 'time'], time='123%')
+        parse_percent_str_index('123%')
 
 
 def test_expected_errors_in_plot_indexing():
