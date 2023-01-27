@@ -482,6 +482,8 @@ def _get_mass_range(contrib, mass, adjacent=True):
         Slice (when `adjacency=True`) or indices (when `adjacency=False`)
         retaining the required mass.
     '''
+    if contrib.ndim > 1:
+        contrib = np.squeeze(contrib)
     contrib_len = contrib.shape[0]
     max_idx = np.argmax(contrib)
     current_mass = contrib[max_idx]
