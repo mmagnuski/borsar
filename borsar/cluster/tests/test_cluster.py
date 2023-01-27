@@ -683,8 +683,7 @@ def test_cluster_ignore_dims():
     mark_kwargs = {'markerfacecolor': 'seagreen',
                    'markeredgecolor': 'seagreen'}
     topo = clst.plot(cluster_idx=0, time=[0.05, 0.15, 0.25, 0.35],
-                     outlines='skirt', extrapolate='head',
-                     mark_kwargs=mark_kwargs)
+                     extrapolate='local', mark_kwargs=mark_kwargs)
 
     # * topo should be Topographies
     assert isinstance(topo, borsar.viz.Topo)

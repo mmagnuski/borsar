@@ -65,7 +65,7 @@ def test_topo():
     topo.update(alpha_topo[::-1])
 
     # make sure border='mean' works
-    topo = Topo(alpha_topo, raw.info, outlines='skirt', extrapolate='head',
+    topo = Topo(alpha_topo, raw.info, extrapolate='head',
                 border='mean', show=False)
     assert topo.interpolator.border == 'mean'
     # add a test for one point checking if its value is the mean of neighbours
