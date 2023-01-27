@@ -542,8 +542,8 @@ class Clusters(object):
                                     select=retain_mass, ignore=ignore_dims)
 
         # when retain_mass is specified it is used to get ranges for
-        # dimensions not addressed with kwargs
-        # FIXME - error if mass_indexing specified but no cluster_idx
+        # dimensions not adressed with kwargs
+        # FIXME - add error if mass_indexing specified but no cluster_idx
         if cluster_idx is not None:
             # check cluster limits only for non-indexed dimensions
             idx = _find_mass_index(self, cluster_idx, plan, kwargs, idx)

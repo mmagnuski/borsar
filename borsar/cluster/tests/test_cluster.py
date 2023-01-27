@@ -186,10 +186,7 @@ def test_cluster_utils():
 
 
 def test_dimindex_plan():
-<<<<<<< HEAD
-=======
     from borsar.cluster.utils import _prepare_dimindex_plan
->>>>>>> c8b5c05 (TST: test dimindex plan)
 
     # range
     plan, kwargs = _prepare_dimindex_plan(['chan', 'time'], time=(0.2, 0.35))
