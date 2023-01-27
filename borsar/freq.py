@@ -342,6 +342,7 @@ class PSD(*mixins):
         from packaging import version
         mne_version = version.parse(mne.__version__)
 <<<<<<< HEAD
+<<<<<<< HEAD
         test_versions = ['0.23.0', '0.20.0']
         has_new_mne = [mne_version >= version.parse(ver)
                        for ver in test_versions]
@@ -350,6 +351,8 @@ class PSD(*mixins):
         if has_new_mne[0]:
 =======
 <<<<<<< HEAD
+=======
+>>>>>>> ae08b4a (FIX: argh, forgot to commit merge fix)
         has_new_mne = mne_version >= version.parse('0.22.0')
 
         if has_new_mne:
@@ -362,6 +365,7 @@ class PSD(*mixins):
             fig, ax_list = _line_figure(self, ax, picks)
             make_label = len(ax_list) == len(fig.axes)
             xlabels_list = [False] * (len(ax_list) - 1) + [True]
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 =======
@@ -389,6 +393,8 @@ class PSD(*mixins):
 =======
 >>>>>>> ebbd887 (FIX: new mne compat in freq.py)
 >>>>>>> d974577 (FIX merge conflict)
+=======
+>>>>>>> ae08b4a (FIX: argh, forgot to commit merge fix)
             (picks_list, units_list, scalings_list, titles_list
              ) = _split_picks_by_type(self, picks, units, scalings, titles)
         elif has_new_mne[1]:
@@ -417,12 +423,12 @@ class PSD(*mixins):
 =======
             psd_list.append(inst.data[picks])
 
-<<<<<<< HEAD
         args = [inst, fig, inst.freqs, psd_list, picks_list, titles_list,
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
         args += [sphere, xlabels_list]
+<<<<<<< HEAD
 =======
 >>>>>>> d974577 (FIX merge conflict)
         if any(has_new_mne):
@@ -441,6 +447,8 @@ class PSD(*mixins):
 =======
 >>>>>>> ebbd887 (FIX: new mne compat in freq.py)
 >>>>>>> d974577 (FIX merge conflict)
+=======
+>>>>>>> ae08b4a (FIX: argh, forgot to commit merge fix)
 
         fig = _plot_psd(*args)
         plt_show(show)
