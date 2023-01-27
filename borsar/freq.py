@@ -388,21 +388,11 @@ class PSD(*mixins):
                 units_list, scalings_list, ax_list, make_label, color,
                 area_mode, area_alpha, dB, estimate, average, spatial_colors,
                 xscale, line_alpha]
-        args += [sphere, xlabels_list]
 
         if any(has_new_mne):
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha, sphere, xlabels_list)
-        else:
-            fig = _plot_psd(self, fig, self.freqs[rng], psd_list, picks_list,
-                            titles_list, units_list, scalings_list, ax_list,
-                            make_label, color, area_mode, area_alpha, dB,
-                            estimate, average, spatial_colors, xscale,
-                            line_alpha)
+            args += [sphere, xlabels_list]
 
+        fig = _plot_psd(*args)
         plt_show(show)
         return fig
 
