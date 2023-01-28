@@ -563,7 +563,7 @@ class Clusters(object):
                                          **kwargs)
 
     def plot(self, picks=None, dims=None, set_light=True, vmin=None,
-             vmax=None, mark_kwargs=None, figure_size=None, cluster_idx,
+             vmax=None, mark_kwargs=None, figure_size=None, cluster_idx=None,
              **kwargs):
         '''
         Plot cluster.
