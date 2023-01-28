@@ -1127,6 +1127,20 @@ def test_cluster_no_spatial_dim():
     assert 'Colorbar' in str(cbar)
 
 
+def test_do_not_use_cluster_idx():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+
+    match_str = 'cluster_idx is not used anymore. Use picks argument'
+    with pytest.raises(ValueError, match=match_str):
+        clst.plot(cluster_idx=0)
+
+    with pytest.raises(ValueError, match=match_str):
+        clst.get_index(cluster_idx=0, time=(0.1, 0.2), freq=(4, 8))
+
+    with pytest.raises(ValueError, match=match_str):
+        clst.get_contribution(cluster_idx=0)
+
+
 @pytest.mark.skip(reason="mayavi kills CI tests")
 def test_mayavi_viz():
     # mayavi import adapted from mne:
