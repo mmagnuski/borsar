@@ -872,3 +872,11 @@ def create_fake_data_for_cluster_test(ndim=2, adjacency=True, dim_size=None):
         adj = None
 
     return data, adj
+
+
+def _do_not_use_cluster_idx(cluster_idx):
+    '''If cluster_idx is not None raise error urging user to use picks instead
+    of cluster_idx.'''
+    if cluster_idx is not None:
+        raise ValueError('cluster_idx is not used anymore. Use picks argument'
+                         ' to select clusters.')
