@@ -277,7 +277,7 @@ def _find_mass_index_for_dim(stat_sel, clst_sel, type, mass, dim_idx,
 #       (this is done elsewhere - in plotting now, here it might not matter)
 # - [ ] beware of changing dimension order for some complex "fancy index"
 #       operations
-def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
+def _aggregate_cluster(clst, picks, ignore_dims=None,
                        mask_proportion=0.5, retain_mass=0.65, mask_sum=False,
                        **kwargs):
     '''Aggregate cluster mask and cluster stat map.
@@ -286,7 +286,7 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
     ----------
     clst : borsar.Clusters
         Clusters object to use in aggregation.
-    cluster_idx : int | list of int
+    picks : int | list of int
         Cluster index ord indices to aggregate.
     ignore_dims : str | list of str | None
         Dimensions to leave out when aggregating. These dimensions are retained
@@ -333,9 +333,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         See ``borsar.Cluster.get_index``
     '''
     list_likes = (list, np.ndarray)
-    cluster_idx = ([cluster_idx] if not isinstance(cluster_idx, list_likes)
-                   else cluster_idx)
-    n_clusters = len(cluster_idx)
+    picks = [picks] if not isinstance(picks, list_likes) else picks
+    n_clusters = len(picks)
 
     # FIXME - throw an error instead if at least one cluster idx exceeds
     #         number of clusters in the `clst` object
@@ -344,9 +343,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         ignore_dims = [clst.dimnames[ix] for ix in dim_idx]
     do_aggregation = clst.stat.ndim > 1 and (clst.stat.ndim - len(dim_idx) > 0)
 
-    if cluster_idx[0] is not None:
-        cluster_idx = ([None] if len(clst) < max(cluster_idx) + 1
-                       else cluster_idx)
+    if picks[0] is not None:
+        picks = [None] if len(clst) < max(picks) + 1 else picks
 
     # aggregating multiple clusters is eligible only when the dimname kwargs
     # exhaust the aggregated space and no dimension is set by retained mass
@@ -369,7 +367,8 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
                              '{}'.format(', '.join(non_exhausted)))
 
     # find indexing
-    idx = clst.get_index(cluster_idx=cluster_idx[0], ignore_dims=ignore_dims,
+    # FIXME - check if this is ok to only use the first cluster in .get_index()
+    idx = clst.get_index(picks=picks[0], ignore_dims=ignore_dims,
                          retain_mass=retain_mass, **kwargs)
     idx = _clean_up_indices(idx)
 
@@ -392,10 +391,10 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
 
         clst_stat = clst.stat[idx].mean(axis=reduce_axes)
 
-        if cluster_idx[0] is not None:
+        if picks[0] is not None:
             clst_idx = (slice(None),) + idx
             reduce_mask_axes = tuple(ix + 1 for ix in reduce_axes)
-            clst_sel = clst.clusters[cluster_idx][clst_idx]
+            clst_sel = clst.clusters[picks][clst_idx]
             if mask_sum:
                 clst_mask = clst_sel.sum(axis=reduce_mask_axes)
             else:
@@ -407,14 +406,14 @@ def _aggregate_cluster(clst, cluster_idx, ignore_dims=None,
         # no aggregation
         # FIXME - what if more clusters?
         clst_stat = clst.stat.copy()
-        clst_mask = (clst.clusters[cluster_idx] if cluster_idx[0] is not None
+        clst_mask = (clst.clusters[picks] if picks[0] is not None
                      else None)
 
     return clst_mask, clst_stat, idx
 
 
 # TODO - save labels? this would require saving all parameters
-#        of cluter reduction and cluster index
+#        of cluster reduction and cluster index
 def _label_from_cluster(clst, clst_mask):
     '''Get pysurfer label from cluster mask.'''
     import mne
@@ -873,3 +872,11 @@ def create_fake_data_for_cluster_test(ndim=2, adjacency=True, dim_size=None):
         adj = None
 
     return data, adj
+
+
+def _do_not_use_cluster_idx(cluster_idx):
+    '''If cluster_idx is not None raise error urging user to use picks instead
+    of cluster_idx.'''
+    if cluster_idx is not None:
+        raise ValueError('cluster_idx is not used anymore. Use picks argument'
+                         ' to select clusters.')

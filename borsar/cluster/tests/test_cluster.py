@@ -351,14 +351,14 @@ def test_clusters():
 
     # test contribution
     # -----------------
-    clst_0_freq_contrib = clst2.get_contribution(cluster_idx=0, along='freq')
+    clst_0_freq_contrib = clst2.get_contribution(picks=0, along='freq')
     len(clst_0_freq_contrib) == len(clst2.dimcoords[1])
 
     # along as int
-    clst_0_freq_contrib2 = clst2.get_contribution(cluster_idx=0, along=1)
+    clst_0_freq_contrib2 = clst2.get_contribution(picks=0, along=1)
     assert (clst_0_freq_contrib == clst_0_freq_contrib2).all()
 
-    # get_contribution when no cluster_idx is passed
+    # get_contribution when no picks is passed
     all_contrib = clst2.get_contribution(along='freq')
     assert all_contrib.shape[0] == len(clst2)
     assert all_contrib.shape[1] == clst2.stat.shape[1]
@@ -371,15 +371,15 @@ def test_clusters():
     # non string
     match = r'has to be string \(dimension name\) or int \(dimension index\)'
     with pytest.raises(TypeError, match=match):
-        clst2.get_contribution(cluster_idx=0, along=all_contrib)
+        clst2.get_contribution(picks=0, along=all_contrib)
 
     # negative (could later work)
     with pytest.raises(ValueError, match='must be greater or equal to 0'):
-        clst2.get_contribution(cluster_idx=0, along=-1)
+        clst2.get_contribution(picks=0, along=-1)
 
     # int greater there is dimensions - 1
     with pytest.raises(ValueError, match='must be greater or equal to 0'):
-        clst2.get_contribution(cluster_idx=0, along=2)
+        clst2.get_contribution(picks=0, along=2)
 
 
     # get index and limits
@@ -393,7 +393,7 @@ def test_clusters():
     idx = clst2.get_index(freq=[8, 10])
     assert (idx[1] == [2, 6]).all()
 
-    idx = clst2.get_index(cluster_idx=1, freq='60%')
+    idx = clst2.get_index(picks=1, freq='60%')
     contrib = clst2.get_contribution(1, 'freq')
     assert contrib[idx[1]].sum() >= 0.6
 
@@ -474,7 +474,7 @@ def test_clusters():
     # _aggregate_cluster - 2d
     mask, stat, idx = _aggregate_cluster(clst2, 0, mask_proportion=0.5,
                                          retain_mass=0.65)
-    correct_idx = clst2.get_index(cluster_idx=0, retain_mass=0.65,
+    correct_idx = clst2.get_index(picks=0, retain_mass=0.65,
                                   ignore_dims='vert')
     assert (idx == correct_idx)
     assert (stat == clst2.stat[idx].mean(axis=-1)).all()
@@ -485,7 +485,7 @@ def test_clusters():
 
     # aggregate two clusters in 2d
     mask, stat, idx = _aggregate_cluster(clst2, [0, 1], freq=(8, 10))
-    correct_idx = clst2.get_index(cluster_idx=0, freq=(8, 10),
+    correct_idx = clst2.get_index(picks=0, freq=(8, 10),
                                   ignore_dims='vert')
     correct_mask = (clst2.clusters[[0, 1]][(slice(None),) + idx].mean(
                     axis=-1) >= 0.5)
@@ -733,7 +733,7 @@ def test_chan_freq_clusters():
         dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
         info=info, description=data_dict['description'])
 
-    topo = clst.plot(cluster_idx=1, freq=(8, 8.5))
+    topo = clst.plot(picks=1, freq=(8, 8.5))
     plt.close(topo.fig)
     clst.clusters = None
     topo = clst.plot(freq=(10, 11.5))
@@ -742,12 +742,12 @@ def test_chan_freq_clusters():
     plt.close(topo.fig)
 
     # multi axes:
-    topo = clst.plot(cluster_idx=1, freq=[8, 10])
+    topo = clst.plot(picks=1, freq=[8, 10])
     assert len(topo.axes) == 2
     plt.close(topo.fig)
 
     marker_kwargs = dict(marker='+')
-    topo = clst.plot(cluster_idx=1, freq=[8, 10], mark_kwargs=marker_kwargs)
+    topo = clst.plot(picks=1, freq=[8, 10], mark_kwargs=marker_kwargs)
     plt.close(topo.fig)
 
 
@@ -781,7 +781,7 @@ def test_cluster_ignore_dims():
 
     mark_kwargs = {'markerfacecolor': 'seagreen',
                    'markeredgecolor': 'seagreen'}
-    topo = clst.plot(cluster_idx=0, time=[0.05, 0.15, 0.25, 0.35],
+    topo = clst.plot(picks=0, time=[0.05, 0.15, 0.25, 0.35],
                      extrapolate='local', mark_kwargs=mark_kwargs)
 
     # * topo should be Topographies
@@ -845,7 +845,7 @@ def test_cluster_ignore_dims():
     clst.clusters[0, 4:7, 8:13, 20:26] = True
 
     # (A1) 65% channels mass reduced automatically
-    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'])
+    axs = clst.plot(picks=0, dims=['freq', 'time'])
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
@@ -856,14 +856,14 @@ def test_cluster_ignore_dims():
     assert (clst.stat[ix].mean(axis=0) == data).all()
 
     # (A2) 65% volume if requested
-    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan='65% vol')
+    axs = clst.plot(picks=0, dims=['freq', 'time'], chan='65% vol')
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
     assert (clst.stat[5:7].mean(axis=0) == data).all()
 
     # (B) we request all channels reduced
-    axs = clst.plot(cluster_idx=0, dims=['freq', 'time'], chan='100%')
+    axs = clst.plot(picks=0, dims=['freq', 'time'], chan='100%')
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
@@ -876,7 +876,7 @@ def test_cluster_ignore_dims():
     assert xlab == 'Time (s)'
 
     # (D) test that axes are inverted when dimension order is
-    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    axs = clst.plot(picks=0, dims=['time', 'freq'])
     data = np.array(axs[0].images[0].get_array())
     assert (clst.stat[ix].mean(axis=0).T == data).all()
     assert axs[0].get_xlabel() == 'Frequency (Hz)'
@@ -886,7 +886,7 @@ def test_cluster_ignore_dims():
     clst2 = clst.copy()
     clst2.clusters = clst2.clusters.copy()
     clst2.clusters[0] = False
-    axs = clst.plot(cluster_idx=0, dims=['time', 'freq'])
+    axs = clst.plot(picks=0, dims=['time', 'freq'])
     # FIXME - check that there is no outlines now / no cluster mask
 
     # _get_dimcoords
@@ -914,7 +914,7 @@ def test_cluster_ignore_dims():
 
     # no more than 2 dims:
     with pytest.raises(ValueError, match='more than two'):
-        clst.plot(cluster_idx=0, dims=['chan', 'freq', 'time'])
+        clst.plot(picks=0, dims=['chan', 'freq', 'time'])
 
     # line plot
     # ---------
@@ -928,19 +928,19 @@ def test_cluster_ignore_dims():
 
 def test_multi_cluster_plots():
     clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
-    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11))
-    clst.plot(cluster_idx=[0, 1], dims=['chan', 'time'], freq=(8, 11),
+    clst.plot(picks=[0, 1], dims=['chan', 'time'], freq=(8, 11))
+    clst.plot(picks=[0, 1], dims=['chan', 'time'], freq=(8, 11),
               cluster_colors=['red', 'seagreen'])
-    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
-    clst.plot(cluster_idx=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10],
+    clst.plot(picks=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10])
+    clst.plot(picks=[0, 1], time=(0.15, 0.25), freq=[8, 9, 10],
               cluster_colors=['red', 'seagreen'])
 
     # one cluster in list:
-    topo = clst.plot(cluster_idx=[0])
+    topo = clst.plot(picks=[0])
     assert isinstance(topo, borsar.viz.Topo)
     assert len(topo) == 1
 
-    topo2 = clst.plot(cluster_idx=0)
+    topo2 = clst.plot(picks=0)
     assert (topo.img.get_array() == topo2.img.get_array()).all()
 
     plt.close('all')
@@ -1045,7 +1045,7 @@ def test_cluster_copy_deepcopy():
 
 def test_cluster_plot_contribution():
     clst = _create_random_clusters(dims='ch_fr', n_clusters=2)
-    clst_0_freq_contrib = clst.get_contribution(cluster_idx=0, along='freq')
+    clst_0_freq_contrib = clst.get_contribution(picks=0, along='freq')
 
     # tests for plot_contribution
     ax = clst.plot_contribution('freq')
@@ -1125,6 +1125,20 @@ def test_cluster_no_spatial_dim():
     assert ax.get_xlabel() == 'Phase frequency (Hz)'
     assert ax.get_ylabel() == 'Amplitude frequency (Hz)'
     assert 'Colorbar' in str(cbar)
+
+
+def test_do_not_use_cluster_idx():
+    clst = _create_random_clusters(dims='ch_fr_tm', n_clusters=3)
+
+    match_str = 'cluster_idx is not used anymore. Use picks argument'
+    with pytest.raises(ValueError, match=match_str):
+        clst.plot(cluster_idx=0)
+
+    with pytest.raises(ValueError, match=match_str):
+        clst.get_index(cluster_idx=0, time=(0.1, 0.2), freq=(4, 8))
+
+    with pytest.raises(ValueError, match=match_str):
+        clst.get_contribution(cluster_idx=0)
 
 
 @pytest.mark.skip(reason="mayavi kills CI tests")

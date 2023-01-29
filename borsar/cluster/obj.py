@@ -5,7 +5,8 @@ from .viz import plot_cluster_contribution, plot_cluster_chan
 from ._viz3d import plot_cluster_src
 from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
                     _ensure_correct_info, _handle_dims, _full_dimname,
-                    _prepare_dimindex_plan, _update_plan, _find_mass_index)
+                    _prepare_dimindex_plan, _update_plan, _find_mass_index,
+                    _do_not_use_cluster_idx)
 from .checks import (_clusters_safety_checks, _clusters_chan_vert_checks,
                      _check_dimnames_kwargs, _check_dimname_arg,
                      _check_description)
@@ -359,15 +360,15 @@ class Clusters(object):
     # TODO - consider weighting contribution by stat value
     #      - consider contributions along two dimensions
     # - [ ] change to use some parts of _find_mass_index (moved out)
-    def get_contribution(self, cluster_idx=None, along=None, norm=True,
-                         idx=None):
+    def get_contribution(self, picks=None, along=None, norm=True,
+                         idx=None, cluster_idx=None):
         '''
         Get mass percentage contribution to given clusters along specified
         dimension.
 
         Parameters
         ----------
-        cluster_idx : int | array of int, optional
+        picks : int | array of int, optional
             Indices of clusters to get contribution of. Default is to calculate
             contribution for all clusters.
         along : int | str, optional
@@ -386,13 +387,15 @@ class Clusters(object):
             contributions) if `norm=True` or integer values (number of
             elements) if `norm=False`.
         '''
+        _do_not_use_cluster_idx(cluster_idx)
+
         return_many = True
-        if cluster_idx is None:
-            cluster_idx = np.arange(len(self))
-        if (not isinstance(cluster_idx, (list, np.ndarray))
-            and (isinstance(cluster_idx, int)
-                 or np.issubdtype(cluster_idx, np.integer))):
-            cluster_idx = [cluster_idx]
+        if picks is None:
+            picks = np.arange(len(self))
+        if (not isinstance(picks, (list, np.ndarray))
+            and (isinstance(picks, int)
+                 or np.issubdtype(picks, np.integer))):
+            picks = [picks]
             return_many = False
 
         along = 0 if along is None else along
@@ -403,7 +406,7 @@ class Clusters(object):
         all_dims.remove(0)
         all_dims.remove(dim_idx + 1)
 
-        clst = self.clusters[cluster_idx]
+        clst = self.clusters[picks]
         if idx is not None:
             clst = clst[(slice(None),) + idx]
 
@@ -417,15 +420,15 @@ class Clusters(object):
             return contrib[0]
 
     # TODO: consider continuous vs discontinuous limits
-    def get_limits(self, cluster_idx, retain_mass=0.65,
-                           dims=None, **kwargs):
+    def get_limits(self, picks, retain_mass=0.65, dims=None,
+                   cluster_idx=None, **kwargs):
         '''
         Find cluster limits based on percentage of cluster mass contribution
         to given dimensions.
 
         Parameters
         ----------
-        cluster_idx : int
+        picks : int
             Cluster index to find limits of.
         retain_mass : float
             Percentage of cluster mass to retain in cluster limits for
@@ -455,6 +458,7 @@ class Clusters(object):
             The spatial dimension, if not ignored, is returned as a numpy array
             of indices.
         '''
+        _do_not_use_cluster_idx(cluster_idx)
         # TODO: add safety checks
 
         if dims is None:
@@ -465,7 +469,7 @@ class Clusters(object):
             ignore_dims = [d for d in self.dimnames if d not in dims]
 
         limits = self.get_index(
-            cluster_idx=cluster_idx, ignore_dims=ignore_dims,
+            picks=picks, ignore_dims=ignore_dims,
             retain_mass=retain_mass, **kwargs)
         return limits
 
@@ -473,14 +477,14 @@ class Clusters(object):
     # TODO - make sure that when one dim is specified with coords and other
     #        with mass to retain, the mass is taken only from the part
     #        specified? (this is done in get_limits with `idx` variable)
-    def get_index(self, cluster_idx=None, ignore_dims=None, retain_mass=0.65,
-                  **kwargs):
+    def get_index(self, picks=None, ignore_dims=None, retain_mass=0.65,
+                  cluster_idx=None, **kwargs):
         '''
         Get indices (tuple of slices) selecting a specified range of data.
 
         Parameters
         ----------
-        cluster_idx : int | None, optional
+        picks : int | None, optional
             Cluster index to use when calculating index. Dimensions that are
             not addressed using range keyword arguments will be sliced by
             maximizing cluster mass along that dimensions with mass to retain
@@ -492,7 +496,7 @@ class Clusters(object):
             including the whole extent for given dimension). ``None`` defaults
             to the spatial dimension.
         retain_mass : float, optional
-            If cluster_idx is passed then dimensions not addressed using keyword
+            If ``picks`` is passed then dimensions not addressed using keyword
             arguments will be sliced to maximize given cluster's retained mass.
             The default value is 0.65. See `kwargs`.
         **kwargs : additional arguments
@@ -520,6 +524,7 @@ class Clusters(object):
             used in indexing stat (`clst.stat[idx]`) or clusters (
             `clst.clusters[:, *idx]`) for example.
         '''
+        _do_not_use_cluster_idx(cluster_idx)
         _check_dimnames_kwargs(self, check_dimcoords=True, **kwargs)
         plan, kwargs = _prepare_dimindex_plan(self.dimnames, **kwargs)
         idx = _index_from_dim(self.dimnames, self.dimcoords, plan, **kwargs)
@@ -528,10 +533,10 @@ class Clusters(object):
 
         # when retain_mass is specified it is used to get ranges for
         # dimensions not adressed with kwargs
-        # FIXME - add error if mass_indexing specified but no cluster_idx
-        if cluster_idx is not None:
+        # FIXME - add error if mass_indexing specified but no picks
+        if picks is not None:
             # check cluster limits only for non-indexed dimensions
-            idx = _find_mass_index(self, cluster_idx, plan, kwargs, idx)
+            idx = _find_mass_index(self, picks, plan, kwargs, idx)
         return idx
 
     # maybe rename to `plot mass`?
@@ -557,14 +562,15 @@ class Clusters(object):
         return plot_cluster_contribution(self, dims, picks=picks, axis=axis,
                                          **kwargs)
 
-    def plot(self, cluster_idx=None, dims=None, set_light=True, vmin=None,
-             vmax=None, mark_kwargs=None, figure_size=None, **kwargs):
+    def plot(self, picks=None, dims=None, set_light=True, vmin=None,
+             vmax=None, mark_kwargs=None, figure_size=None, cluster_idx=None,
+             **kwargs):
         '''
         Plot cluster.
 
         Parameters
         ----------
-        cluster_idx : int
+        picks : int
             Cluster index to plot.
         dims : str | list of str | None
             Dimensions to plot. Defaults to ``None`` which plots only the
@@ -608,20 +614,22 @@ class Clusters(object):
         Examples
         --------
         > # to plot the first cluster within 8 - 10 Hz
-        > clst.plot(cluster_idx=0, freq=(8, 10))
+        > clst.plot(picks=0, freq=(8, 10))
         > # to plot the second cluster selecting frequencies that make up at
         > # least 70% of the cluster mass:
-        > clst.plot(cluster_idx=1, freq='70%')
+        > clst.plot(picks=1, freq='70%')
         '''
+        _do_not_use_cluster_idx(cluster_idx)
+
         if self.dimnames is None:
             raise TypeError('To plot the data you need to construct the '
                             'cluster using the dimnames keyword argument.')
         if self.dimnames[0] == 'vert':
-            return plot_cluster_src(self, cluster_idx, vmin=vmin, vmax=vmax,
+            return plot_cluster_src(self, picks, vmin=vmin, vmax=vmax,
                                     figure_size=figure_size,
                                     set_light=set_light, **kwargs)
         else:
-            return plot_cluster_chan(self, cluster_idx, dims=dims, vmin=vmin,
+            return plot_cluster_chan(self, picks, dims=dims, vmin=vmin,
                                      vmax=vmax, mark_kwargs=mark_kwargs,
                                      **kwargs)
 

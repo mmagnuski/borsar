@@ -3,7 +3,7 @@ import numpy as np
 from .checks import _check_dimname_arg
 from .utils import (_get_units, _get_clim, _handle_dims, _aggregate_cluster,
                     _get_dimcoords, _mark_cluster_range, _full_dimname,
-                    _human_readable_dimlabel)
+                    _human_readable_dimlabel, _do_not_use_cluster_idx)
 from ..viz import Topo
 
 
@@ -91,17 +91,17 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
 # FIXME - allow for channel sorting (by region and y position)
 # FIXME - change mark_clst_prop to mask_proportion, mark_proportion,
 #         mark_cluster?
-def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
+def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
                       mark_clst_prop=0.5, mark_kwargs=None,
                       cluster_colors=None, plot_contribution=False,
-                      retain_mass=0.65, **kwargs):
+                      retain_mass=0.65, cluster_idx=None, **kwargs):
     '''Plot cluster in sensor space.
 
     Parameters
     ----------
     clst : Clusters
         Clusters object to use in plotting.
-    cluster_idx : int | list
+    picks : int | list
         Cluster index or list of cluster indices to plot.
     dims : str | list of str | None
         Dimensions to visualize. By default (``None``) only spatial dimension
@@ -154,17 +154,19 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     Examples
     --------
     > # to plot the first cluster within 8 - 10 Hz
-    > clst.plot(cluster_idx=0, freq=(8, 10))
+    > clst.plot(picks=0, freq=(8, 10))
     > # to plot the second cluster selecting frequencies that make up at least
     > # 70% of the cluster mass:
-    > clst.plot(cluster_idx=1, freq=0.7)
+    > clst.plot(picks=1, freq=0.7)
     > # plot time-frequency representation of the first cluster:
-    > clst.plot(cluster_idx=0, dims=['freq', 'time'])
+    > clst.plot(picks=0, dims=['freq', 'time'])
     '''
-    # TODO - if cluster_idx is not None and there is no such cluster - error
+    # TODO - if picks is not None and there is no such cluster - error
     #      - if None - plot without highlighting
     #      - if auto' (default) : autoselect cluster
-    cluster_idx = 0 if cluster_idx is None else cluster_idx
+    _do_not_use_cluster_idx(cluster_idx)
+
+    picks = 0 if picks is None else picks
 
     # split kwargs into plotfun_kwargs and dim_kwargs
     plotfun_kwargs, dim_kwargs = dict(), dict()
@@ -182,7 +184,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
     # get and aggregate cluster mask and cluster stat
     # CONSIDER ? add retain_mass to args?
     clst_mask, clst_stat, idx = _aggregate_cluster(
-        clst, cluster_idx, ignore_dims=dims, mask_proportion=mark_clst_prop,
+        clst, picks, ignore_dims=dims, mask_proportion=mark_clst_prop,
         retain_mass=retain_mass, mask_sum=plot_contribution, **dim_kwargs)
 
     # remove singleton dimensions from clst_mask, merge clusters
@@ -197,8 +199,8 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
                 clst_stat = np.squeeze(clst_stat, axis=tuple(stat_singletons))
 
         # merge clusters if necessary
-        if (cluster_colors is None and isinstance(cluster_idx, listlikes)
-            and len(cluster_idx) > 1):
+        if (cluster_colors is None and isinstance(picks, listlikes)
+            and len(picks) > 1):
             if not plot_contribution:
                 clst_mask = clst_mask.any(axis=0)
             else:
@@ -242,7 +244,7 @@ def plot_cluster_chan(clst, cluster_idx=None, dims=None, vmin=None, vmax=None,
             # mark cluster channels
             if not plot_contribution:
                 _mark_topo_channels(topo, clst_mask, mark_kwargs,
-                                    cluster_colors, cluster_idx)
+                                    cluster_colors, picks)
 
             # FIXME: labels axes also when resulting from idx reduction
             if labeldims:
