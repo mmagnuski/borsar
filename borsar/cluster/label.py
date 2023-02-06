@@ -388,29 +388,29 @@ def _find_clusters_borsar(data, threshold, adjacency, cluster_fun,
 def _find_clusters_borsar_onetail(data, threshold, adjacency, cluster_fun,
                                   tail='pos', min_adj_ch=0,
                                   filter_fun=None, filter_fun_post=None):
-        if tail == 'pos':
-            compare_fun = np.greater
-        elif tail == 'neg':
-            compare_fun = np.less
+    if tail == 'pos':
+        compare_fun = np.greater
+    elif tail == 'neg':
+        compare_fun = np.less
 
-        mask = compare_fun(data, threshold)
+    mask = compare_fun(data, threshold)
 
-        if filter_fun is not None:
-            mask = filter_fun(mask, adjacency=adjacency)
+    if filter_fun is not None:
+        mask = filter_fun(mask, adjacency=adjacency)
 
-        clusters = cluster_fun(mask, adjacency=adjacency,
-                                min_adj_ch=min_adj_ch)
+    clusters = cluster_fun(mask, adjacency=adjacency,
+                           min_adj_ch=min_adj_ch)
 
-        if filter_fun_post is not None:
-            clusters = filter_fun_post(clusters, adjacency=adjacency)
+    if filter_fun_post is not None:
+        clusters = filter_fun_post(clusters, adjacency=adjacency)
 
-        # TODO - consider numba optimization of this part too:
-        cluster_id = np.unique(clusters)
-        cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
-        clusters = [clusters == clst_id for clst_id in cluster_id]
-        cluster_stats = [data[clst].sum() for clst in clusters]
+    # TODO - consider numba optimization of this part too:
+    cluster_id = np.unique(clusters)
+    cluster_id = cluster_id[1:] if 0 in cluster_id else cluster_id
+    clusters = [clusters == clst_id for clst_id in cluster_id]
+    cluster_stats = [data[clst].sum() for clst in clusters]
 
-        return clusters, cluster_stats
+    return clusters, cluster_stats
 
 
 def get_supported_find_clusters_parameters():
