@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  codecov: codecov/codecov@3.2.3
 jobs:
   build:
     docker:
@@ -25,18 +27,15 @@ jobs:
             else
               pip install mne==<< parameters.mne_version >>;
             fi
-            pip install codecov tqdm
+            pip install tqdm
             hash -r pytest
       - run:
           name: Run tests
           command: |
             source activate borsar
             python -m pytest --cov=borsar borsar/
-      - run:
-          name: Update coverage
-          command: |
-            source activate borsar
-            codecov
+      - codecov/upload
+
 workflows:
   workflow:
     jobs:
