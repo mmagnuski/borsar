@@ -67,8 +67,7 @@ def test_compute_regression_t_residuals():
     data = np.random.rand(56, 20, 20)
     preds = np.random.rand(56)
 
-    _, resid = borsar.stats.compute_regression_t(
-        data, preds, return_residuals=True)
+    _, resid = compute_regression_t(data, preds, return_residuals=True)
 
     preds_sm = sm.add_constant(preds)
     for ix in range(20):
