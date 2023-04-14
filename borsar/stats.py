@@ -3,30 +3,33 @@ import scipy
 
 
 # - [x] return residuals
-# - [ ] consider not returning residuals by default and return a dictionary
-#       of additional info if required (for example coefficients and SE)
-def compute_regression_t(data, preds, return_p=False):
+# - [ ] consider returning  a dictionary of additional info if required
+#       (for example coefficients and SE)
+def compute_regression_t(data, preds, return_p=False, return_residuals=False):
     '''Compute regression t values for whole multidimensional data space.
 
     Parameters
     ----------
     data : numpy array of shape (observations, ...)
-        Data to perform regression on. Frist dimension represents observations
+        Data to perform regression on. First dimension represents observations
         (for example trials or subjects).
     preds : numpy array of shape (observations, predictors)
         Predictor array to use in regression.
     return_p : bool
-        If True - also return p values. Defaults to False.
+        If ``True`` - also return p values. Defaults to ``False``.
+    return_residuals : bool
+        If ``True`` - also return regression residuals. Defaults to ``False``.
 
     Returns
     -------
     t_vals : numpy array
         T values for all predictors for the original data space. The first
         dimension of the array corresponds to consecutive predictors.
+    p_vals : numpy array of shape (predictors, ...)
+        P values for all predictors for the original data space. Returned only
+        if ``return_p`` is True.
     residuals : numpy array
         Array of model residuals. Has the same shape as input data.
-    p_vals : numpy array of shape (predictors, ...)
-        P values for all predictors for the original data space.
     '''
     n_obs = data.shape[0]
     preds = _handle_preds(preds)
@@ -46,13 +49,21 @@ def compute_regression_t(data, preds, return_p=False):
     SE = np.sqrt(MSE * np.diag(np.linalg.pinv(preds.T @ preds))[:, np.newaxis])
     t_vals = (coefs / SE).reshape([n_preds, *original_shape[1:]])
 
-    residuals = residuals.reshape(original_shape)
+    out = (t_vals,)
     if return_p:
         from scipy.stats import t
         p_vals = t.cdf(-np.abs(t_vals), df) * 2.
-        return t_vals, residuals, p_vals
+        out += (p_vals,)
+
+    if return_residuals:
+        residuals = residuals.reshape(original_shape)
+        out += (residuals,)
+
+    # make sure we return a tuple only if we have more than one output
+    if len(out) == 1:
+        return out[0]
     else:
-        return t_vals, residuals
+        return out
 
 
 def format_pvalue(pvalue):
