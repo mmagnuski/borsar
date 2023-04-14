@@ -7,7 +7,6 @@ from .utils import (_get_units, _get_clim, _handle_dims, _aggregate_cluster,
 from ..viz import Topo
 
 
-# - [x] use **args passed to clst.plot()
 # - [ ] add intensity label to line/topo/heatmap plot
 def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     '''

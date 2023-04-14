@@ -156,10 +156,11 @@ def read_info(fname):
     info : mne.Info
         Info object read from file.
     """
+    from pathlib import Path
     import mne
     h5io = import_hdf5()
 
-    mne.utils._validate_type(fname, 'str', item_name='fname')
+    mne.utils._validate_type(fname, (Path, str), item_name='fname')
 
     # read file
     data_dict = h5io.read_hdf5(fname)
