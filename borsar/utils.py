@@ -120,7 +120,7 @@ def group(vec, diff=False, return_slice=False):
             start_ind = ii
         elif in_grp and not el:
             in_grp = False
-            group_lims.append([start_ind, ii-1])
+            group_lims.append([start_ind, ii - 1])
     grp = np.array(group_lims)
 
     # format output
