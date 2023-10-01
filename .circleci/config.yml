@@ -32,6 +32,7 @@ jobs:
       - run:
           name: Run tests
           command: |
+            sudo apt update
             sudo apt-get install curl
             source activate borsar
             python -m pytest --cov=borsar borsar/
