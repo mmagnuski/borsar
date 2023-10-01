@@ -358,7 +358,7 @@ def test_highlight2():
     mark = smooth_y > maxval * 0.9
 
     # highlight with bottom_bar
-    highlight(highlight=mark, ax= ax, bottom_bar=True)
+    highlight(highlight=mark, ax=ax, bottom_bar=True)
 
     # make sure there is equal number of higher and shorter bars
     rectangles = ax.findobj(plt.Rectangle)[::-1]

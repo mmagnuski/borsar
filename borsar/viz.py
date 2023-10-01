@@ -437,8 +437,9 @@ def _extract_topo_channels(ax):
     return chans, chan_pos
 
 
-def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=False,
-              bar_color='black', bottom_extend=True, ax=None):
+def highlight(x_values=None, highlight=None, color=None, alpha=1.,
+              bottom_bar=False, bar_color='black', bottom_extend=True,
+              ax=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -499,7 +500,7 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=Fa
             color=bar_color, alpha=1., ax=ax
         )
         patches = [(main, bottom) for main, bottom in
-                    zip(patches, bottom_patches)]
+                   zip(patches, bottom_patches)]
 
     if bottom_bar and bottom_extend:
         ax.set_ylim((ylims[0] - bar_h, ylims[1]))
