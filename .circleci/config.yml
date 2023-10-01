@@ -33,7 +33,7 @@ jobs:
           name: Run tests
           command: |
             sudo apt update
-            sudo apt-get -y install curl
+            sudo apt-get -y install curl gnupg
             source activate borsar
             python -m pytest --cov=borsar borsar/
       - codecov/upload
