@@ -76,7 +76,7 @@ def format_pvalue(pvalue):
         if which_power < 2:
             return 'p < {}'.format(['0.001', '0.0001'][which_power])
         else:
-            return 'p < {}'.format(str(powers[which_power]))
+            return 'p < {:.0e}'.format(powers[which_power])
 
 
 def _handle_preds(preds):

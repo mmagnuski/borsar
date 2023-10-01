@@ -138,12 +138,12 @@ def _mark_cluster_range(msk, x_values, ax):
 
     grp = group_mask(msk)
     ylims = ax.get_ylim()
-    y_rng = np.diff(ylims)
+    y_rng = np.diff(ylims)[0]
     hlf_dist = np.diff(x_values).mean() / 2
     for gr in grp:
         this_x = x_values[gr[0]:gr[1] + 1]
         start = this_x[0] - hlf_dist
-        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
+        length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
         ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
                          facecolor=color, alpha=alpha)
         ax.add_patch(ptch)
