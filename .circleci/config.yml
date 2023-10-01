@@ -32,7 +32,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            apk update && apk add curl
+            sudo apt-get install curl
             source activate borsar
             python -m pytest --cov=borsar borsar/
       - codecov/upload
