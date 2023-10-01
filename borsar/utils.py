@@ -96,6 +96,45 @@ def group_mask(mask):
     return groups
 
 
+# TODO:
+# - [ ] compare to group_mask !
+# - [ ] ! more detailed docs
+# - [ ] ! add tests !
+# - [ ] profile, maybe check numba version
+def group(vec, diff=False, return_slice=False):
+    '''
+    Group values in a vector into ranges of adjacent identical values.
+    '''
+    in_grp = False
+    group_lims = list()
+    if diff:
+        vec = np.append(vec, np.max(vec) + 1)
+        vec = np.diff(vec) > 0
+    else:
+        vec = np.append(vec, False)
+
+    # group
+    for ii, el in enumerate(vec):
+        if not in_grp and el:
+            in_grp = True
+            start_ind = ii
+        elif in_grp and not el:
+            in_grp = False
+            group_lims.append([start_ind, ii-1])
+    grp = np.array(group_lims)
+
+    # format output
+    if diff:
+        grp[:, 1] += 1
+    if return_slice:
+        slc = list()
+        for start, stop in grp:
+            slc.append(slice(start, stop + 1))
+        return slc
+    else:
+        return grp
+
+
 def get_info(inst):
     '''Simple helper function that returns Info whatever mne object it gets.'''
 
