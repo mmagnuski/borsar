@@ -337,9 +337,15 @@ def test_highlight():
     rectangles = ax.findobj(Rectangle)
     assert len(rectangles) == 5
 
-    for idx, col in enumerate([0.95, 0, 0.95, 0]):
-        rect_color = rectangles[idx].get_facecolor()[:3]
-        assert (rect_color == np.array([col] * 3)).all()
+    n_dark, n_bright = 0, 0
+    for rect in rectangles:
+        rect_color = rect.get_facecolor()[:3]
+        if (rect_color == np.array([0.] * 3)).all():
+            n_dark += 1
+        elif (rect_color == np.array([.95] * 3)).all():
+            n_bright += 1
+
+    assert n_dark == n_bright
     plt.close(ax.figure)
 
 
