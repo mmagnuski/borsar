@@ -110,6 +110,7 @@ def test_psd_class():
         # FIXME mne's _plot_psd changes very frequently, so currently we drop
         # this test. Later on - we'll switch to mne spectral objects.
         # psd_epo.plot(show=False)
+        pass
 
     psd_avg = psd_epo.copy().average()
     assert psd_epo.data.ndim == 3
