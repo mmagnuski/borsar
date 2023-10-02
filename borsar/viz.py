@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from .channels import get_ch_pos
 from ._heatmap import heatmap
+from .utils import group
 from ._vizutils import add_colorbar_to_axis, color_limits
 
 
@@ -435,3 +436,179 @@ def _extract_topo_channels(ax):
             raise RuntimeError(msg)
 
     return chans, chan_pos
+
+
+def highlight(x_values=None, highlight=None, color=None, alpha=1.,
+              bottom_bar=False, bar_color='black', bottom_extend=True,
+              ax=None):
+    '''Highlight ranges along x axis.
+
+    Parameters
+    ----------
+    x_values : numpy array
+        Values specifying x axis points along which highlight operates.
+    highlight : slice | list of slices | numpy array | list of numpy arrays
+        Slice or boolean numpy array defining which values in ``x_values``
+        should be highlighted. If list of slices or numpy arrays is provided
+        each list element will be used to create a separate highlight.
+    color : str | list | numpy array, optional
+        Highlight patch color in format understood by matplotlib. The default
+        is ``'orange'``.
+    alpha : float
+        Highlight patch transparency. 0.3 by default.
+    bottom_bar : bool
+        Whether to place an opaque highlight bar at the bottom of the figure.
+    bar_color : str | list | numpy array, optional
+        Bottom bar color in format understood by matplotlib. The default
+        is ``'black'``.
+    bottom_extend : bool
+        Whether to extend the bottom of the axis before adding the bottom bar.
+    ax : matplotlib Axes | None
+        Highlight on an already present axis. Default is ``None`` which creates
+        a new figure with one axis.
+
+    Returns
+    -------
+    patches : list of matplotlib.patches.Patch
+        List of highlight patches. If ``bottom_bar`` is ``True`` then each
+        element of the list is a tuple of two patches: the first is the
+        highlight patch and the second is the bottom bar patch.
+    '''
+
+    ax = plt.gca() if ax is None else ax
+    x_values = _handle_x_values(ax, x_values)
+
+    ylims = ax.get_ylim()
+    y_rng = np.diff(ylims)[0]
+
+    grp = _check_highlight_var(highlight)
+
+    patch_low = ylims[0]
+    if bottom_bar:
+        bar_h = y_rng * 0.05
+        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
+                   else ylims[0] + bar_h / 2)
+        patch_low = bar_low + bar_h / 2
+
+    patches = highlight_bar(
+        x_values, grp, level=patch_low, height=None, color=color,
+        alpha=alpha, ax=ax
+    )
+
+    if bottom_bar:
+        bottom_patches = highlight_bar(
+            x_values, grp, level=bar_low, height=bar_h,
+            color=bar_color, alpha=1., ax=ax
+        )
+        patches = [(main, bottom) for main, bottom in
+                   zip(patches, bottom_patches)]
+
+    if bottom_bar and bottom_extend:
+        ax.set_ylim((ylims[0] - bar_h, ylims[1]))
+
+    return patches
+
+
+def _check_highlight_var(highlight):
+    if isinstance(highlight, list):
+        if all([isinstance(x, slice) for x in highlight]):
+            grp = highlight
+        elif all([isinstance(x, np.ndarray) for x in highlight]):
+            grp = [group(x, return_slice=True)[0] for x in highlight]
+    elif isinstance(highlight, np.ndarray) and highlight.dtype == 'bool':
+        grp = group(highlight, return_slice=True)
+    elif isinstance(highlight, slice):
+        grp = [highlight]
+    else:
+        raise TypeError('highlight must be slice, list of slices, '
+                        'numpy boolean array or list of numpy boolean arrays')
+
+    return grp
+
+
+def _get_x_values_from_axis(ax):
+    ax_lines = ax.findobj(plt.Line2D)
+
+    if len(ax_lines) > 0:
+        x_values = ax_lines[0].get_xdata()
+    else:
+        x_values = None
+
+    return x_values
+
+
+def _handle_x_values(ax, x_values):
+    if x_values is None:
+        x_values = _get_x_values_from_axis(ax)
+
+    if x_values is None:
+        raise ValueError('x_values must be provided if axis does not contain '
+                         'any lines')
+
+    return x_values
+
+
+def highlight_bar(x_values=None, highlight=None, level=None, height=None,
+                  color=None, alpha=1., ax=None):
+    '''Highlight ranges along x axis.
+
+    Parameters
+    ----------
+    x_values : numpy array
+        Values specifying x axis points along which highlight operates.
+    highlight : slice | list of slices | numpy array | list of numpy arrays
+        Slice or boolean numpy array defining which values in ``x_values``
+        should be highlighted. If list of slices or numpy arrays is provided
+        each list element will be used to create a separate highlight.
+    level : float | None
+        Level at which to place the highlight. If ``None`` then the highlight
+        will be placed at the bottom of the axis.
+    height : float | None
+        Height of the highlight. If ``None`` then the highlight will extend to
+        the top of the axis.
+    color : str | list | numpy array, optional
+        Highlight patch color in format understood by matplotlib. The default
+        is ``'orange'``.
+    alpha : float
+        Highlight patch transparency. 0.3 by default.
+    ax : matplotlib Axes | None
+        Highlight on an already present axis. Default is ``None`` which creates
+        a new figure with one axis.
+
+    Returns
+    -------
+    patches : list of matplotlib.patches.Patch
+        List of highlight patches.
+    '''
+    from matplotlib.patches import Rectangle
+
+    x_values = _handle_x_values(ax, x_values)
+
+    # prepare path args
+    color = [0.95] * 3 if color is None else color
+    args = dict(lw=0, facecolor=color, alpha=alpha)
+    if alpha == 1.:
+        args['zorder'] = 0
+
+    ax = plt.gca() if ax is None else ax
+    grp = _check_highlight_var(highlight)
+
+    # TODO: handle level and height in % of axis
+    ylims = ax.get_ylim()
+    y_rng = np.diff(ylims)[0]
+    x_half_step = np.diff(x_values).mean() / 2
+
+    patches = list()
+    level = ylims[0] if level is None else level
+    height = y_rng - (ylims[0] - level) if height is None else height
+
+    for slc in grp:
+        this_x = x_values[slc]
+        start = this_x[0] - x_half_step
+        length = np.diff(this_x[[0, -1]])[0] + x_half_step * 2
+
+        patch = Rectangle((start, level), length, height, **args)
+        ax.add_patch(patch)
+        patches.append(patch)
+
+    return patches

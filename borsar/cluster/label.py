@@ -36,7 +36,7 @@ def _cluster_3d_numpy(data, adjacency, min_adj_ch=0):
         3d integer matrix with cluster labels.
     '''
     # data has to be bool
-    assert data.dtype == np.bool
+    assert data.dtype == bool
 
     if min_adj_ch > 0:
         data = _cross_channel_adjacency_3d(

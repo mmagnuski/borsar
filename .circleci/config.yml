@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  codecov: codecov/codecov@3.2.3
+  codecov: codecov/codecov@3.3.0
 jobs:
   build:
     docker:
@@ -32,6 +32,8 @@ jobs:
       - run:
           name: Run tests
           command: |
+            sudo apt update
+            sudo apt-get -y install curl gnupg
             source activate borsar
             python -m pytest --cov=borsar borsar/
       - codecov/upload
