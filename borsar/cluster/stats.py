@@ -2,11 +2,13 @@ import numpy as np
 
 from .label import (_check_backend, _get_cluster_fun, _prepare_clustering,
                     find_clusters)
-from ..stats import compute_regression_t, _handle_preds
+from ..stats import (compute_regression_t, _handle_preds, _find_stat_fun,
+                     _compute_threshold, _compute_threshold_via_permutations)
 from ..utils import progressbar
 
+
 # - [x] add min_adj_ch parameter passed to find_clusters
-# - [ ] FIXME: consider cluster_pred always adressing preds (you never want
+# - [ ] FIXME: consider cluster_pred always addressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
@@ -31,9 +33,9 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         Adjacency matrix for the last ``data`` dimension. If ``None`` (default)
         lattice/grid adjacency is used.
     n_permutations : int
-        Number of permutations to perferom to get a monte-carlo estimate of the
+        Number of permutations to perform to get a monte-carlo estimate of the
         null hypothesis distribution. More permutations result in more
-        accurrate p values. Default is 1000.
+        accurate p values. Default is 1000.
     stat_threshold : float | None
         Cluster inclusion threshold in t value. Only data points exceeding this
         value of the t statistic (either ``t value > stat_threshold`` or
@@ -59,12 +61,12 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         Whether to report the progress of permutations using a progress bar.
         The default is ``True`` which uses tqdm progress bar.
     return_distribution : bool
-        Whether to retrun the permutation distribution as an additional, fourth
+        Whether to return the permutation distribution as an additional, fourth
         output argument.
     stat_fun : None | callable
         Function to compute regression. The function should take two arguments:
-        data (data to predict) and preds (predictors to use) and return a
-        matrix of regression parameters.
+        ``data`` (data to predict) and ``preds`` (predictors to use) and return
+        a matrix of regression parameters.
 
     Returns
     -------
@@ -378,188 +380,3 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         return stat, clusters, cluster_p, dict(pos=pos_dist, neg=neg_dist)
     else:
         return stat, clusters, cluster_p
-
-
-def _find_stat_fun(n_groups, paired, tail):
-    '''Find relevant stat_fun given ``n_groups``, ``paired`` and ``tail``.'''
-    if n_groups > 2 and tail == 'both':
-        raise ValueError('Number of compared groups is > 2, but tail is set'
-                         ' to "both". If you want to use ANOVA, set tail to'
-                         ' "pos".')
-    if n_groups > 2 and not tail == 'both':
-        if paired:
-            # repeated measures ANOVA
-            return rm_anova_stat_fun
-        else:
-            from scipy.stats import f_oneway
-
-            def stat_fun(*args):
-                fval, _ = f_oneway(*args)
-                return fval
-            return stat_fun
-    else:
-        if paired:
-            from scipy.stats import ttest_rel
-
-            def stat_fun(*args):
-                tval, _ = ttest_rel(*args)
-                return tval
-            return stat_fun
-        else:
-            from scipy.stats import ttest_ind
-
-            def stat_fun(*args):
-                tval, _ = ttest_ind(*args, equal_var=False)
-                return tval
-            return stat_fun
-
-
-# FIXME: streamline/simplify permutation reshaping and transposing
-# FIXME: time and see whether a different solution is better
-# FIXME: splitting across jobs could be smarter (chunks of permutations, not
-# one by one)
-def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
-                                        p_threshold=0.05, n_permutations=1000,
-                                        progress=True,
-                                        return_distribution=False,
-                                        n_jobs=1):
-    '''
-    Compute significance thresholds using permutations.
-
-    Assumes ``n_conditions x n_observations x ...`` data array.
-    Note that the permutations are implemented via shuffling of the condition
-    labels, not randomization of independent condition orders.
-    '''
-    if paired:
-        # concatenate condition dimension if needed
-        if isinstance(data, (list, tuple)):
-            data = np.stack(data, axis=0)
-
-        dims = np.arange(data.ndim)
-        dims[:2] = [1, 0]
-        dim_shape = data.shape
-        n_cond, n_obs = dim_shape[:2]
-        data_unr = data.transpose(*dims).reshape(
-            n_cond * n_obs, *data.shape[2:])
-
-        # compute permutations of the stat
-        if n_jobs == 1:
-            stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
-            pbar = progressbar(progress, total=n_permutations)
-            for perm_idx in range(n_permutations):
-                stats[perm_idx] = _paired_perm(
-                    data_unr, stat_fun, n_cond, n_obs, dim_shape, dims,
-                    pbar=pbar
-                )
-        else:
-            from joblib import Parallel, delayed
-            stats = Parallel(n_jobs=n_jobs)(
-                delayed(_paired_perm)(data_unr, stat_fun, n_cond, n_obs,
-                                      dim_shape, dims)
-                for perm_idx in range(n_permutations)
-            )
-            stats = np.stack(stats, axis=0)
-    else:
-        n_cond = len(data)
-        condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
-                                    for idx in range(n_cond)])
-        data_unr = np.concatenate(data)
-
-        if n_jobs == 1:
-            stats = np.zeros(shape=(n_permutations, *data[0].shape[1:]))
-            pbar = progressbar(progress, total=n_permutations)
-            for perm_idx in range(n_permutations):
-                stats[perm_idx] = _unpaired_perm(
-                    data_unr, stat_fun, condition, n_cond, pbar=pbar
-                )
-        else:
-            from joblib import Parallel, delayed
-            stats = Parallel(n_jobs=n_jobs)(
-                delayed(_unpaired_perm)(data_unr, stat_fun, condition, n_cond)
-                for perm_idx in range(n_permutations)
-            )
-            stats = np.stack(stats, axis=0)
-
-    # now check threshold
-    if tail == 'pos':
-        percentile = 100 - p_threshold * 100
-        threshold = np.percentile(stats, percentile, axis=0)
-    elif tail == 'neg':
-        percentile = p_threshold * 100
-        threshold = np.percentile(stats, percentile, axis=0)
-    elif tail == 'both':
-        percentile_neg = p_threshold / 2 * 100
-        percentile_pos = 100 - p_threshold / 2 * 100
-        threshold = [np.percentile(stats, perc, axis=0)
-                     for perc in [percentile_pos, percentile_neg]]
-    else:
-        raise ValueError(f'Unrecognized tail "{tail}"')
-
-    if not return_distribution:
-        return threshold
-    else:
-        return threshold, stats
-
-
-def _compute_threshold(data, threshold, p_threshold, paired,
-                       one_sample):
-    '''Find significance threshold analytically.'''
-    if threshold is None:
-        from scipy.stats import distributions
-        n_groups = len(data)
-        n_obs = [len(x) for x in data]
-
-        if n_groups < 3:
-            len1 = len(data[0])
-            len2 = (len(data[1]) if (len(data) > 1 and data[1] is not None)
-                    else 0)
-            df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
-            threshold = distributions.t.ppf(1 - p_threshold / 2., df=df)
-        else:
-            # ANOVA F
-            n_obs = data[0].shape[0] if paired else sum(n_obs)
-            dfn = n_groups - 1
-            dfd = n_obs - n_groups
-            threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
-    return threshold
-
-
-def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dim_shape, dims,
-                 pbar=None):
-    rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
-    idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
-    this_data = data_unr[idx].reshape(
-        n_obs, n_cond, *dim_shape[2:]).transpose(*dims)
-    stat = stat_fun(*this_data)
-
-    if pbar is not None:
-        pbar.update(1)
-
-    return stat
-
-
-def _unpaired_perm(data_unr, stat_fun, condition, n_cond, pbar=None):
-    rnd = condition.copy()
-    np.random.shuffle(rnd)
-    this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
-    stat = stat_fun(*this_data)
-
-    if pbar is not None:
-        pbar.update(1)
-
-    return stat
-
-
-def rm_anova_stat_fun(*args):
-    '''Stat fun that does one-way repeated measures ANOVA.'''
-    from mne.stats import f_mway_rm
-
-    data = np.stack(args, axis=1)
-    n_factors = data.shape[1]
-
-    fval, _ = f_mway_rm(data, factor_levels=[n_factors],
-                        return_pvals=False)
-
-    if data.ndim > 3:
-        fval = fval.reshape(data.shape[2:])
-    return fval
