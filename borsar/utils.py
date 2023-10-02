@@ -525,3 +525,30 @@ def download_test_data():
 
     # remove the zipfile
     os.remove(destination)
+
+
+# - [ ] later allow for tqdm progressbar as first arg
+# - [ ] could be later improved to import the mne progressbar for joblib
+#       parallel processes
+def progressbar(progressbar, total=None):
+    # progressbar=True should give text progressbar
+    if isinstance(progressbar, bool) and progressbar:
+        progressbar = 'text'
+
+    if progressbar == 'notebook':
+        from tqdm import tqdm_notebook
+        pbar = tqdm_notebook(total=total)
+    elif progressbar == 'text':
+        from tqdm import tqdm
+        pbar = tqdm(total=total)
+    else:
+        pbar = EmptyProgressbar(total=total)
+    return pbar
+
+
+class EmptyProgressbar(object):
+    def __init__(self, total=None):
+        self.total = total
+
+    def update(self, val):
+        pass
