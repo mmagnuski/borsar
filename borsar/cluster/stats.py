@@ -441,8 +441,9 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
         dims[:2] = [1, 0]
         dim_shape = data.shape
         n_cond, n_obs = dim_shape[:2]
-        data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
-                                    *data.shape[2:])
+        data_unr = data.transpose(
+            *dims).reshape(n_cond * n_obs, *data.shape[2:]
+        )
 
         # compute permutations of the stat
         if n_jobs == 1:
@@ -513,7 +514,8 @@ def _compute_threshold(data, threshold, p_threshold, paired,
 
         if n_groups < 3:
             len1 = len(data[0])
-            len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
+            len2 = (len(data[1]) if (len(data) > 1 and data[1] is not None)
+                    else 0)
             df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
             threshold = distributions.t.ppf(1 - p_threshold / 2., df=df)
         else:
@@ -525,7 +527,8 @@ def _compute_threshold(data, threshold, p_threshold, paired,
     return threshold
 
 
-def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dim_shape, dims, pbar=None):
+def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dim_shape, dims,
+                 pbar=None):
     rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
     idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
     this_data = data_unr[idx].reshape(
