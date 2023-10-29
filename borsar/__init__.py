@@ -1,4 +1,4 @@
-__version__ = '0.1.dev1'
+__version__ = '0.1'
 
 from borsar import (channels, cluster, csd, freq, project, stats, utils, viz)
 

@@ -860,9 +860,8 @@ def test_cluster_ignore_dims():
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
-
-    # FIXME: fix this later, for some reason it not always works
-    # assert (clst.stat[5:7].mean(axis=0) == data).all()
+    assert ((clst.stat[5:7].mean(axis=0) == data).all()
+            or (clst.stat[4:6].mean(axis=0) == data).all())
 
     # (B) we request all channels reduced
     axs = clst.plot(picks=0, dims=['freq', 'time'], chan='100%')
