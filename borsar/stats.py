@@ -143,7 +143,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     Note that the permutations are implemented via shuffling of the condition
     labels, not randomization of independent condition orders.
     '''
-    from ..utils import progressbar
+    from .utils import progressbar
 
     if paired:
         # concatenate condition dimension if needed
