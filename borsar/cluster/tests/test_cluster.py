@@ -860,7 +860,6 @@ def test_cluster_ignore_dims():
 
     # make sure image data is correct
     data = np.array(axs[0].images[0].get_array())
-
     assert ((clst.stat[5:7].mean(axis=0) == data).all()
             or (clst.stat[4:6].mean(axis=0) == data).all())
 
