@@ -49,6 +49,3 @@ build-backend = "setuptools.build_meta"
 
 [project.urls]
 Homepage = "https://github.com/mmagnuski/borsar"
-
-[tool.setuptools.package-data]
-borsar = ["data/*.mat", "data/*.fif"]
