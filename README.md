@@ -14,19 +14,23 @@ be later moved to [mne-python](https://martinos.org/mne/dev/index.html).
 
 
 ## Installation
-`borsar` is not yet released on `PyPI` so to install you have to download it from GitHub using pip in the following way:
+To get the official borsar version install using pip:
+```
+pip install borsar
+```
+The PyPI version may be sometimes behind the GitHub version so to install from GitHub you can use pip in the following way:
 ```
 pip install git+https://github.com/mmagnuski/borsar
 ```
-or, if you plan to frequently update the dev version and contribute to `borsar`, install by cloning the repo with
+However, if you plan to frequently update the dev version and contribute to `borsar`, install by cloning the repo with
 git and installing in dev mode:
 ```
 cd where_you_want_to_download_borsar
 git clone https://github.com/mmagnuski/borsar
 cd borsar
-python setup.py develop
+pip install -e .
 ```
-both methods require you to have [git](https://git-scm.com/) installed.
+the second and third method require [git](https://git-scm.com/) to be installed.
 
 ## Documentation
 Go to the [online documentation](https://mmagnuski.github.io/borsar.github.io/index.html) for more information about usage examples or full API docs.
