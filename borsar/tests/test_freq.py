@@ -32,7 +32,6 @@ def test_compute_rest_psd():
     assert (freqs2 == freqs).all()
 
 
-# @pytest.mark.skip(reason="borsar.freq.PSD will be deprecated soon")
 def test_psd_class():
     mne_version = version.parse(mne.__version__)
     # get data
