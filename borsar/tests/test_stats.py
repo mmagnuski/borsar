@@ -1,7 +1,11 @@
 import time
 import numpy as np
+import pandas as pd
+
 import statsmodels.api as sm
-from borsar.stats import compute_regression_t, format_pvalue
+from statsmodels.stats.anova import AnovaRM
+
+from borsar.stats import compute_regression_t, format_pvalue, _find_stat_fun
 
 
 def test_compute_regression_t():
@@ -86,3 +90,48 @@ def test_format_p_value():
     assert format_pvalue(0.00025) == 'p < 0.001'
     assert format_pvalue(0.000015) == 'p < 0.0001'
     assert format_pvalue(0.000000000015) == 'p < 1e-10'
+
+
+def test_find_stat_fun():
+    from scipy.stats import (ttest_rel, ttest_ind, ttest_1samp, f_oneway)
+
+    data1 = np.random.rand(2, 10, 20)
+
+    # independent samples t test
+    stat_fun = _find_stat_fun(n_groups=2, paired=False, tail='both')
+    t_val = stat_fun(data1[0], data1[1])
+    t_val_good, _ = ttest_ind(data1[0], data1[1])
+    np.testing.assert_almost_equal(t_val, t_val_good)
+
+    # paired samples t test
+    stat_fun = _find_stat_fun(n_groups=2, paired=True, tail='both')
+    t_val = stat_fun(data1[0], data1[1])
+    t_val_good, _ = ttest_rel(data1[0], data1[1])
+    np.testing.assert_almost_equal(t_val, t_val_good)
+
+    # one sample t test
+    stat_fun = _find_stat_fun(n_groups=1, paired=False, tail='both')
+    t_val = stat_fun(data1[0])
+    t_val_good, _ = ttest_1samp(data1[0], 0)
+    np.testing.assert_almost_equal(t_val, t_val_good)
+
+    # independent ANOVA
+    data2 = np.random.rand(3, 10, 20)
+    stat_fun = _find_stat_fun(n_groups=3, paired=False, tail='pos')
+    f_val = stat_fun(data2[0], data2[1], data2[2])
+    f_val_good, _ = f_oneway(data2[0], data2[1], data2[2])
+    np.testing.assert_almost_equal(f_val, f_val_good)
+
+    # paired ANOVA
+    data3 = np.random.rand(15, 4)
+    stat_fun = _find_stat_fun(n_groups=3, paired=True, tail='pos')
+    f_val = stat_fun(*data3.T).item()
+
+    subj = np.tile(np.arange(15)[:, None], [1, 4])
+    group = np.tile(np.arange(4)[None, :], [15, 1])
+    df = pd.DataFrame(data={'val': data3.ravel(), 'subj': subj.ravel(),
+                            'rep': group.ravel()})
+    res = AnovaRM(data=df, depvar='val', subject='subj', within=['rep']).fit()
+    f_val_good = res.anova_table.loc['rep', 'F Value']
+
+    np.testing.assert_almost_equal(f_val, f_val_good)
