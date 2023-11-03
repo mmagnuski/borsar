@@ -185,13 +185,15 @@ def test_compute_threshold_via_permutations():
 
 def test_compute_threshold_via_permutations_n_jobs():
     data = [np.random.randn(12, 10, 10), np.random.randn(12, 10, 10)]
-    stat_fun = _find_stat_fun(2, paired=True, tail='both')
+    for paired in [True, False]:
+        stat_fun = _find_stat_fun(2, paired=paired, tail='both')
+
     pos_thresh, neg_thresh = _compute_threshold_via_permutations(
-        data, paired=True, tail='both', stat_fun=stat_fun,
+        data, paired=paired, tail='both', stat_fun=stat_fun,
         n_permutations=1_000, progress=False
     )
     pos_thresh_jobs, neg_thresh_jobs = _compute_threshold_via_permutations(
-        data, paired=True, tail='both', stat_fun=stat_fun,
+        data, paired=paired, tail='both', stat_fun=stat_fun,
         n_permutations=1_000, progress=False, n_jobs=2
     )
 
