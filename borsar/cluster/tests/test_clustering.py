@@ -12,7 +12,6 @@ import mne
 from borsar.utils import has_numba, _get_test_data_dir
 from borsar.cluster.utils import create_fake_data_for_cluster_test
 from borsar.cluster.label import find_clusters, _cluster_3d_numpy
-from borsar.cluster.stats import _find_stat_fun, _compute_threshold
 from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
 
 
