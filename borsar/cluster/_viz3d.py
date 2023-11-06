@@ -60,7 +60,9 @@ def plot_cluster_src(clst, cluster_idx=None, aggregate='mean', set_light=True,
     # TODO - first idx then aggregation
     clst_mask, clst_stat, idx = _aggregate_cluster(
         clst, cluster_idx, mask_proportion=0.5, retain_mass=0.65, **kwargs)
-    if clst_mask is not None:
+
+    # reduce if multiple clusters
+    if clst_mask is not None and clst_mask.ndim > clst_stat.ndim:
         clst_mask = clst_mask.any(axis=0)
 
     if clst_mask.ndim > 1 and clst_mask.shape[1] == 1:
