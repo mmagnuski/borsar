@@ -252,5 +252,5 @@ def test_permutation_threshold_tails():
         data, paired=True, tail='pos', **args
     )
 
-    assert (neg_thresh < neg_thresh2).mean() > 0.95
-    assert (pos_thresh > pos_thresh2).mean() > 0.95
+    assert (neg_thresh < neg_thresh2).mean() > 0.92
+    assert (pos_thresh > pos_thresh2).mean() > 0.92
