@@ -188,19 +188,19 @@ def test_compute_threshold_via_permutations_n_jobs():
     for paired in [True, False]:
         stat_fun = _find_stat_fun(2, paired=paired, tail='both')
 
-    pos_thresh, neg_thresh = _compute_threshold_via_permutations(
-        data, paired=paired, tail='both', stat_fun=stat_fun,
-        n_permutations=1_000, progress=False
-    )
-    pos_thresh_jobs, neg_thresh_jobs = _compute_threshold_via_permutations(
-        data, paired=paired, tail='both', stat_fun=stat_fun,
-        n_permutations=1_000, progress=False, n_jobs=2
-    )
+        pos_thresh, neg_thresh = _compute_threshold_via_permutations(
+            data, paired=paired, tail='both', stat_fun=stat_fun,
+            n_permutations=1_000, progress=False
+        )
+        pos_thresh_jobs, neg_thresh_jobs = _compute_threshold_via_permutations(
+            data, paired=paired, tail='both', stat_fun=stat_fun,
+            n_permutations=1_000, progress=False, n_jobs=2
+        )
 
-    # most differences are < 0.5, but some are larger
-    # (independent permutation runs)
-    assert (np.abs(pos_thresh - pos_thresh_jobs) < 0.5).mean() > 0.9
-    assert (np.abs(neg_thresh - neg_thresh_jobs) < 0.5).mean() > 0.9
+        # most differences are < 0.5, but some are larger
+        # (independent permutation runs)
+        assert (np.abs(pos_thresh - pos_thresh_jobs) < 0.5).mean() > 0.9
+        assert (np.abs(neg_thresh - neg_thresh_jobs) < 0.5).mean() > 0.9
 
 
 def test_compute_anova_analytical_threshold():
