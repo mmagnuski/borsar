@@ -110,7 +110,7 @@ def _find_stat_fun(n_groups, paired, tail):
                 fval, _ = f_oneway(*args)
                 return fval
             return stat_fun
-    else:
+    elif n_groups == 2:
         if paired:
             from scipy.stats import ttest_rel
 
@@ -119,12 +119,13 @@ def _find_stat_fun(n_groups, paired, tail):
                 return tval
             return stat_fun
         else:
-            from scipy.stats import ttest_ind
-
-            def stat_fun(*args):
-                tval, _ = ttest_ind(*args, equal_var=False)
-                return tval
+            from mne.stats import ttest_ind_no_p as stat_fun
             return stat_fun
+    else:
+        # one group
+        from mne.stats import ttest_1samp_no_p as stat_fun
+        return stat_fun
+
 
 
 # FIXME: streamline/simplify permutation reshaping and transposing
