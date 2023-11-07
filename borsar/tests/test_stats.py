@@ -206,19 +206,19 @@ def test_compute_threshold_via_permutations_n_jobs():
 def test_compute_anova_analytical_threshold():
     # the critical F value for alpha = 0.05 was taken from:
     # https://www.dummies.com/article/business-careers-money/business/accounting/calculation-analysis/how-to-find-the-critical-values-for-an-anova-hypothesis-using-the-f-table-146050/
-    alpha = 0.05
-    v1 = 6
-    v2 = 4
-    F_critical = 6.16
-
+    # v1 = 6
+    # v2 = 4
     # v1 is the "numerator degrees of freedom"
     #    (for example n_groups – 1)
     # v2 is the "denominator degrees of freedom"
     #    (for example total n_obs - n_groups )
     # in the case of chosen v1 and v2: 7 groups, 11 obs
 
+    alpha = 0.05
+    F_critical = 6.16
+
     val_lists = [[5.12], [3.23, 4.1], [5.5], [4.2, 4.81], [12.2], [6.5, 7.8],
-                [4.5, 5.2]]
+                 [4.5, 5.2]]
     data = [np.array(x) for x in val_lists]
 
     thresh = _compute_threshold(
