@@ -227,3 +227,29 @@ def test_compute_anova_analytical_threshold():
     )
 
     assert f'{F_critical:.2f}' == f'{thresh:.2f}'
+
+
+def test_permutation_threshold_tails():
+    '''Making sure that one-tail thresholds are more liberal than two-tail.'''
+    n_groups = 2
+    paired = True
+
+    stat_fun = _find_stat_fun(n_groups, paired=paired, tail='both')
+    data = np.random.rand(n_groups, 12, 10, 10)
+
+    pos_thresh, neg_thresh = _compute_threshold_via_permutations(
+                data, paired=True, tail='both', stat_fun=stat_fun,
+                n_permutations=500, progress=False
+    )
+
+    neg_thresh2 = _compute_threshold_via_permutations(
+                data, paired=True, tail='neg', stat_fun=stat_fun,
+                n_permutations=500, progress=False
+    )
+    pos_thresh2 = _compute_threshold_via_permutations(
+                data, paired=True, tail='pos', stat_fun=stat_fun,
+                n_permutations=500, progress=False
+    )
+
+    assert (neg_thresh < neg_thresh2).mean() > 0.95
+    assert (pos_thresh > pos_thresh2).mean() > 0.95
