@@ -184,6 +184,7 @@ def test_compute_threshold_via_permutations():
 
 
 def test_compute_threshold_via_permutations_n_jobs():
+    '''Thresholds computed with different number of jobs should be similar.'''
     data = [np.random.randn(12, 10, 10), np.random.randn(12, 10, 10)]
     for paired in [True, False]:
         stat_fun = _find_stat_fun(2, paired=paired, tail='both')
@@ -204,6 +205,8 @@ def test_compute_threshold_via_permutations_n_jobs():
 
 
 def test_compute_anova_analytical_threshold():
+    '''Make sure that analytical threshold for ANOVA is correct.'''
+
     # the critical F value for alpha = 0.05 was taken from:
     # https://www.dummies.com/article/business-careers-money/business/accounting/calculation-analysis/how-to-find-the-critical-values-for-an-anova-hypothesis-using-the-f-table-146050/
     # v1 = 6
