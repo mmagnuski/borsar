@@ -240,18 +240,16 @@ def test_permutation_threshold_tails():
     stat_fun = _find_stat_fun(n_groups, paired=paired, tail='both')
     data = np.random.rand(n_groups, 12, 10, 10)
 
+    args = dict(stat_fun=stat_fun, n_permutations=500, progress=False)
     pos_thresh, neg_thresh = _compute_threshold_via_permutations(
-                data, paired=True, tail='both', stat_fun=stat_fun,
-                n_permutations=500, progress=False
+        data, paired=True, tail='both', **args
     )
 
     neg_thresh2 = _compute_threshold_via_permutations(
-                data, paired=True, tail='neg', stat_fun=stat_fun,
-                n_permutations=500, progress=False
+        data, paired=True, tail='neg', **args
     )
     pos_thresh2 = _compute_threshold_via_permutations(
-                data, paired=True, tail='pos', stat_fun=stat_fun,
-                n_permutations=500, progress=False
+        data, paired=True, tail='pos', **args
     )
 
     assert (neg_thresh < neg_thresh2).mean() > 0.95
