@@ -46,6 +46,9 @@ def test_csd_mne():
     events = np.zeros((4, 3), dtype='int')
     events[:, -1] = 1
     events[:, 0] = [10, 50, 110, 165]
+
+    if raw.first_samp > 0:
+        events[:, 0] += raw.first_samp
     epochs = mne.Epochs(raw, events, event_id=1, tmin=0., tmax=0.15,
                         baseline=None, preload=True)
     epochs_csd = current_source_density(epochs.copy(), G, H)
