@@ -439,8 +439,8 @@ def _extract_topo_channels(ax):
 
 
 def highlight(x_values=None, highlight=None, color=None, alpha=1.,
-              bottom_bar=False, bar_color='black', bottom_extend=True,
-              ax=None):
+              bottom_bar=False, bar_color='black', bar_height=None,
+              bottom_extend=True, ax=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -461,6 +461,8 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1.,
     bar_color : str | list | numpy array, optional
         Bottom bar color in format understood by matplotlib. The default
         is ``'black'``.
+    bar_height : float | None
+        Bottom bar height (in data units).
     bottom_extend : bool
         Whether to extend the bottom of the axis before adding the bottom bar.
     ax : matplotlib Axes | None
@@ -485,7 +487,7 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1.,
 
     patch_low = ylims[0]
     if bottom_bar:
-        bar_h = y_rng * 0.05
+        bar_h = y_rng * 0.05 if bar_height is None else bar_height
         bar_low = (ylims[0] - bar_h / 2 if bottom_extend
                    else ylims[0] + bar_h / 2)
         patch_low = bar_low + bar_h / 2
