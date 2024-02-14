@@ -53,9 +53,17 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     # plot
     # ----
     picks = list(range(n_clusters)) if picks is None else picks
-    ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
-                           retain_mass=1., axis=axis, cmap='viridis',
-                           **kwargs)
+    only_vert = len(dim_idx) == 1 and clst.dimnames[dim_idx[0]] == 'vert'
+
+    if only_vert:
+        # TODO - 3d contrib plot
+        from ._viz3d import plot_cluster_src
+        plot_cluster_src(clst, picks=picks, plot_contribution=True,
+                         retain_mass=1., **kwargs)
+    else:
+        ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+                               retain_mass=1., axis=axis, cmap='viridis',
+                               **kwargs)
 
     # create "intensity" label
     # ------------------------
