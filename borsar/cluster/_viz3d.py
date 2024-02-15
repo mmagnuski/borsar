@@ -74,7 +74,10 @@ def plot_cluster_src(clst, picks=None, set_light=True,
         clst, picks, mask_proportion=0.5, retain_mass=retain_mass,
         mask_sum=plot_contribution, **kwargs)
     if clst_mask is not None:
-        clst_mask = clst_mask.any(axis=0)
+        if plot_contribution:
+            clst_mask = clst_mask.sum(axis=0)
+        else:
+            clst_mask = clst_mask.any(axis=0)
 
     if clst_mask.ndim > 1 and clst_mask.shape[1] == 1:
         clst_mask = clst_mask[:, 0]

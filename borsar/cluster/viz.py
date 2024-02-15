@@ -42,8 +42,8 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     only_vert = clst.dimnames[dim_idx] == 'vert'
 
     unspecified_dims = [dim for dim in clst.dimnames
-                        if dim not in specified_dims
-                        or dim not in kwargs]
+                        if not (dim in specified_dims
+                        or dim in kwargs)]
     if len(unspecified_dims) > 0:
         for unspec in unspecified_dims:
             dim_idx = _check_dimname_arg(clst, unspec)
