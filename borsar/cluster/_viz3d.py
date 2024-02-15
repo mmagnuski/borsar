@@ -96,6 +96,9 @@ def plot_cluster_src(clst, picks=None, set_light=True,
     clst.stc.data[:, 0] = show
     cmap = 'viridis' if plot_contribution else 'RdBu_r'
     clim = _get_clim(show, vmin=vmin, vmax=vmax, pysurfer=True)
+    print('clim:', clim)
+    print('show:', show)
+    print('show.max()', show.max())
     brain = clst.stc.plot(
         subjects_dir=clst.subjects_dir, hemi=use_hemi, alpha=0.8,
         colormap=cmap, transparent=False, background='white',
