@@ -4,6 +4,8 @@ import numpy as np
 def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
                             description):
     '''Perform basic type and safety checks for Clusters.'''
+    from types import NoneType
+
     # check clusters when it is a list
     if isinstance(clusters, list):
         n_clusters = len(clusters)
@@ -43,8 +45,9 @@ def _clusters_safety_checks(clusters, pvals, stat, dimnames, dimcoords,
     if clusters is None:
         # TODO: maybe warn if no clusters but pvals is not None/empty
         pvals = None
-    elif not isinstance(pvals, (list, np.ndarray)):
-        raise TypeError('`pvals` has to be a list of floats or numpy array.')
+    elif not isinstance(pvals, (NoneType, list, np.ndarray)):
+        raise TypeError('`pvals` has to be either None, a list of floats or '
+                        'numpy array.')
         # check if each element of list is float and array is of dtype float
 
     # check dimnames
