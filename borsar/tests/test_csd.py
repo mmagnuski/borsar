@@ -5,11 +5,12 @@ from numpy.testing import assert_allclose
 import mne
 
 import borsar
+from borsar.utils import _get_test_data_dir()
 from borsar.csd import _current_source_density, current_source_density
 
 
 # load G and H matrices
-data_dir = op.join(op.split(borsar.__file__)[0], 'data')
+data_dir = _get_test_data_dir()
 GH = loadmat(op.join(data_dir, 'G_and_H_matrices.mat'))
 G, H = GH['G'], GH['H']
 
