@@ -293,7 +293,7 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
 
             if labeldims:
                 _label_axis(ax, clst, dim_idx[0], ax_dim='x')
-            if not plot_contribution:
+            if not plot_contribution and clst_mask is not None:
                 _mark_cluster_range(clst_mask, x_axis, ax)
             return ax
     elif len(dim_idx) == 2:
