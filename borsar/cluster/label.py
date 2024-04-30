@@ -144,11 +144,10 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
     # --------------------------
     # numba, else numpy else mne
     if backend == 'auto':
+        is_2d_adj = has_adjacency and n_dims in [2, 3]
+        is_1d_no_adj = n_dims == 1 and not has_adjacency
         # numba works for 2d, 3d with adjacency
-        if has_numba_lib and (
-            (has_adjacency and n_dims in [2, 3])
-            or (n_dims == 1 and not has_adjacency)
-            ):
+        if has_numba_lib and (is_2d_adj or is_1d_no_adj):
             backend = 'numba'
         elif ((has_adjacency and n_dims == 3)
               or (n_dims == 2 and not has_adjacency)):

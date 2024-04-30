@@ -42,8 +42,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     only_vert = clst.dimnames[dim_idx] == 'vert'
 
     unspecified_dims = [dim for dim in clst.dimnames
-                        if not (dim in specified_dims
-                        or dim in kwargs)]
+                        if not (dim in specified_dims or dim in kwargs)]
     if len(unspecified_dims) > 0:
         for unspec in unspecified_dims:
             dim_idx = _check_dimname_arg(clst, unspec)
@@ -62,7 +61,7 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
         # source space contribution plot
         from ._viz3d import plot_cluster_src
         ax = plot_cluster_src(clst, picks=picks, plot_contribution=True,
-                         retain_mass=1., **kwargs)
+                              retain_mass=1., **kwargs)
     else:
         # channel space and all other 2d viz (heatmap, lineplot)
         ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
