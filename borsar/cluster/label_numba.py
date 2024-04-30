@@ -20,7 +20,7 @@ def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     data : numpy array
         Matrix boolean array of shape ``(channels, dim2, dim3)``.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two-dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
@@ -59,7 +59,7 @@ def _cluster_2d_numba(data, adjacency=None, min_adj_ch=0):
     data : numpy array
         Matrix boolean array of shape ``(channels, dim2)``.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two-dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
