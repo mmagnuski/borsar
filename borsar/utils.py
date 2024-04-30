@@ -484,13 +484,8 @@ def _get_test_data_dir():
 
 def download_test_data():
     '''Download additional test data from dropbox.'''
+    import pooch
     import zipfile
-    try:
-        from mne.utils import _fetch_file
-        use_pooch = False
-    except ImportError:
-        import pooch
-        use_pooch = True
 
     # check if test data exist
     data_dir = _get_test_data_dir()
@@ -508,14 +503,10 @@ def download_test_data():
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
 
     # download the file
-    if use_pooch:
-        hash = ('3b267625526b73bdcf13b4c83cc5846300e95f65f28e2c16e'
-                '82f49016cb56384')  # noqa: E501
-        pooch.retrieve(url=download_link, known_hash=hash,
-                       path=data_dir, fname=fname)
-    else:
-        _fetch_file(download_link, destination, print_destination=True,
-                    resume=True, timeout=30.)
+    hash = ('587b6159b8f8b3c8935b3f5eab949c533daf23609b88b0b1d'
+            '9fa4e85554d25ec')  # noqa: E501
+    pooch.retrieve(url=download_link, known_hash=hash,
+                   path=data_dir, fname=fname)
 
     # unzip and extract
     # TODO - optionally extract only the missing files
