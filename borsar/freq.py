@@ -16,7 +16,10 @@ from mne.channels.channels import UpdateChannelsMixin
 try:
     from mne.channels.channels import ContainsMixin
 except ImportError:
-    from mne.io.meas_info import ContainsMixin
+    try:
+        from mne.io.meas_info import ContainsMixin
+    except (ModuleNotFoundError, ImportError):
+        from mne._fiff.meas_info import ContainsMixin
 
 if has_epochs_mixin:
     mixins = (ContainsMixin, GetEpochsMixin, UpdateChannelsMixin)
