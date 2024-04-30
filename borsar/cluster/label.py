@@ -145,10 +145,13 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
     # numba, else numpy else mne
     if backend == 'auto':
         # numba works for 2d, 3d with adjacency
-        if has_adjacency and n_dims in [2, 3] and has_numba_lib:
+        if has_numba_lib and (
+            (has_adjacency and n_dims in [2, 3])
+            or (n_dims == 1 and not has_adjacency)
+            ):
             backend = 'numba'
         elif ((has_adjacency and n_dims == 3)
-              or (n_dims in [1, 2] and not has_adjacency)):
+              or (n_dims == 2 and not has_adjacency)):
             backend = 'numpy'
         else:
             backend = 'mne'
@@ -161,8 +164,9 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
                              "not available for the ``'mne'`` backend.")
 
     if not has_adjacency:
-        if backend == 'numba':
-            raise ValueError('Numba backend requires an adjacency matrix.')
+        if backend == 'numba' and n_dims > 1:
+            raise ValueError('Numba backend requires an adjacency matrix for '
+                             '> 1D data.')
         elif backend == 'numpy' and n_dims >= 3:
             _borsar_clustering_error()
         elif backend == 'mne' and n_dims == 3:
@@ -188,7 +192,8 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
                          ' with channel adjacency.')
 
     if n_dims == 1:
-        if backend == 'numba' or (backend == 'numpy' and has_adjacency):
+        if ((backend == 'numba' and not has_adjacency)
+            or (backend == 'numpy' and has_adjacency)):
             # TODO: more informative error
             _borsar_clustering_error()
 
@@ -211,17 +216,22 @@ def _get_cluster_fun(data, adjacency=None, backend='numpy', min_adj_ch=0,
             from .label_numba import _cluster_2d_numba
             return _cluster_2d_numba
     elif data.ndim < 3 and not has_adjacency:
-        return _cluster_1d_or_2d_no_adj
+        if data.ndim == 1 and backend == 'numba':
+            from .label_numba import _cluster_1d_numba
+            return _cluster_1d_numba
+        else:
+            return _cluster_1d_or_2d_no_adj
 
 
 def _borsar_clustering_error():
-    raise ValueError('borsar has specialized clustering functions only'
-                     ' for three- and two-dimensional data where the first '
-                     'dimension is spatial (channels or vertices). This spat'
-                     'ial dimension requires adjacency matrix defining '
-                     'adjacency relationships. Your data is either not'
-                     'three-dimensional or you did not provide an adja'
-                     'cency matrix for the spatial dimension.')
+    supported = get_supported_find_clusters_parameters()
+    raise ValueError(
+        'borsar has specialized clustering functions only for: '
+        'a) three- and two-dimensional data where the first dimension is '
+        'spatial (channels or vertices). This spatial dimension requires '
+        'an adjacency matrix defining the adjacency relationships; '
+        'b) one-dimensional data without spatial dimension.\nCheck all the '
+        f'supported options below:\n{supported}')
 
 
 # TODO : add tail=0 to control for tail selection! or 'pos', 'neg' and 'both'
@@ -418,7 +428,7 @@ def get_supported_find_clusters_parameters():
     import pandas as pd
 
     table_text = """n dimensions,channel dimension,min_adj_ch,backend,supported
-        1,no,NA,numba,no
+        1,no,NA,numba,yes
         1,no,NA,numpy,yes
         1,yes,yes,numba,no
         1,yes,no,numba,no
