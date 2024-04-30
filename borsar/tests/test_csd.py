@@ -5,7 +5,7 @@ from numpy.testing import assert_allclose
 import mne
 
 import borsar
-from borsar.utils import _get_test_data_dir()
+from borsar.utils import _get_test_data_dir
 from borsar.csd import _current_source_density, current_source_density
 
 
