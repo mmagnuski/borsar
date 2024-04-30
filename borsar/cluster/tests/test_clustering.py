@@ -623,7 +623,7 @@ def test_clustering_backend_selection():
         try:
             selected = _check_backend(data, adjacency=adj,
                                       min_adj_ch=min_adj_ch)
-            assert selected == should_select
+            assert selected == should_select, (ndim, has_adj, min_adj_ch)
         except ValueError:
             assert should_select == 'mne'
 
