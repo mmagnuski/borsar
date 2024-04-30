@@ -193,7 +193,10 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     try:
         from mne.selection import pick_types
     except ModuleNotFoundError:
-        from mne.io.pick import pick_types
+        try:
+            from mne.io.pick import pick_types
+        except ImportError:
+            from mne import pick_types
 
     if tmin is None:
         tmin = inst.times[0]

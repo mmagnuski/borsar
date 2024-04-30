@@ -9,7 +9,7 @@ import mne
 try:
     from mne.io.pick import channel_indices_by_type as get_ch_types
 except ImportError:
-    from mne._fiff.pick import channel_indices_by_type as get_ch_types
+    from mnek import channel_indices_by_type as get_ch_types
 
 import pytest
 from borsar.channels import get_ch_pos

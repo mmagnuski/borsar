@@ -157,7 +157,10 @@ def write_info(fname, info, overwrite=False):
     """
     from .channels import get_ch_pos
     from mne.utils import _validate_type
-    from mne.io.pick import channel_indices_by_type
+    try:
+        from mne.io.pick import channel_indices_by_type as get_ch_types
+    except ImportError:
+        from mne import channel_indices_by_type as get_ch_types
 
     h5io = import_hdf5()
 
