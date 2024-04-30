@@ -191,8 +191,7 @@ def _check_backend(data, adjacency=None, backend='auto', min_adj_ch=0,
                          ' with channel adjacency.')
 
     if n_dims == 1:
-        if ((backend == 'numba' and not has_adjacency)
-            or (backend == 'numpy' and has_adjacency)):
+        if backend in ['numba', 'numpy'] and has_adjacency:
             # TODO: more informative error
             _borsar_clustering_error()
 
