@@ -1,5 +1,6 @@
 import os.path as op
 import random
+import time
 
 import pytest
 import numpy as np
@@ -9,11 +10,13 @@ from scipy.io import loadmat
 from skimage.filters import gaussian
 
 import mne
+import borsar
 from borsar.utils import has_numba, _get_test_data_dir
 from borsar.cluster.utils import create_fake_data_for_cluster_test
 from borsar.cluster.label import find_clusters, _cluster_3d_numpy
 from borsar.cluster.stats import (_compute_threshold_via_permutations,
-                                  _find_stat_fun, _compute_threshold)
+                                  _find_stat_fun, _compute_threshold,
+                                  permutation_cluster_test_array)
 from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
 
 
@@ -769,3 +772,61 @@ def test_compute_threshold_via_permutations():
         print('difference:', error)
 
         assert np.abs(error) < 0.15
+
+
+@pytest.mark.skipif(not has_numba(), reason="requires numba")
+def test_permutation_cluster_test_array():
+    n_obs1, n_obs2, n_times = 25, 30, 100
+    data1 = np.random.rand(n_obs1, n_times)
+    data2 = np.random.rand(n_obs2, n_times)
+
+    # run cluster based with numba backend
+    borsar_start = time.time()
+    stats, clusters, _ = permutation_cluster_test_array(
+        [data1, data2], adjacency=None, paired=False, n_permutations=1_000,
+        backend='numba')
+    borsar_time = time.time() - borsar_start
+
+    # select stat fun and threshold
+    # (I add this to runtime because this is what permutation_cluster_test
+    #  run internally, so it seems fair)
+    mne_start = time.time()
+    stat_fun = borsar.stats._find_stat_fun(2, False, 'both')
+    threshold = borsar.stats._compute_threshold(
+        [data1, data2], None, p_threshold=0.05, paired=False, one_sample=False)
+
+    # run mne clustering
+    stats_mne, clusters_mne, _, _ = mne.stats.permutation_cluster_test(
+        [data1, data2], threshold=threshold, n_permutations=1_000,
+        stat_fun=stat_fun, n_jobs=1, out_type='mask')
+    mne_time = time.time() - mne_start
+
+    # compare speed
+    assert borsar_time < mne_time
+
+    # compare stats
+    assert np.allclose(stats, stats_mne)
+
+    # compare number of clusters
+    n_clusters_borsar = len(clusters)
+    n_clusters_mne = len(clusters_mne)
+    assert n_clusters_mne == n_clusters_borsar
+
+    # compare clusters
+    def mask_to_slice(mask):
+        idx = np.where(mask)[0]
+        slc = slice(idx[0], idx[-1] + 1)
+        return slc
+
+    if n_clusters_borsar > 0:
+        clusters_borsar = [mask_to_slice(cl) for cl in clusters]
+
+        # mne_ordering = list()
+        for slc in clusters_borsar:
+            assert (slc,) in clusters_mne
+            # idx = clusters_mne.index((slc,))
+            # mne_ordering.append(idx)
+
+        # compare pval diffs more, seems that mne does not account for
+        # doing two separate tests (one for each tail)
+        # pval_diff = pvals[0] - pvals_mne[mne_ordering[0]]
