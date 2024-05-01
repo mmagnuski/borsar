@@ -7,7 +7,76 @@ from ..stats import (compute_regression_t, _handle_preds, _find_stat_fun,
 from ..utils import progressbar
 
 
+def _set_up_clustering(stat, adjacency=None, backend='auto', min_adj_ch=0):
+    '''Helper function that configures clustering function.'''
+    backend = _check_backend(stat, adjacency, backend, min_adj_ch)
+    cluster_fun = _get_cluster_fun(
+        stat, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
+    find_func, adjacency, add_arg = _prepare_clustering(
+        stat, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
+    return find_func, adjacency, add_arg
+
+
+def _check_if_any_clusters(clusters):
+    if not clusters:
+        print('No clusters found, permutations are not performed.')
+        if_continue = False
+    else:
+        msg = 'Found {} clusters, computing permutations.'
+        print(msg.format(len(clusters)))
+        if_continue = True
+    return if_continue
+
+
+def _update_null(perm_stats, perm_idx, tail='both', pos_dist=None,
+                 neg_dist=None):
+    if len(perm_stats) > 0:
+        if tail in ['both', 'pos']:
+            max_val = perm_stats.max()
+            if max_val > 0.:
+                pos_dist[perm] = max_val
+
+        if tail in ['both', 'neg']:
+            min_val = perm_stats.min()
+            if min_val < 0.:
+                neg_dist[perm] = min_val
+
+
+def _compare_to_null(clusters, cluster_stat, tail='both', pos_dist=None,
+                     neg_dist=None):
+    # ignore values that are not in the tail of interest
+    if tail == 'pos':
+        mask = cluster_stats >= 0
+    elif tail == 'neg':
+        mask = cluster_stats <= 0
+    else:
+        mask = None
+
+    if mask is not None:
+        cluster_stat = cluster_stats[mask]
+        clusters = [clusters[ix] for ix in np.where(mask)[0]]
+
+    cluster_p = np.array([
+        (pos_dist >= cluster_stat).mean() if cluster_stat > 0
+        else (neg_dist <= cluster_stat).mean()
+        for cluster_stat in cluster_stats]
+    )
+
+    if tail == 'both':
+        cluster_p *= 2  # because we use two-tail
+        cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
+
+    # sort clusters by p value
+    cluster_order = np.argsort(cluster_p)
+    cluster_p = cluster_p[cluster_order]
+    clusters = [clusters[i] for i in cluster_order]
+    cluster_stats = cluster_stats[cluster_order]
+
+    return clusters, cluster_stats, cluster_p
+
+
 # - [x] add min_adj_ch parameter passed to find_clusters
+# - [ ] add `verbose` parameter
 # - [ ] FIXME: consider cluster_pred always addressing preds (you never want
 #              cluster the intercept, and if you do you'd need a one sample
 #              t test and thus a different permutation scheme)
@@ -102,26 +171,20 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
     t_values = stat_fun(data, preds)[cluster_pred]
 
     # set up clustering
-    backend = _check_backend(t_values, adjacency, backend, min_adj_ch)
-    cluster_fun = _get_cluster_fun(
+    find_func, adjacency, add_arg = _set_up_clustering(
         t_values, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
-    find_func, adjacency, add_arg = _prepare_clustering(
-        t_values, adjacency, cluster_fun, backend, min_adj_ch=min_adj_ch)
-
-    pos_dist = np.zeros(n_permutations)
-    neg_dist = np.zeros(n_permutations)
-    perm_preds = preds.copy()
 
     clusters, cluster_stats = find_func(
         t_values, stat_threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
         full=True)
 
-    if not clusters:
-        print('No clusters found, permutations are not performed.')
+    if_continue = _check_if_any_clusters(clusters)
+    if not if_continue:
         return t_values, clusters, cluster_stats
-    else:
-        msg = 'Found {} clusters, computing permutations.'
-        print(msg.format(len(clusters)))
+
+    pos_dist = np.zeros(n_permutations)
+    neg_dist = np.zeros(n_permutations)
+    perm_preds = preds.copy()
 
     # TODO - move progressbar code from DiamSar!
     #      - then support tqdm pbar as input
@@ -142,29 +205,16 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
             min_adj_ch=min_adj_ch, full=True)
 
         # if any clusters were found - add max statistic
-        if len(perm_cluster_stats) > 0:
-            max_val = perm_cluster_stats.max()
-            min_val = perm_cluster_stats.min()
-
-            if max_val > 0:
-                pos_dist[perm] = max_val
-            if min_val < 0:
-                neg_dist[perm] = min_val
+        _update_null(perm_cluster_stats, perm, tail='both', pos_dist=pos_dist,
+                     neg_dist=neg_dist)
 
         if progressbar:
             pbar.update(1)
 
     # compute permutation probability
-    cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
-                          else (neg_dist < cluster_stat).mean()
-                          for cluster_stat in cluster_stats])
-    cluster_p *= 2  # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
-
-    # sort clusters by p value
-    cluster_order = np.argsort(cluster_p)
-    cluster_p = cluster_p[cluster_order]
-    clusters = [clusters[i] for i in cluster_order]
+    clusters, _, cluster_p = _compare_to_null(
+        clusters, cluster_stats, tail='both', pos_dist=pos_dist,
+        neg_dist=neg_dist)
 
     out = t_values, clusters, cluster_p
     if return_distribution:
@@ -294,14 +344,15 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
                                        paired, one_sample)
 
     # use 3d clustering
-    cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
-                                   backend=backend, min_adj_ch=min_adj_ch)
+    find_func, adjacency, add_arg = _set_up_clustering(
+        stat, adjacency=adjacency, backend=backend, min_adj_ch=min_adj_ch)
 
-    clusters, cluster_stats = find_clusters(
-        stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
-        min_adj_ch=min_adj_ch)
+    clusters, cluster_stats = find_func(
+        stat, threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
+        full=True)
 
-    if not clusters:
+    if_continue = _check_if_any_clusters(clusters)
+    if not if_continue:
         return stat, clusters, cluster_stats
 
     if paired and n_groups > 2:
@@ -343,38 +394,20 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
         perm_stat = stat_fun(*perm_data)
 
-        _, perm_cluster_stats = find_clusters(
-            perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
-            min_adj_ch=min_adj_ch)
+        _, perm_cluster_stats = find_func(
+            perm_stat, threshold, adjacency, add_arg, min_adj_ch=min_adj_ch,
+            full=True)
 
         # if any clusters were found - add max statistic
-        if len(perm_cluster_stats) > 0:
-            max_val = perm_cluster_stats.max()
-
-            if max_val > 0:
-                pos_dist[perm] = max_val
-
-            if tail in ['both', 'neg']:
-                min_val = perm_cluster_stats.min()
-                if min_val < 0:
-                    neg_dist[perm] = min_val
+        _update_null(perm_cluster_stats, perm, tail, pos_dist, neg_dist)
 
         if progressbar:
             pbar.update(1)
 
     # compute permutation probability
-    # TODO - fix, when we want only 'pos' or 'neg' but use for example t test
-    cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
-                          else (neg_dist < cluster_stat).mean()
-                          for cluster_stat in cluster_stats])
-    if tail == 'both':
-        cluster_p *= 2  # because we use two-tail
-        cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
-
-    # sort clusters by p value
-    cluster_order = np.argsort(cluster_p)
-    cluster_p = cluster_p[cluster_order]
-    clusters = [clusters[i] for i in cluster_order]
+    clusters, _, cluster_p = _compare_to_null(
+        clusters, cluster_stats, tail=tail, pos_dist=pos_dist,
+        neg_dist=neg_dist)
 
     if return_distribution:
         return stat, clusters, cluster_p, dict(pos=pos_dist, neg=neg_dist)
