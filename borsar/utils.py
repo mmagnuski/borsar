@@ -1,6 +1,7 @@
 import os
 import os.path as op
 import warnings
+from pathlib import Path
 
 import numpy as np
 from contextlib import contextmanager
@@ -155,14 +156,13 @@ def write_info(fname, info, overwrite=False):
     info : mne.Info
         Info object to save.
     """
+    import h5io
     from .channels import get_ch_pos
     from mne.utils import _validate_type
     try:
         from mne.io.pick import channel_indices_by_type
     except ImportError:
         from mne import channel_indices_by_type
-
-    h5io = import_hdf5()
 
     # make sure the types are correct
     _validate_type(fname, 'str', item_name='fname')
@@ -198,9 +198,8 @@ def read_info(fname):
     info : mne.Info
         Info object read from file.
     """
-    from pathlib import Path
     import mne
-    h5io = import_hdf5()
+    import h5io
 
     mne.utils._validate_type(fname, (Path, str), item_name='fname')
 
@@ -464,19 +463,6 @@ def has_numba():
         return True
     except ImportError:
         return False
-
-
-def import_hdf5():
-    """Import h5py module if available."""
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-        h5io.read_hdf5
-    except (ModuleNotFoundError, AttributeError):
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
-
-    return h5io
 
 
 def _get_test_data_dir():
