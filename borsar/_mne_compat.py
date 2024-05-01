@@ -4,12 +4,11 @@ from mne.viz.topomap import _plot_topomap
 
 from packaging import version
 mne_version = version.parse(mne.__version__)
-has_0_21 = mne_version >= version.parse('0.21.dev0')
 has_1_1 = mne_version >= version.parse('1.1.dev0')
-has_1_2 = mne_version >= version.parse('1.1.dev0')
+has_1_2 = mne_version >= version.parse('1.2.dev0')
 
 _BORDER_DEFAULT = 'mean'
-_EXTRAPOLATE_DEFAULT = 'head' if has_0_21 else 'box'
+_EXTRAPOLATE_DEFAULT = 'box'
 
 
 # TODOs:     %(topomap_ch_type)s in docs did not work last time (was not
@@ -43,15 +42,5 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
                              contours, image_interp, show, onselect,
                              extrapolate, sphere=sphere, border=border,
                              ch_type=ch_type)
-    elif has_0_21:
-        return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
-                             names, show_names, mask, mask_params, outlines,
-                             contours, image_interp, show, onselect,
-                             extrapolate, sphere=sphere, border=border,
-                             ch_type=ch_type)
     else:
-        head_pos = None
-        return _plot_topomap(data, pos, vmin, vmax, cmap, sensors, res, axes,
-                             names, show_names, mask, mask_params, outlines,
-                             contours, image_interp, show, head_pos, onselect,
-                             extrapolate, sphere=sphere, border=border)
+        raise RuntimeError('You need to have MNE-Python version >= 1.1.0')
