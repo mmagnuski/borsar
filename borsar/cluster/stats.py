@@ -34,15 +34,15 @@ def _update_null(perm_stats, perm_idx, tail='both', pos_dist=None,
         if tail in ['both', 'pos']:
             max_val = perm_stats.max()
             if max_val > 0.:
-                pos_dist[perm] = max_val
+                pos_dist[perm_idx] = max_val
 
         if tail in ['both', 'neg']:
             min_val = perm_stats.min()
             if min_val < 0.:
-                neg_dist[perm] = min_val
+                neg_dist[perm_idx] = min_val
 
 
-def _compare_to_null(clusters, cluster_stat, tail='both', pos_dist=None,
+def _compare_to_null(clusters, cluster_stats, tail='both', pos_dist=None,
                      neg_dist=None):
     # ignore values that are not in the tail of interest
     if tail == 'pos':
@@ -53,7 +53,7 @@ def _compare_to_null(clusters, cluster_stat, tail='both', pos_dist=None,
         mask = None
 
     if mask is not None:
-        cluster_stat = cluster_stats[mask]
+        cluster_stats = cluster_stats[mask]
         clusters = [clusters[ix] for ix in np.where(mask)[0]]
 
     cluster_p = np.array([
