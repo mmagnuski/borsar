@@ -1,5 +1,6 @@
 import os.path as op
 import random
+import time
 
 import pytest
 import numpy as np
@@ -9,9 +10,13 @@ from scipy.io import loadmat
 from skimage.filters import gaussian
 
 import mne
+import borsar
 from borsar.utils import has_numba, _get_test_data_dir
 from borsar.cluster.utils import create_fake_data_for_cluster_test
 from borsar.cluster.label import find_clusters, _cluster_3d_numpy
+from borsar.cluster.stats import (_compute_threshold_via_permutations,
+                                  _find_stat_fun, _compute_threshold,
+                                  permutation_cluster_test_array)
 from borsar.cluster import construct_adjacency_matrix, cluster_based_regression
 
 
@@ -20,7 +25,7 @@ fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
 fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 
 
-def test_contstruct_adjacency():
+def test_construct_adjacency():
     '''Test various ways in which adjacency can be constructed.'''
     T, F = True, False
     ch_names = list('ABCD')
@@ -29,7 +34,7 @@ def test_contstruct_adjacency():
                             [T, T, F, T],
                             [F, F, T, F]])
 
-    # contruct neighbourhood
+    # construct the neighborhood
     dtypes = [('label', 'O'), ('neighblabel', 'O')]
     arr = np.array([(ch_names[idx], np.array(ch_names)[adj_correct[idx]])
                     for idx in range(adj_correct.shape[0])], dtype=dtypes)
@@ -119,25 +124,25 @@ def test_2d_clustering():
          [0, 0, 0, 0, 0, 0, 2, 0],
          [0, 0, 0, 0, 0, 2, 0, 0]])
 
-    correct_labels_minadj1 = np.array(
+    correct_labels_min_adj_1 = np.array(
         [[0, 1, 0, 0, 0, 0, 2, 0],
          [0, 1, 0, 0, 0, 2, 2, 0],
          [0, 0, 0, 0, 0, 0, 2, 0],
          [0, 0, 0, 0, 0, 2, 0, 0]])
 
-    correct_labels_minadj2 = np.array(
+    correct_labels_min_adj_2 = np.array(
         [[0, 0, 0, 0, 0, 0, 1, 0],
          [0, 0, 0, 0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0, 0, 0, 0]])
 
-    correct_answers = [correct_labels, correct_labels_minadj1,
-                       correct_labels_minadj2]
+    correct_answers = [correct_labels, correct_labels_min_adj_1,
+                       correct_labels_min_adj_2]
 
     # test 2d numba clustering for min_adj_ch 0, 1 and 2
-    for minadj, correct in zip([0, 1, 2], correct_answers):
+    for min_adj, correct in zip([0, 1, 2], correct_answers):
         labels = _cluster_2d_numba(data.copy(), adjacency,
-                                   min_adj_ch=minadj)
+                                   min_adj_ch=min_adj)
         assert (labels == correct).all()
 
 
@@ -208,14 +213,14 @@ def test_expected_find_clusters_errors():
 
     # mne does not support min_adj_ch
     data_3d, adj2 = create_fake_data_for_cluster_test(ndim=3, adjacency=True)
-    mssg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
-    with pytest.raises(ValueError, match=mssg):
+    msg = "``min_adj_ch`` is not available for the ``'mne'`` backend."
+    with pytest.raises(ValueError, match=msg):
         find_clusters(data_3d, 0.7, adjacency=adj2, backend='mne',
                       min_adj_ch=1)
 
     # min_adj_ch > 0 is allowed only when adjacency is passed
-    mssg = 'requires that adjacency is not None'
-    with pytest.raises(ValueError, match=mssg):
+    msg = 'requires that adjacency is not None'
+    with pytest.raises(ValueError, match=msg):
         find_clusters(data, 0.7, adjacency=None, min_adj_ch=1)
 
     # min_adj_ch > 0 is currently available only for 3d data without numba
@@ -355,30 +360,36 @@ def test_2d_numba_clustering_with_min_adj():
     assert cluster_stats[1] == 6
 
 
-def test_1d_numpy_clustering_no_adjacency():
+def test_1d_clustering_no_adjacency():
     '''Test clustering on 1d simple data without adjacency.'''
     import skimage
 
-    # create 1d data with gaussian blobs centered at given x positons:
+    # create 1d data with gaussian blobs centered at given x positions:
     values = np.zeros(100)
     x_pos = [25, 68, 92]
     values[x_pos] = 1.
     values = skimage.filters.gaussian(values, sigma=5.5)
 
-    # use find clusters with appropriate threshold:
-    clusters, stats = find_clusters(values, 0.03)
-    assert len(clusters) == 3
+    # check both backends
+    backends = ['numpy']
+    if has_numba():
+        backends.append('numba')
 
-    # make sure detected clusters are centered around correct x positions:
-    for idx in range(3):
-        assert np.abs(np.where(clusters[idx])[0].mean() - x_pos[idx]) < 2
+    for backend in backends:
+        # use find clusters with appropriate threshold:
+        clusters, _ = find_clusters(values, 0.03, backend=backend)
+        assert len(clusters) == 3
+
+        # make sure detected clusters are centered around correct x positions:
+        for idx in range(3):
+            assert np.abs(np.where(clusters[idx])[0].mean() - x_pos[idx]) < 2
 
 
 def test_2d_numpy_clustering_no_adjacency():
     '''Test clustering on 2d simple data without adjacency.'''
     import skimage
 
-    # create 2d data with gaussian blobs centered at given x, y positons:
+    # create 2d data with gaussian blobs centered at given x, y positions:
     values = np.zeros((50, 50))
     x_pos = [10, 23, 42]
     y_pos = [27, 6, 44]
@@ -446,7 +457,7 @@ def test_cluster_based_regression():
     data = all_data['data']
     pred = all_data['pred']
 
-    t_values, clusters, cluster_p, distrib = cluster_based_regression(
+    t_values, clusters, cluster_p, dist = cluster_based_regression(
         data, pred, return_distribution=True, progressbar=False)
 
     # cluster p values should be very similar
@@ -461,7 +472,7 @@ def test_cluster_based_regression():
 
     # distributions should be very similar
     # ------------------------------------
-    distrib_ft = {prefix: stat['{}distribution'.format(prefix)].item()
+    dist_ft = {prefix: stat['{}distribution'.format(prefix)].item()
                   for prefix in ['pos', 'neg']}
 
     vals = np.array([5., 15, 30, 50, 100])
@@ -469,17 +480,17 @@ def test_cluster_based_regression():
 
     for fun, prefix, vls in zip([np.less, np.greater],
                                 ['pos', 'neg'], [vals, vals * -1]):
-        ft = np.array([fun(distrib_ft[prefix], v).mean() for v in vls])
-        brsr = np.array([fun(distrib[prefix], v).mean() for v in vls])
-        assert (np.abs(ft - brsr) < max_perc_error).all()
+        ft_perc = np.array([fun(dist_ft[prefix], v).mean() for v in vls])
+        borsar_perc = np.array([fun(dist[prefix], v).mean() for v in vls])
+        assert (np.abs(ft_perc - borsar_perc) < max_perc_error).all()
 
     # masks should be the same
     # ------------------------
-    posmat = stat['posclusterslabelmat'].item()
-    negmat = stat['negclusterslabelmat'].item()
-    assert ((posmat == 1) == clusters[0]).all()
-    assert ((posmat == 2) == clusters[1]).all()
-    assert ((negmat == 1) == clusters[2]).all()
+    pos_mat = stat['posclusterslabelmat'].item()
+    neg_mat = stat['negclusterslabelmat'].item()
+    assert ((pos_mat == 1) == clusters[0]).all()
+    assert ((pos_mat == 2) == clusters[1]).all()
+    assert ((neg_mat == 1) == clusters[2]).all()
 
     # t values should be almost the same
     # ----------------------------------
@@ -514,16 +525,16 @@ def test_cluster_based_regression_3d_simulated():
     pred = np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1])
 
     # create pos cluster
-    wght = 1.9
+    weight = 1.9
     pos_idx = tuple([slice(None)] + pos_clst)
-    wght_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
-    data[pos_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+    weight_noise = np.random.sample((len(data), len(pos_clst[0]))) * 0.2 - 0.05
+    data[pos_idx] += pred[:, np.newaxis] * (weight + weight_noise)
 
     # create neg cluster
-    wght = -1.5
+    weight = -1.5
     neg_idx = tuple([slice(None)] + neg_clst)
-    wght_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
-    data[neg_idx] += pred[:, np.newaxis] * (wght + wght_noise)
+    weight_noise = np.random.sample((len(data), len(neg_clst[0]))) * 0.3 - 0.2
+    data[neg_idx] += pred[:, np.newaxis] * (weight + weight_noise)
 
     # prepare data and run cluster_based_regression
     reg_data = data.copy()
@@ -547,7 +558,7 @@ def test_cluster_based_regression_3d_simulated():
 def test_clustering_parameter_combinations():
     '''Test all possible parameter combinations for find_clusters.
 
-    Only parameters lited in ``get_supported_find_clusters_parameters`` are
+    Only parameters listed in ``get_supported_find_clusters_parameters`` are
     tested.'''
     from borsar.cluster.label import get_supported_find_clusters_parameters
     supported = get_supported_find_clusters_parameters()
@@ -615,7 +626,7 @@ def test_clustering_backend_selection():
         try:
             selected = _check_backend(data, adjacency=adj,
                                       min_adj_ch=min_adj_ch)
-            assert selected == should_select
+            assert selected == should_select, (ndim, has_adj, min_adj_ch)
         except ValueError:
             assert should_select == 'mne'
 
@@ -674,7 +685,7 @@ def test_custom_filter_function():
     assert (clusters[1] == (corrected_for_min_3_ngb == 2)).all()
 
 
-def test_custom_postfilter_function():
+def test_custom_post_filter_function():
     # create data
     test_data = np.array(
         [[1, 0, 0, 1, 0, 0],
@@ -698,7 +709,7 @@ def test_custom_postfilter_function():
     # custom function to remove clusters on the diagonal
     # (may be useful for far off-diagonal generalization effects in
     #  time generalization decoding)
-    def remove_diagnoal_clusters(clusters, adjacency=None):
+    def remove_diagonal_clusters(clusters, adjacency=None):
         diag_mask = np.zeros(clusters.shape, dtype='bool')
         np.fill_diagonal(diag_mask, True)
 
@@ -715,5 +726,107 @@ def test_custom_postfilter_function():
         return clusters
 
     clusters, _ = find_clusters(
-        test_data, threshold=0.5, filter_fun_post=remove_diagnoal_clusters)
+        test_data, threshold=0.5, filter_fun_post=remove_diagonal_clusters)
     assert (clusters[0] == data_after_removing_diagonal_clusters).all()
+
+
+def test_compute_threshold_via_permutations():
+    """Make sure that threshold computed through permutations is correct.
+
+    Check that the threshold computed through permutations/randomization
+    on data that fulfills assumptions of analytical tests is sufficiently
+    close to the analytical threshold.
+    """
+    n_groups = 2
+
+    for paired in [False, True]:
+        if paired:
+            n_obs = [101, 101]
+            data = [np.random.randn(n_obs[0])]
+            data.append(data[0] + np.random.randn(n_obs[0]))
+        else:
+            n_obs = [102, 100]
+            data = [np.random.randn(n) for n in n_obs]
+
+        analytical_threshold = _compute_threshold(
+            data=data, threshold=None, p_threshold=0.05, paired=paired,
+            one_sample=False)
+
+        stat_fun = _find_stat_fun(
+            n_groups, paired=paired, tail='both')
+
+        permutation_threshold = (
+            _compute_threshold_via_permutations(
+                data, paired=paired, tail='both', stat_fun=stat_fun,
+                n_permutations=2_000, progress=False
+            )
+        )
+
+        avg_perm = np.abs(permutation_threshold).mean()
+        error = analytical_threshold - avg_perm
+
+        print('paired:', paired)
+        print('analytical_threshold:', analytical_threshold)
+        print('permutation threshold:', permutation_threshold)
+        print('average permutation threshold:', avg_perm)
+        print('difference:', error)
+
+        assert np.abs(error) < 0.15
+
+
+@pytest.mark.skipif(not has_numba(), reason="requires numba")
+def test_permutation_cluster_test_array():
+    n_obs1, n_obs2, n_times = 25, 30, 100
+    data1 = np.random.rand(n_obs1, n_times)
+    data2 = np.random.rand(n_obs2, n_times)
+
+    # run cluster based with numba backend
+    borsar_start = time.time()
+    stats, clusters, _ = permutation_cluster_test_array(
+        [data1, data2], adjacency=None, paired=False, n_permutations=1_000,
+        backend='numba')
+    borsar_time = time.time() - borsar_start
+
+    # select stat fun and threshold
+    # (I add this to runtime because this is what permutation_cluster_test
+    #  run internally, so it seems fair)
+    mne_start = time.time()
+    stat_fun = borsar.stats._find_stat_fun(2, False, 'both')
+    threshold = borsar.stats._compute_threshold(
+        [data1, data2], None, p_threshold=0.05, paired=False, one_sample=False)
+
+    # run mne clustering
+    stats_mne, clusters_mne, _, _ = mne.stats.permutation_cluster_test(
+        [data1, data2], threshold=threshold, n_permutations=1_000,
+        stat_fun=stat_fun, n_jobs=1, out_type='mask')
+    mne_time = time.time() - mne_start
+
+    # compare speed
+    assert borsar_time < mne_time
+
+    # compare stats
+    assert np.allclose(stats, stats_mne)
+
+    # compare number of clusters
+    n_clusters_borsar = len(clusters)
+    n_clusters_mne = len(clusters_mne)
+    assert n_clusters_mne == n_clusters_borsar
+
+    # compare clusters
+    def mask_to_slice(mask):
+        idx = np.where(mask)[0]
+        slc = slice(idx[0], idx[-1] + 1)
+        return slc
+
+    if n_clusters_borsar > 0:
+        clusters_borsar = [mask_to_slice(cl) for cl in clusters]
+
+        # mne_ordering = list()
+        for slc in clusters_borsar:
+            assert (slc,) in clusters_mne
+            # idx = clusters_mne.index((slc,))
+            # mne_ordering.append(idx)
+
+        # compare pval diffs more, seems that mne does not account for
+        # doing two separate tests (one for each tail)
+        # pval_diff = pvals[0] - pvals_mne[mne_ordering[0]]

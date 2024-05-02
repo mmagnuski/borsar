@@ -5,7 +5,11 @@ from warnings import warn
 
 import numpy as np
 import mne
-from mne.io.pick import channel_indices_by_type as get_ch_types
+
+try:
+    from mne.io.pick import channel_indices_by_type as get_ch_types
+except ImportError:
+    from mne import channel_indices_by_type as get_ch_types
 
 import pytest
 from borsar.channels import get_ch_pos

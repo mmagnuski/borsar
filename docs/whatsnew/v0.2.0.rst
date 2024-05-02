@@ -1,0 +1,15 @@
+v0.2.0 (future 2024)
+--------------------
+- fix Circle CI tests and improve coverage
+- MNE-Python compatibility: only versions equal to or higher than 1.0.0 are supported
+- ``pooch`` package is now needed to download the example data
+- reorganized ``borsar.cluster.stats`` to avoid repeated code
+
+- ENH: control ``bar_height`` in ``borsar.viz.highlight``
+- ENH: allow to plot cluster contribution in source space (``borsar.cluster.plot_cluster_contribution``)
+- ENH: support 1d no-adjacency numba clustering (``borsar.cluster.label_numba._cluster_1d_numba`` - accessed through ``borsar.cluster.label._get_cluster_fun`` or ``borsar.cluster.label.find_clusters``)
+
+- FIX: ``borsar.stats._find_stat_fun`` now correctly selects one sample ttest when n_groups < 1
+- FIX: make sure ``borsar.Clusters`` accepts ``pvals=None``
+- FIX: ``borsar.Clusters.plot`` no longer tries to plot cluster range when no clusters are present (1d, no-adjacency case)
+- FIX: fix backend selection in clustering functions, ``backend='auto'`` did not select numba when numba was available and data were 3d + adjacency. Now it does.

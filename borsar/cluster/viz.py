@@ -8,6 +8,8 @@ from ..viz import Topo
 
 
 # - [ ] add intensity label to line/topo/heatmap plot
+# - [ ] add intensity label to brain plot
+# - [ ] rename ax to out (it can be Axes or Brain now)
 def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     '''
     Plot contribution of clusters along specified dimension.
@@ -37,9 +39,10 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     # --------------------------------------------
     specified_dims = dims if isinstance(dims, list) else [dims]
     dim_idx = _check_dimname_arg(clst, specified_dims[0])
+    only_vert = clst.dimnames[dim_idx] == 'vert'
+
     unspecified_dims = [dim for dim in clst.dimnames
-                        if dim not in specified_dims
-                        or dim not in kwargs]
+                        if not (dim in specified_dims or dim in kwargs)]
     if len(unspecified_dims) > 0:
         for unspec in unspecified_dims:
             dim_idx = _check_dimname_arg(clst, unspec)
@@ -53,14 +56,22 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     # plot
     # ----
     picks = list(range(n_clusters)) if picks is None else picks
-    ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
-                           retain_mass=1., axis=axis, cmap='viridis',
-                           **kwargs)
+
+    if only_vert:
+        # source space contribution plot
+        from ._viz3d import plot_cluster_src
+        ax = plot_cluster_src(clst, picks=picks, plot_contribution=True,
+                              retain_mass=1., **kwargs)
+    else:
+        # channel space and all other 2d viz (heatmap, lineplot)
+        ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+                               retain_mass=1., axis=axis, cmap='viridis',
+                               **kwargs)
 
     # create "intensity" label
     # ------------------------
     labeldims = kwargs.get('labeldims', True)
-    if labeldims:
+    if labeldims and not only_vert:
         nonreduced_dims = [dim for dim in clst.dimnames if dim not in dims]
         dimnames = [_full_dimname(dim, singular=True)
                     for dim in nonreduced_dims]
@@ -282,7 +293,7 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
 
             if labeldims:
                 _label_axis(ax, clst, dim_idx[0], ax_dim='x')
-            if not plot_contribution:
+            if not plot_contribution and clst_mask is not None:
                 _mark_cluster_range(clst_mask, x_axis, ax)
             return ax
     elif len(dim_idx) == 2:

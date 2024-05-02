@@ -16,7 +16,10 @@ from mne.channels.channels import UpdateChannelsMixin
 try:
     from mne.channels.channels import ContainsMixin
 except ImportError:
-    from mne.io.meas_info import ContainsMixin
+    try:
+        from mne.io.meas_info import ContainsMixin
+    except (ModuleNotFoundError, ImportError):
+        from mne._fiff.meas_info import ContainsMixin
 
 if has_epochs_mixin:
     mixins = (ContainsMixin, GetEpochsMixin, UpdateChannelsMixin)
@@ -190,7 +193,10 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
     try:
         from mne.selection import pick_types
     except ModuleNotFoundError:
-        from mne.io.pick import pick_types
+        try:
+            from mne.io.pick import pick_types
+        except ImportError:
+            from mne import pick_types
 
     if tmin is None:
         tmin = inst.times[0]
@@ -268,7 +274,6 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
     return n_per_seg, n_overlap, n_fft
 
 
-# - [ ] LATER: add .get_peak()
 # - [ ] TODO: compare with mne Spectrum class
 class PSD(*mixins):
     def __init__(self, psd, freqs, info, events=None, event_id=None,
@@ -467,7 +472,6 @@ class PSD(*mixins):
 
         return fig
 
-    # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
     def plot_topomap(self, freqs=None, **args):
         '''Plot topomap of given frequency range (or ranges).

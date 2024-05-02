@@ -20,7 +20,7 @@ def _cluster_3d_numba(data, adjacency=None, min_adj_ch=0):
     data : numpy array
         Matrix boolean array of shape ``(channels, dim2, dim3)``.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two-dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
@@ -59,7 +59,7 @@ def _cluster_2d_numba(data, adjacency=None, min_adj_ch=0):
     data : numpy array
         Matrix boolean array of shape ``(channels, dim2)``.
     adjacency : numpy array
-        Twodimensional boolean matrix with information about channel/vertex
+        Two-dimensional boolean matrix with information about channel/vertex
         adjacency. If ``adjacency[i, j]`` is ``True`` that means channel ``i``
         and ``j`` are adjacent.
     min_adj_ch : int
@@ -150,7 +150,7 @@ def _check_adj_ch_3d(clusters, chan_conn):
 def _label_1d(data, from_idx=0):
     '''Cluster boolean values on a vector.'''
     n_pnts = len(data)
-    clusters = np.zeros(n_pnts)
+    clusters = np.zeros(n_pnts, dtype=np.int32)
     is_previous = False
     for ix in range(n_pnts):
         if data[ix]:
@@ -162,6 +162,12 @@ def _label_1d(data, from_idx=0):
             is_previous = False
 
     return clusters, from_idx
+
+
+def _cluster_1d_numba(data, adjacency=None, min_adj_ch=0):
+    labels, _ = _label_1d(data, from_idx=0)
+
+    return labels
 
 
 @jit(nopython=True)

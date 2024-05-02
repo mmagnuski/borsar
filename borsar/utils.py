@@ -1,6 +1,7 @@
 import os
 import os.path as op
 import warnings
+from pathlib import Path
 
 import numpy as np
 from contextlib import contextmanager
@@ -155,11 +156,13 @@ def write_info(fname, info, overwrite=False):
     info : mne.Info
         Info object to save.
     """
+    import h5io
     from .channels import get_ch_pos
     from mne.utils import _validate_type
-    from mne.io.pick import channel_indices_by_type
-
-    h5io = import_hdf5()
+    try:
+        from mne.io.pick import channel_indices_by_type
+    except ImportError:
+        from mne import channel_indices_by_type
 
     # make sure the types are correct
     _validate_type(fname, 'str', item_name='fname')
@@ -195,9 +198,8 @@ def read_info(fname):
     info : mne.Info
         Info object read from file.
     """
-    from pathlib import Path
     import mne
-    h5io = import_hdf5()
+    import h5io
 
     mne.utils._validate_type(fname, (Path, str), item_name='fname')
 
@@ -463,19 +465,6 @@ def has_numba():
         return False
 
 
-def import_hdf5():
-    """Import h5py module if available."""
-    try:
-        # mne < 1.0
-        from mne.externals import h5io
-        h5io.read_hdf5
-    except (ModuleNotFoundError, AttributeError):
-        # mne > 1.0 requires separate installation of h5io
-        import h5io
-
-    return h5io
-
-
 def _get_test_data_dir():
     '''Get test data directory.'''
     from . import __path__ as borsar_dir
@@ -484,13 +473,8 @@ def _get_test_data_dir():
 
 def download_test_data():
     '''Download additional test data from dropbox.'''
+    import pooch
     import zipfile
-    try:
-        from mne.utils import _fetch_file
-        use_pooch = False
-    except ImportError:
-        import pooch
-        use_pooch = True
 
     # check if test data exist
     data_dir = _get_test_data_dir()
@@ -508,14 +492,10 @@ def download_test_data():
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
 
     # download the file
-    if use_pooch:
-        hash = ('3b267625526b73bdcf13b4c83cc5846300e95f65f28e2c16e'
-                '82f49016cb56384')  # noqa: E501
-        pooch.retrieve(url=download_link, known_hash=hash,
-                       path=data_dir, fname=fname)
-    else:
-        _fetch_file(download_link, destination, print_destination=True,
-                    resume=True, timeout=30.)
+    hash = ('587b6159b8f8b3c8935b3f5eab949c533daf23609b88b0b1d'
+            '9fa4e85554d25ec')  # noqa: E501
+    pooch.retrieve(url=download_link, known_hash=hash,
+                   path=data_dir, fname=fname)
 
     # unzip and extract
     # TODO - optionally extract only the missing files

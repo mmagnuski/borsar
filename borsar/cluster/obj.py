@@ -10,7 +10,6 @@ from .utils import (_get_mass_range, _cluster_selection, _index_from_dim,
 from .checks import (_clusters_safety_checks, _clusters_chan_vert_checks,
                      _check_dimnames_kwargs, _check_dimname_arg,
                      _check_description)
-from ..utils import import_hdf5
 
 
 def read_cluster(fname, subjects_dir=None, src=None, info=None):
@@ -36,7 +35,8 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     clst : Clusters
         Cluster results read from file.
     '''
-    h5io = import_hdf5()
+    import h5io
+
     # subjects_dir = mne.utils.get_subjects_dir(subjects_dir, raise_error=True)
     data_dict = h5io.read_hdf5(fname)
     clst = Clusters(
@@ -344,7 +344,7 @@ class Clusters(object):
             Additional description added when saving. When passed overrides
             the description parameter of Clusters.
         '''
-        h5io = import_hdf5()
+        import h5io
 
         if description is None:
             description = self.description
