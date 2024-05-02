@@ -274,7 +274,6 @@ def _psd_welch_input_seconds_to_samples(inst, winlen, step, padto):
     return n_per_seg, n_overlap, n_fft
 
 
-# - [ ] LATER: add .get_peak()
 # - [ ] TODO: compare with mne Spectrum class
 class PSD(*mixins):
     def __init__(self, psd, freqs, info, events=None, event_id=None,
@@ -473,7 +472,6 @@ class PSD(*mixins):
 
         return fig
 
-    # - [ ] LATER: add support for labeled grid (grid=True?)
     # - [ ] LATER: add support for passing axes
     def plot_topomap(self, freqs=None, **args):
         '''Plot topomap of given frequency range (or ranges).
