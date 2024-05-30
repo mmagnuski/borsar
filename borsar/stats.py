@@ -2,7 +2,6 @@ import numpy as np
 import scipy
 
 
-# - [x] return residuals
 # - [ ] consider returning  a dictionary of additional info if required
 #       (for example coefficients and SE)
 def compute_regression_t(data, preds, return_p=False, return_residuals=False):
@@ -119,7 +118,7 @@ def _find_stat_fun(n_groups, paired, tail):
                 return tval
             return stat_fun
         else:
-            from mne.stats import ttest_ind_no_p as stat_fun
+            from .stats import ttest_ind_no_p as stat_fun
             return stat_fun
     else:
         # one group
@@ -279,3 +278,38 @@ def rm_anova_stat_fun(*args):
     if data.ndim > 3:
         fval = fval.reshape(data.shape[2:])
     return fval
+
+
+def ttest_ind_no_p(a, b, axis=0, equal_var=False):
+    '''
+    T-test without p value. Copied and modified from scipy.stats.ttest_ind.
+    '''
+    from scipy.stats._stats_py import (
+        _equal_var_ttest_denom, _unequal_var_ttest_denom, _var)
+
+    n1 = a.shape[axis]
+    n2 = b.shape[axis]
+
+    if equal_var:
+        old_errstate = np.geterr()
+        np.seterr(divide='ignore', invalid='ignore')
+
+    v1 = _var(a, axis, ddof=1)
+    v2 = _var(b, axis, ddof=1)
+
+    if equal_var:
+        np.seterr(**old_errstate)
+
+    mean1 = np.mean(a, axis)
+    mean2 = np.mean(b, axis)
+
+    if equal_var:
+        df, denom = _equal_var_ttest_denom(v1, n1, v2, n2)
+    else:
+        df, denom = _unequal_var_ttest_denom(v1, n1, v2, n2)
+
+    d = mean1 - mean2
+    with np.errstate(divide='ignore', invalid='ignore'):
+        t = np.divide(d, denom)[()]
+
+    return t
