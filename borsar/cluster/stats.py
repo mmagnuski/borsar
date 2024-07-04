@@ -77,9 +77,10 @@ def _compare_to_null(clusters, cluster_stats, tail='both', pos_dist=None,
 
 # - [x] add min_adj_ch parameter passed to find_clusters
 # - [ ] add `verbose` parameter
-# - [ ] FIXME: consider cluster_pred always addressing preds (you never want
-#              cluster the intercept, and if you do you'd need a one sample
-#              t test and thus a different permutation scheme)
+# - [ ] FIXME: add checks for input types
+# - [ ] CONSIDER: cluster_pred always addressing preds (you never want
+#                 cluster the intercept, and if you do you'd need a one sample
+#                 t test and thus a different permutation scheme)
 def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
                              stat_threshold=None, alpha_threshold=0.05,
                              cluster_pred=None, backend='auto',
@@ -152,7 +153,6 @@ def cluster_based_regression(data, preds, adjacency=None, n_permutations=1000,
         ``return_distribution`` was set to ``True``.
     '''
     # data has to have observations as 1st dim and channels/vert as last dim
-    # FIXME: add checks for input types
     preds = _handle_preds(preds)
     n_obs = data.shape[0]
 

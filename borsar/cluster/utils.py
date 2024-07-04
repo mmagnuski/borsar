@@ -113,7 +113,11 @@ def _full_dimname(dimname, singular=False):
                 'hfreq': 'amplitude frequency'}
     if singular:
         dim_dict.update({'chan': 'channel', 'vert': 'vertex'})
-    return dim_dict[dimname]
+
+    if dimname in dim_dict:
+        return dim_dict[dimname]
+    else:
+        return dimname
 
 
 def _get_dimcoords(clst, dim_idx, idx=None):
