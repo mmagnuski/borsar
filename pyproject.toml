@@ -1,6 +1,6 @@
 [project]
 name = "borsar"
-version = "0.1"
+version = "0.2"
 description = "tools for electrophysiological analysis, especially cluster-based tests."
 maintainers = [
     { name = "Mikołaj Magnuski", email = "mmagnuski@swps.edu.pl" },
