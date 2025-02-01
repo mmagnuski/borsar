@@ -2,15 +2,11 @@ import os.path as op
 import numpy as np
 import matplotlib.pyplot as plt
 import pytest
+
 import mne
 from packaging import version
-
-try:
-    import mne
-    from packaging.version import Version
-    MNE_1_8 = Version(mne.__version__) >= Version('1.8.0')
-except ImportError:
-    MNE_1_8 = False
+from packaging.version import Version
+MNE_1_8 = Version(mne.__version__) >= Version('1.8.0')
 
 from borsar.utils import (create_fake_raw, download_test_data,
                           _get_test_data_dir)

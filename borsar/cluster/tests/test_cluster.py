@@ -343,6 +343,7 @@ def test_clusters():
     assert (clst_read.pvals == clst2.pvals).all()
     assert (clst_read.clusters == clst2.clusters).all()
     assert (clst_read.stat == clst2.stat).all()
+
     # delete the file
     os.remove(op.join(data_dir, 'temp_clst.hdf5'))
 

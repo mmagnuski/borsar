@@ -42,7 +42,12 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
     dimcoords = data_dict['dimcoords']
     dimnames = data_dict['dimnames']
     if len(dimcoords) < len(dimnames) and 'chan' in dimnames:
-        dimcoords.append(info.ch_names)
+        if info is not None:
+            chan_idx = dimnames.index('chan')
+            dimcoords.insert(chan_idx, info.ch_names)
+        else:
+            raise ValueError('You need to provide info object when reading '
+                             'channel space clusters.')
 
     clst = Clusters(
         data_dict['stat'], data_dict['clusters'], data_dict['pvals'],
