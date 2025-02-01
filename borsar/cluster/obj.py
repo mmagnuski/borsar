@@ -39,11 +39,16 @@ def read_cluster(fname, subjects_dir=None, src=None, info=None):
 
     # subjects_dir = mne.utils.get_subjects_dir(subjects_dir, raise_error=True)
     data_dict = h5io.read_hdf5(fname)
+    dimcoords = data_dict['dimcoords']
+    dimnames = data_dict['dimnames']
+    if len(dimcoords) < len(dimnames) and 'chan' in dimnames:
+        dimcoords.append(info.ch_names)
+
     clst = Clusters(
         data_dict['stat'], data_dict['clusters'], data_dict['pvals'],
-        dimnames=data_dict['dimnames'], dimcoords=data_dict['dimcoords'],
-        subject=data_dict['subject'], subjects_dir=subjects_dir, info=info,
-        src=src, description=data_dict['description'])
+        dimnames=dimnames, dimcoords=dimcoords,
+        subject=data_dict.get('subject', None), subjects_dir=subjects_dir,
+        info=info, src=src, description=data_dict.get('description', None))
     return clst
 
 
