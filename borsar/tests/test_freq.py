@@ -2,14 +2,18 @@ import os.path as op
 import numpy as np
 import matplotlib.pyplot as plt
 import pytest
+
 import mne
 from packaging import version
+from packaging.version import Version
+MNE_1_8 = Version(mne.__version__) >= Version('1.8.0')
 
 from borsar.utils import (create_fake_raw, download_test_data,
                           _get_test_data_dir)
 from borsar.freq import compute_rest_psd, compute_psd, PSD
 
 
+@pytest.mark.skipif(MNE_1_8, reason="mne - problem with welch windows")
 def test_compute_rest_psd():
     # test on fake raw with 3 channels
     raw = create_fake_raw(n_channels=3, n_samples=26, sfreq=4.)
@@ -32,6 +36,7 @@ def test_compute_rest_psd():
     assert (freqs2 == freqs).all()
 
 
+@pytest.mark.skipif(MNE_1_8, reason="mne - problem with welch windows")
 def test_psd_class():
     mne_version = version.parse(mne.__version__)
     # get data

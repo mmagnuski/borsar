@@ -1,6 +1,13 @@
 import numpy as np
 from scipy import sparse
 
+try:
+    import mne
+    from packaging.version import Version
+    MNE_1_8 = Version(mne.__version__) >= Version('1.8.0')
+except ImportError:
+    MNE_1_8 = False
+
 from ..utils import has_numba
 
 
@@ -350,8 +357,12 @@ def _find_clusters_mne(data, threshold, adjacency, not_used, min_adj_ch=0,
 
     if full:
         if adjacency is not None:
-            clusters = _cluster_indices_to_mask(
-                clusters, np.prod(data.shape))
+            if MNE_1_8:
+                clusters = _cluster_indices_to_mask(
+                    clusters, np.prod(data.shape), False)
+            else:
+                clusters = _cluster_indices_to_mask(
+                    clusters, np.prod(data.shape))
         clusters = [clst.reshape(orig_data_shape) for clst in clusters]
 
     return clusters, cluster_stats
