@@ -38,16 +38,10 @@ fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
 def _create_random_clusters(dims='ch_tm', n_clusters=1):
     n_channels, n_times, n_freqs = 15, 35, 15
 
-    try:
-        # mne > 0.18
-        mntg = mne.channels.make_standard_montage('standard_1020')
-    except AttributeError:
-        # mne 0.18 and below
-        mntg = mne.channels.read_montage('standard_1020')
-
+    mntg = mne.channels.make_standard_montage('standard_1020')
     ch_names = mntg.ch_names[slice(0, 89, 6)]
     times = np.linspace(-0.2, 0.5, num=n_times)
-    freqs = np.arange(5, 20)
+    freqs = np.arange(5, 20) if 'fr' in dims else None
     sfreq = 1 / np.diff(times[:2])[0]
     try:
         info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
@@ -59,19 +53,19 @@ def _create_random_clusters(dims='ch_tm', n_clusters=1):
 
     if dims == 'ch_tm':
         dimnames = ['chan', 'time']
-        dimsizes = (n_channels, n_times)
+        dim_sizes = (n_channels, n_times)
         dimcoords = [ch_names, times]
     elif dims == 'ch_fr':
         dimnames = ['chan', 'freq']
-        dimsizes = (n_channels, n_freqs)
+        dim_sizes = (n_channels, n_freqs)
         dimcoords = [ch_names, freqs]
     elif dims == 'ch_fr_tm':
         dimnames = ['chan', 'freq', 'time']
-        dimsizes = (n_channels, n_freqs, n_times)
+        dim_sizes = (n_channels, n_freqs, n_times)
         dimcoords = [ch_names, freqs, times]
 
-    data = np.random.random(dimsizes)
-    clusters = [np.random.random(dimsizes) >= 0.5 for ix in range(n_clusters)]
+    data = np.random.random(dim_sizes)
+    clusters = [np.random.random(dim_sizes) >= 0.5 for ix in range(n_clusters)]
     clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
                     dimcoords=dimcoords, info=info)
     return clst
@@ -268,12 +262,56 @@ def test_expected_errors_in_plot_indexing():
         clst.plot(chan='A')
 
 
+def test_clusters_read_write():
+    download_test_data()  # TODO: change into pytest fixtures
+    clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
+    clst = read_cluster(clst_file, src=fwd['src'], subjects_dir=data_dir)
+
+    # write - read round-trip
+    fname = op.join(data_dir, 'temp_clst.hdf5')
+    clst.save(fname)
+    clst_read = read_cluster(fname, src=fwd['src'], subjects_dir=data_dir)
+    assert len(clst_read) == len(clst)
+    assert (clst_read.pvals == clst.pvals).all()
+    assert (clst_read.clusters == clst.clusters).all()
+    assert (clst_read.stat == clst.stat).all()
+
+    # delete the file
+    os.remove(fname)
+
+    # description has to be a dictionary
+    with pytest.raises(TypeError):
+        clst.save(fname, description=list('abc'))
+
+    # testing handling info
+    # ---------------------
+    clst = _create_random_clusters(dims='ch_tm')
+    info = clst.info
+    clst.save(fname)
+
+    # works
+    clst_read = read_cluster(fname, info=info)
+
+    # raises error when "chan" in coords but no info
+    with pytest.raises(TypeError, match='You must pass an `mne.Info`'):
+        read_cluster(fname)
+
+    os.remove(fname)
+
+    # if info is passed and dimcoords are empty, fill with info
+    orig_coords = clst.dimcoords.pop(0)
+    clst.save(fname)
+    clst_read = read_cluster(fname, info=info)
+    assert clst_read.dimcoords[0] == orig_coords
+    os.remove(fname)
+
+
 def test_clusters():
     import mne
     import matplotlib.pyplot as plt
 
     # the second call should not do anything if all is downloaded
-    download_test_data()
+    download_test_data()  # TODO: change into pytest fixtures
 
     # read source-space cluster results
     clst_file = op.join(data_dir, 'alpha_range_clusters.hdf5')
@@ -333,22 +371,6 @@ def test_clusters():
     # selection that selects all
     clst3 = clst2.copy().select(p_threshold=0.5, n_points_in=100)
     assert len(clst3) == 3
-
-    # write - read round-trip
-    # ----------------------
-    fname = op.join(data_dir, 'temp_clst.hdf5')
-    clst2.save(fname)
-    clst_read = read_cluster(fname, src=fwd['src'], subjects_dir=data_dir)
-    assert len(clst_read) == len(clst2)
-    assert (clst_read.pvals == clst2.pvals).all()
-    assert (clst_read.clusters == clst2.clusters).all()
-    assert (clst_read.stat == clst2.stat).all()
-
-    # delete the file
-    os.remove(op.join(data_dir, 'temp_clst.hdf5'))
-
-    with pytest.raises(TypeError):
-        clst2.save(fname, description=list('abc'))
 
     # test contribution
     # -----------------
