@@ -492,7 +492,8 @@ def download_test_data():
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
 
     # download the file
-    hash = '43afe405bb842170e883e460ca1fc6a4e5c6ac4c0a7af0ccc52405fb0d70b31c'
+    hash = ('43afe405bb842170e883e460ca1fc6a4e5c6ac4c0a7af0ccc52405f'
+            'b0d70b31c')  # noqa: E501
     pooch.retrieve(url=download_link, known_hash=hash,
                    path=data_dir, fname=fname)
 
