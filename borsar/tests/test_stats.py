@@ -174,11 +174,11 @@ def test_compute_threshold_via_permutations():
         avg_perm = np.abs(permutation_threshold).mean()
         error = analytical_threshold - avg_perm
 
-        print('paired:', paired)
-        print('analytical_threshold:', analytical_threshold)
-        print('permutation threshold:', permutation_threshold)
-        print('average permutation threshold:', avg_perm)
-        print('difference:', error)
+        # print('paired:', paired)
+        # print('analytical_threshold:', analytical_threshold)
+        # print('permutation threshold:', permutation_threshold)
+        # print('average permutation threshold:', avg_perm)
+        # print('difference:', error)
 
         assert np.abs(error) < 0.15
 
