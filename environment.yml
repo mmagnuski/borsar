@@ -7,7 +7,7 @@ dependencies:
 - mkl>=2021.4.0
 - numpy>=1.20.1
 - scipy
-- matplotlib
+- matplotlib==3.8.4
 - pandas
 - xlrd
 - scikit-learn

@@ -329,6 +329,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     pos_dist = np.zeros(n_permutations)
     if tail == 'both':
         neg_dist = np.zeros(n_permutations)
+    else:
+        neg_dist = None
 
     # test on non-permuted data
     stat = stat_fun(*data)
