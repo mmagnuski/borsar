@@ -66,17 +66,29 @@ def compute_regression_t(data, preds, return_p=False, return_residuals=False):
         return out
 
 
-def format_pvalue(pvalue):
+def format_pvalue(pvalue, min_pvalue=None, strict_APA=False):
     '''Format p value according to APA rules.'''
-    if pvalue >= .001:
-        return 'p = {:.3f}'.format(pvalue)
+
+    if pvalue >= .001 or strict_APA or (
+            min_pvalue is not None and min_pvalue >= .001):
+        if min_pvalue is None or min_pvalue < .001 or pvalue > min_pvalue:
+            return 'p = {:.3f}'.format(pvalue)
+        else:
+            return 'p < {:.3f}'.format(min_pvalue)
     else:
         powers = 10 ** np.arange(-3, -26, step=-1, dtype='float')
-        which_power = np.where(pvalue < powers)[0][-1]
-        if which_power < 2:
-            return 'p < {}'.format(['0.001', '0.0001'][which_power])
+        if min_pvalue is None or pvalue > min_pvalue:
+            which_power = np.where(pvalue < powers)[0][-1]
+            if which_power < 2:
+                return 'p < {}'.format(['0.001', '0.0001'][which_power])
+            else:
+                return 'p < {:.0e}'.format(powers[which_power])
         else:
-            return 'p < {:.0e}'.format(powers[which_power])
+            which_power = np.where(min_pvalue < powers)[0][-1]
+            if min_pvalue > .0001:
+                return 'p < {}'.format(['0.001', '0.0001'][which_power])
+            else:
+                return 'p < {:.0e}'.format(powers[which_power])
 
 
 def _handle_preds(preds):
