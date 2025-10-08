@@ -97,12 +97,15 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
 
 def _get_units(dimname, fullname=False):
     '''Return unit for specified dimension name.'''
-    if not fullname:
-        return {'freq': 'Hz', 'lfreq': 'Hz', 'hfreq': 'Hz', 'time': 's',
-                'vert': 'vert'}[dimname]
-    else:
-        return {'freq': 'hertz', 'lfreq': 'hertz', 'hfreq': 'hertz',
-                'time': 'seconds', 'vert': 'vertices'}[dimname]
+    try:
+        if not fullname:
+            return {'freq': 'Hz', 'lfreq': 'Hz', 'hfreq': 'Hz', 'time': 's',
+                    'vert': 'vert'}[dimname]
+        else:
+            return {'freq': 'hertz', 'lfreq': 'hertz', 'hfreq': 'hertz',
+                    'time': 'seconds', 'vert': 'vertices'}[dimname]
+    except KeyError:
+        return 'unknown' if fullname else '?'
 
 
 # TODO: add singular=False to have vertex and vertices possible
