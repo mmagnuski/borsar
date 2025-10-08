@@ -1,6 +1,7 @@
 from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.contour import QuadContourSet
 
 from .channels import get_ch_pos
 from ._heatmap import heatmap
@@ -153,8 +154,11 @@ class Topo(object):
             Keyword arguments are passed to `set_linestyle` of each line.
         '''
         for topo in self:
-            for line in topo.lines.collections:
-                line.set_linestyle(*args, **kwargs)
+            if isinstance(topo.lines, QuadContourSet):
+                topo.lines.set_linestyles(*args, **kwargs)
+            else:
+                for line in topo.lines.collections:
+                    line.set_linestyle(*args, **kwargs)
 
         # changing linestyle to solid often goes without changes in interactive
         # mode, we have to force a redraw:
