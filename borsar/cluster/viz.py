@@ -9,7 +9,7 @@ from ..viz import Topo
 
 # - [ ] add intensity label to line/topo/heatmap plot
 # - [ ] add intensity label to brain plot
-# - [ ] rename ax to out (it can be Axes or Brain now)
+# - [x] rename ax to out (it can be Axes, Topo or Brain now)
 def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     '''
     Plot contribution of clusters along specified dimension.
@@ -60,11 +60,11 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     if only_vert:
         # source space contribution plot
         from ._viz3d import plot_cluster_src
-        ax = plot_cluster_src(clst, picks=picks, plot_contribution=True,
+        out = plot_cluster_src(clst, picks=picks, plot_contribution=True,
                               retain_mass=1., **kwargs)
     else:
         # channel space and all other 2d viz (heatmap, lineplot)
-        ax = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
+        out = plot_cluster_chan(clst, picks, dims=dims, plot_contribution=True,
                                retain_mass=1., axis=axis, cmap='viridis',
                                **kwargs)
 
@@ -76,26 +76,26 @@ def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
         dimnames = [_full_dimname(dim, singular=True)
                     for dim in nonreduced_dims]
         binlabel = 'Number of {} bins'.format('-'.join(dimnames))
-        if isinstance(ax, tuple):
+        if isinstance(out, tuple):
             # heatmap with colorbar
-            cbar = ax[1]
+            cbar = out[1]
             cbar.set_label(binlabel)
-        elif isinstance(ax, Topo):
+        elif isinstance(out, Topo):
             # only if contains colorbar - which will be added to Topo
             # in some time
             pass
         elif (isinstance(dims, str) or (isinstance(dims, list)
               and len(dims) == 1)):
             # line plot - label y axis
-            ax.set_ylabel(binlabel)
+            out.set_ylabel(binlabel)
 
             # make sure y axis min is 0
-            ylims = list(ax.get_ylim())
+            ylims = list(out.get_ylim())
             if not ylims[0] == 0:
                 ylims[0] = 0
-                ax.set_ylim(ylims)
+                out.set_ylim(ylims)
 
-    return ax
+    return out
 
 
 # FIXME - allow for channel sorting (by region and y position)
