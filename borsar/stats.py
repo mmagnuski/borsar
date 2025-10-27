@@ -243,7 +243,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
         raise ValueError(f'Unrecognized tail "{tail}"')
 
     if not return_distribution and not return_permutations:
-        return stats
+        return threshold
 
     output = [threshold]
 
