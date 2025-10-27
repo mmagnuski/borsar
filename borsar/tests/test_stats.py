@@ -183,6 +183,37 @@ def test_compute_threshold_via_permutations():
         assert np.abs(error) < 0.15
 
 
+def test_compute_threshold_via_permutations_perm_vectors():
+
+    n_cond = 4
+    n_obs = 15
+    n_rest = (20, 20)
+    shape = (n_cond,) + (n_obs,) + n_rest
+    data = np.random.rand(*shape)
+
+    stat_fun = _find_stat_fun(n_cond, False, 'pos')
+    stats, dist, perms = _compute_threshold_via_permutations(
+        data, paired=False, tail='pos', stat_fun=stat_fun,
+        return_permutations=True, return_distribution=True
+    )
+
+    # test if we can recreate stats map for a randomly chosen permutation
+    perm_idx_to_test = np.random.randint(0, high=1_000)
+    calc_dist = dist[perm_idx_to_test]
+
+    # recalculate the f values for given permutation vector
+    # (the loop below could maybe be simplified or exposed in borsar)
+    data_perm = list()
+    data_resh = data.reshape((n_cond * n_obs,) + n_rest)
+    for cond_idx in range(n_cond):
+        msk = perms[perm_idx_to_test] == cond_idx
+        data_perm.append(data_resh[msk, :])
+
+    fvals_perm = stat_fun(*data_perm)
+
+    assert (calc_dist == fvals_perm).all()
+
+
 def test_compute_threshold_via_permutations_n_jobs():
     '''Thresholds computed with different number of jobs should be similar.'''
     data = [np.random.randn(12, 10, 10), np.random.randn(12, 10, 10)]

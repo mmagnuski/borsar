@@ -141,7 +141,8 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     '''
     Compute significance thresholds using permutations.
 
-    Assumes ``n_conditions x n_observations x ...`` data array.
+    Assumes ``n_conditions x n_observations x ...`` data array or a list of
+    ``n_observations x ...`` arrays (one per condition).
     Note that the permutations are implemented via shuffling of the condition
     labels, not randomization of independent condition orders.
 
