@@ -17,15 +17,8 @@ jobs:
       - run:
           name: Create conda env
           command: |
-            if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              PY_VERSION="3.11"
-            else
-              PY_VERSION="3.13"
-            fi
-
-            mamba create -n borsar python=$PY_VERSION -y -v
+            mamba env create -f environment.yml
             source activate borsar
-            mamba env update -n borsar -f environment.yml -v
 
             if [ << parameters.use_numba >> == "yes" ]; then
               mamba install numba -y;
