@@ -17,7 +17,11 @@ jobs:
       - run:
           name: Create conda env
           command: |
-            mamba env create -f environment.yml
+            if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
+              mamba env create -f environment_mpl.yml
+            else
+              mamba env create -f environment.yml
+            fi
             source activate borsar
 
             if [ << parameters.use_numba >> == "yes" ]; then
@@ -27,9 +31,6 @@ jobs:
               pip install mne
             else
               pip install mne==<< parameters.mne_version >>;
-            fi
-            if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba install "matplotlib==3.10" -y
             fi
             pip install tqdm
             hash -r pytest
