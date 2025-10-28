@@ -1,0 +1,31 @@
+name: borsar
+channels:
+- defaults
+dependencies:
+- python>=3.13
+- pip
+- mkl
+- numpy
+- scipy
+- matplotlib=3.10
+- pandas
+- xlrd
+- scikit-learn
+- scikit-image
+- h5py
+# dev/testing libraries:
+- statsmodels
+- pytest
+- pytest-cov
+- psutil
+- numpydoc
+- flake8
+# likely not needed:
+- joblib
+- pip:
+  - mne
+  - h5io
+  - pydocstyle
+  - codespell
+  - sphinx_gallery
+  - sphinx_bootstrap_theme
