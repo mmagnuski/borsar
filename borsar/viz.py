@@ -129,14 +129,24 @@ class Topo(object):
 
         iter_lines = (self.lines if isinstance(self.lines, list)
                       else [self.lines])
-
+        has_collections = hasattr(lines, 'collections')
         for lines in iter_lines:
-            for l in lvl:
-                remove_lines = np.where(lines.levels == l)[0]
-                for rem_ln in remove_lines:
-                    lines.collections[rem_ln].remove()
-                for pop_ln in np.flipud(np.sort(remove_lines)):
-                    lines.collections.pop(pop_ln)
+            if has_collections:
+                for l in lvl:
+                    remove_lines = np.where(lines.levels == l)[0]
+                    for rem_ln in remove_lines:
+                        lines.collections[rem_ln].remove()
+                    for pop_ln in np.flipud(np.sort(remove_lines)):
+                        lines.collections.pop(pop_ln)
+            else:
+                # New matplotlib (>= 3.8): .collections attribute does not
+                # exist, we need to try a less elegant approach of changing
+                # linewidth to 0 for the lines we would like to no longer be visible
+                linewidths = [0 if level in lvl else lines.get_linewidth()[i] 
+                              if hasattr(lines.get_linewidth(), '__getitem__')
+                              else lines.get_linewidth()
+                              for i, level in enumerate(lines.levels)]
+                lines.set_linewidth(linewidths)
 
     def solid_lines(self):
         '''Turn all contour lines to solid style (no dashed lines).'''
