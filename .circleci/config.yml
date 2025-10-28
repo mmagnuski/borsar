@@ -18,7 +18,7 @@ jobs:
           name: Create conda env
           command: |
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              PY_VERSION="3.10"
+              PY_VERSION="3.11"
             else
               PY_VERSION="3.13"
             fi
