@@ -180,8 +180,11 @@ class Topo(object):
         '''
         for topo in self:
             if contours is not None:
-                for line in topo.lines.collections:
-                    line.set_linewidths(contours)
+                if isinstance(topo.lines, QuadContourSet):
+                    topo.lines.set_linewidths(contours)
+                else:
+                    for line in topo.lines.collections:
+                        line.set_linewidths(contours)
             if outlines is not None:
                 for line in topo.head:
                     line.set_linewidth(outlines)
@@ -244,7 +247,11 @@ class Topo(object):
 
             if hasattr(topo, 'head'):
                 [line.set_clip_on(True) for line in topo.head]
-            [line.set_clip_on(True) for line in topo.lines.collections]
+
+            if isinstance(topo.lines, QuadContourSet):
+                topo.lines.set_clip_on(True)
+            else:
+                [line.set_clip_on(True) for line in topo.lines.collections]
 
     def update(self, values):
         '''
