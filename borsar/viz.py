@@ -143,9 +143,12 @@ class Topo(object):
                 # exist, we need to try a less elegant approach of changing
                 # linewidth to 0 for the lines we would like to no longer be
                 # visible (maybe this could be done with .set_visible()?)
+                n_levels = len(lines.levels)
                 msk = np.isin(lines.levels, lvl)
                 if msk.any():
                     linewidths = np.asarray(lines.get_linewidths())
+                    if len(linewidths) == 1 and n_levels > 1:
+                        linewidths = np.repeat(linewidths[0], n_levels)
                     linewidths[msk] = 0
                     lines.set_linewidths(linewidths)
 
