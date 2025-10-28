@@ -36,4 +36,3 @@ def plot_topomap(data, pos, vmin=None, vmax=None, cmap=None, sensors=True,
             ch_type=ch_type, cnorm=cnorm)
     else:
         raise RuntimeError('You need to have MNE-Python version >= 1.4.0')
-
