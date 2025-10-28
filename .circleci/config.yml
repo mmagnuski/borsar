@@ -27,11 +27,6 @@ jobs:
             source activate borsar
             mamba env update -n borsar -f environment.yml -v
 
-            echo "=== DEBUG PYTHON VERSION ==="
-            which python
-            python -V
-            mamba env export -n borsar | grep "^python="
-
             if [ << parameters.use_numba >> == "yes" ]; then
               mamba install numba -y;
             fi
