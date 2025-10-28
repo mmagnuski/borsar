@@ -87,9 +87,8 @@ def test_multi_topo():
 
     linewidths = list()
     for lines in tp.lines:
-        for line in lines.collections:
-            linewidths.append(line.get_linewidths()[0])
-    assert (np.array(linewidths) == 0.35).all()
+        linewidths.append(lines.get_linewidths())
+    assert (np.concatenate(linewidths) == 0.35).all()
 
     # other tests
     tp.solid_lines()
