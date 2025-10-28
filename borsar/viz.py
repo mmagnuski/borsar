@@ -129,7 +129,7 @@ class Topo(object):
 
         iter_lines = (self.lines if isinstance(self.lines, list)
                       else [self.lines])
-        has_collections = hasattr(lines, 'collections')
+        has_collections = hasattr(iter_lines[0], 'collections')
         for lines in iter_lines:
             if has_collections:
                 for l in lvl:
