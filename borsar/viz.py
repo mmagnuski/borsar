@@ -1,7 +1,6 @@
 from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.contour import QuadContourSet
 
 from .channels import get_ch_pos
 from ._heatmap import heatmap
@@ -168,7 +167,8 @@ class Topo(object):
             Keyword arguments are passed to `set_linestyle` of each line.
         '''
         for topo in self:
-            if isinstance(topo.lines, QuadContourSet):
+
+            if not hasattr(topo.lines, 'collections'):
                 topo.lines.set_linestyles(*args, **kwargs)
             else:
                 for line in topo.lines.collections:
@@ -194,7 +194,7 @@ class Topo(object):
         '''
         for topo in self:
             if contours is not None:
-                if isinstance(topo.lines, QuadContourSet):
+                if not hasattr(topo.lines, 'collections'):
                     topo.lines.set_linewidths(contours)
                 else:
                     for line in topo.lines.collections:
@@ -262,7 +262,7 @@ class Topo(object):
             if hasattr(topo, 'head'):
                 [line.set_clip_on(True) for line in topo.head]
 
-            if isinstance(topo.lines, QuadContourSet):
+            if not hasattr(topo.lines, 'collections'):
                 topo.lines.set_clip_on(True)
             else:
                 [line.set_clip_on(True) for line in topo.lines.collections]
@@ -308,8 +308,11 @@ class Topo(object):
         self.img.set_data(new_image)
 
         # update contour lines by removing the old ...
-        for l in self.lines.collections:
-            l.remove()
+        if hasattr(self.lines, 'collections'):
+            for l in self.lines.collections:
+                l.remove()
+        else:
+            self.lines.remove()
 
         # ... and drawing new ones
         # FIXME - make line properties (lw) remembered
@@ -320,8 +323,11 @@ class Topo(object):
 
         # reapply clipping to the contours
         patch = self.mask_patch
-        for l in self.lines.collections:
-            l.set_clip_path(patch)
+        if hasattr(self.lines, 'collections'):
+            for l in self.lines.collections:
+                l.set_clip_path(patch)
+        else:
+            self.lines.set_clip_path(patch)
 
     def __len__(self):
         '''Return number of topomaps in Topo.'''

@@ -36,7 +36,7 @@ jobs:
               pip install mne==<< parameters.mne_version >>;
             fi
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba install "matplotlib==3.3.4" -y
+              mamba install "matplotlib==3.10" -y
             fi
             pip install tqdm
             hash -r pytest
