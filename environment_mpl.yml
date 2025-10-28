@@ -2,12 +2,12 @@ name: borsar
 channels:
 - defaults
 dependencies:
-- python>=3.13
+- python=3.13
 - pip
 - mkl
 - numpy
 - scipy
-- matplotlib=3.10
+- matplotlib=3.9
 - pandas
 - xlrd
 - scikit-learn
