@@ -141,12 +141,13 @@ class Topo(object):
             else:
                 # New matplotlib (>= 3.8): .collections attribute does not
                 # exist, we need to try a less elegant approach of changing
-                # linewidth to 0 for the lines we would like to no longer be visible
-                linewidths = [0 if level in lvl else lines.get_linewidth()[i] 
-                              if hasattr(lines.get_linewidth(), '__getitem__')
-                              else lines.get_linewidth()
-                              for i, level in enumerate(lines.levels)]
-                lines.set_linewidth(linewidths)
+                # linewidth to 0 for the lines we would like to no longer be
+                # visible (maybe this could be done with .set_visible()?)
+                msk = np.isin(lines.levels, lvl)
+                if msk.any():
+                    linewidths = np.asarray(lines.get_linewidths())
+                    linewidths[msk] = 0
+                    lines.set_linewidths(linewidths)
 
     def solid_lines(self):
         '''Turn all contour lines to solid style (no dashed lines).'''
