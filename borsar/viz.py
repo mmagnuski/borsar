@@ -181,7 +181,7 @@ class Topo(object):
     # TODO: keywords: contours=x, outline=y,
     def set_linewidth(self, contours=None, outlines=None):
         '''
-        Set contour lines line width.
+        Set line width of the contour lines or the head outline.
 
         Parameters
         ----------

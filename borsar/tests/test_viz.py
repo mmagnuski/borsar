@@ -87,7 +87,11 @@ def test_multi_topo():
 
     linewidths = list()
     for lines in tp.lines:
-        linewidths.append(lines.get_linewidths())
+        if hasattr(lines, 'collections'):
+            for line in lines.collections:
+                linewidths.append(line.get_linewidths()[0])
+        else:
+            linewidths.append(lines.get_linewidths())
     assert (np.concatenate(linewidths) == 0.35).all()
 
     # other tests
