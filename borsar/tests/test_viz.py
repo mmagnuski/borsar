@@ -92,7 +92,12 @@ def test_multi_topo():
                 linewidths.append(line.get_linewidths()[0])
         else:
             linewidths.append(lines.get_linewidths())
-    assert (np.concatenate(linewidths) == 0.35).all()
+    try:
+        linewidths = np.concatenate(linewidths)
+    except ValueError:
+        linewidths = np.asarray(linewidths)
+
+    assert (linewidths == 0.35).all()
 
     # other tests
     tp.solid_lines()
