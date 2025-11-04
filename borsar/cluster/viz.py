@@ -114,8 +114,8 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
     picks : int | list
         Cluster index or list of cluster indices to plot.
     dims : str | list of str | None
-        Dimensions to visualize. By default (``None``) only spatial dimension
-        is plotted.
+        Dimensions to visualize. By default (``None``), only spatial dimension
+        is plotted, unless it is adressed in **kwargs (see kwargs description).
     vmin : float, optional
         Value mapped to minimum in the colormap. Inferred from data by default.
     vmax : float, optional
@@ -187,6 +187,21 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
             dim_kwargs[k] = v
 
     # consider dims
+    if dims is None:
+        # check if has_spatial
+        # FIXME - check if we already have some function for that
+        has_spatial = clst.dimnames[0] in ['chan', 'vert']
+        if has_spatial and clst.dimnames[0] in dim_kwargs:
+            if len(clst.dimnames) > 1:
+                dims = clst.dimnames[1:]
+            else:
+                raise ValueError('Addressed a spatial dimension when it is the'
+                                 ' only one present. Addressing a spatial '
+                                 'dimension allows to aggregate it and show'
+                                 'results on the remaining dimensions. When'
+                                 ' no other dimension is present, this is not'
+                                 ' possible and thus the result is undefined.')
+
     dim_idx = _handle_dims(clst, dims)
     dims = [clst.dimnames[ix] for ix in dim_idx]  # because chan can be added
 

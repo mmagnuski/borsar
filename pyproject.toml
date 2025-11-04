@@ -23,7 +23,7 @@ dependencies = [
     "matplotlib >= 3.5.0",
     "pandas",
     "scikit-image",
-    "mne >= 1.0.0",
+    "mne >= 1.4.0",
     "tqdm",
     "h5io",
     "h5py"
