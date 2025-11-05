@@ -186,7 +186,8 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
         else:
             dim_kwargs[k] = v
 
-    # consider dims
+    # check if automatic spatial aggregation is valid
+    # or, if spatial addressing is used - whether it makes sense.
     if dims is None:
         # check if has_spatial
         # FIXME - check if we already have some function for that
@@ -230,6 +231,12 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
                 clst_mask = clst_mask.any(axis=0)
             else:
                 multi_clusters = True
+
+    # check if there is any dimensionatily to plot
+    if clst_stat.ndim < 1:
+        raise ValueError(
+            f'The choice of plotting parameters ({dim_kwargs}),'
+            ' results in a single point to plot, which is undefined.')
 
     show = clst_mask if plot_contribution else clst_stat
     vmin, vmax = _get_clim(show, vmin=vmin, vmax=vmax,
