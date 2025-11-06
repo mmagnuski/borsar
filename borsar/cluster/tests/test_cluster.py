@@ -529,6 +529,16 @@ def test_clusters():
     assert len(clst_empty) == 0
 
 
+def test_cluster_1d_spatial():
+    clst = _create_random_clusters(dims='ch', n_clusters=1)
+
+    # make sure we can't address spatial dimension (even with a list/vector)
+    # when it is the only one present
+    msg = 'no other dimension is present'
+    with pytest.raises(ValueError, match=msg):
+        clst.plot(chan=[0, 1, 2, 3])
+
+
 def test_clusters_safety_checks():
 
     # _clusters_safety_checks
@@ -824,6 +834,11 @@ def test_cluster_ignore_dims():
     time_idx = np.array([17, 18, 19])[np.newaxis, np.newaxis, :]
     assert (clst_mask == clusters[0][:, freq_idx, time_idx]).all()
     assert (clst_stat == data[:, freq_idx, time_idx]).all()
+
+    # a descriptive error explains that the data is reduced to a single point
+    msg = 'single point to plot, which is undefined'
+    with pytest.raises(ValueError, match=msg):
+        clst.plot(chan=0, freq=[9], time=[0.15])
 
     # test heatmap
     # ------------
