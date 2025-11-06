@@ -25,7 +25,7 @@ from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
                                   _get_dimcoords, _get_mass_range,
                                   _format_cluster_pvalues, _index_from_dim,
                                   _full_dimname, _human_readable_dimlabel,
-                                  _prepare_dimindex_plan)
+                                  _prepare_dimindex_plan, _create_random_clusters)
 from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
@@ -33,42 +33,6 @@ download_test_data()
 data_dir = _get_test_data_dir()
 fwd_fname = 'DiamSar-eeg-oct-6-fwd.fif'
 fwd = mne.read_forward_solution(op.join(data_dir, fwd_fname))
-
-
-def _create_random_clusters(dims='ch_tm', n_clusters=1):
-    n_channels, n_times, n_freqs = 15, 35, 15
-
-    mntg = mne.channels.make_standard_montage('standard_1020')
-    ch_names = mntg.ch_names[slice(0, 89, 6)]
-    times = np.linspace(-0.2, 0.5, num=n_times)
-    freqs = np.arange(5, 20) if 'fr' in dims else None
-    sfreq = 1 / np.diff(times[:2])[0]
-    try:
-        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
-                               montage=mntg, verbose=False)
-    except TypeError:
-        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
-                               verbose=False)
-        info.set_montage(mntg)
-
-    if dims == 'ch_tm':
-        dimnames = ['chan', 'time']
-        dim_sizes = (n_channels, n_times)
-        dimcoords = [ch_names, times]
-    elif dims == 'ch_fr':
-        dimnames = ['chan', 'freq']
-        dim_sizes = (n_channels, n_freqs)
-        dimcoords = [ch_names, freqs]
-    elif dims == 'ch_fr_tm':
-        dimnames = ['chan', 'freq', 'time']
-        dim_sizes = (n_channels, n_freqs, n_times)
-        dimcoords = [ch_names, freqs, times]
-
-    data = np.random.random(dim_sizes)
-    clusters = [np.random.random(dim_sizes) >= 0.5 for ix in range(n_clusters)]
-    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
-                    dimcoords=dimcoords, info=info)
-    return clst
 
 
 def test_get_mass_range():

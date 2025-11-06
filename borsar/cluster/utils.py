@@ -881,6 +881,48 @@ def create_fake_data_for_cluster_test(ndim=2, adjacency=True, dim_size=None):
     return data, adj
 
 
+def _create_random_clusters(dims='ch_tm', n_clusters=1):
+    import mne
+    from borsar import Clusters
+    n_channels, n_times, n_freqs = 15, 35, 15
+
+    mntg = mne.channels.make_standard_montage('standard_1020')
+    ch_names = mntg.ch_names[slice(0, 89, 6)]
+    times = np.linspace(-0.2, 0.5, num=n_times)
+    freqs = np.arange(5, 20) if 'fr' in dims else None
+    sfreq = 1 / np.diff(times[:2])[0]
+    try:
+        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                               montage=mntg, verbose=False)
+    except TypeError:
+        info = mne.create_info(ch_names, sfreq, ch_types=['eeg'] * n_channels,
+                               verbose=False)
+        info.set_montage(mntg)
+
+    if dims == 'ch':
+        dimnames = ['chan']
+        dim_sizes = (n_channels,)
+        dimcoords = [ch_names]
+    if dims == 'ch_tm':
+        dimnames = ['chan', 'time']
+        dim_sizes = (n_channels, n_times)
+        dimcoords = [ch_names, times]
+    elif dims == 'ch_fr':
+        dimnames = ['chan', 'freq']
+        dim_sizes = (n_channels, n_freqs)
+        dimcoords = [ch_names, freqs]
+    elif dims == 'ch_fr_tm':
+        dimnames = ['chan', 'freq', 'time']
+        dim_sizes = (n_channels, n_freqs, n_times)
+        dimcoords = [ch_names, freqs, times]
+
+    data = np.random.random(dim_sizes)
+    clusters = [np.random.random(dim_sizes) >= 0.5 for ix in range(n_clusters)]
+    clst = Clusters(data, clusters, [0.01], dimnames=dimnames,
+                    dimcoords=dimcoords, info=info)
+    return clst
+
+
 def _do_not_use_cluster_idx(cluster_idx):
     '''If cluster_idx is not None raise error urging user to use picks instead
     of cluster_idx.'''
