@@ -1,7 +1,6 @@
 import os
 import os.path as op
 import warnings
-
 import pytest
 import numpy as np
 import matplotlib as mpl
@@ -19,13 +18,12 @@ from borsar.cluster import Clusters, read_cluster
 from borsar.cluster.checks import (_clusters_safety_checks, _check_description,
                                    _clusters_chan_vert_checks,
                                    _check_dimnames_kwargs)
-from borsar.cluster.utils import (_check_stc, _label_from_cluster, _get_clim,
-                                  _prepare_cluster_description, _handle_dims,
-                                  _aggregate_cluster, _get_units,
-                                  _get_dimcoords, _get_mass_range,
-                                  _format_cluster_pvalues, _index_from_dim,
-                                  _full_dimname, _human_readable_dimlabel,
-                                  _prepare_dimindex_plan, _create_random_clusters)
+from borsar.cluster.utils import (
+    _check_stc, _label_from_cluster, _get_clim, _prepare_cluster_description,
+    _handle_dims, _aggregate_cluster, _get_units, _get_dimcoords,
+    _get_mass_range, _format_cluster_pvalues, _index_from_dim, _full_dimname,
+    _human_readable_dimlabel, _prepare_dimindex_plan, _create_random_clusters
+)
 from borsar.cluster.viz import _label_axis, _move_axes_to
 
 # setup
