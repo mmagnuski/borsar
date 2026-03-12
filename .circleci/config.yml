@@ -17,10 +17,11 @@ jobs:
       - run:
           name: Create conda env
           command: |
+            mamba update -n base -c conda-forge conda
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba env create -f environment_mpl.yml
+              mamba env create -f environment_mpl.yml --override-channels -c conda-forge
             else
-              mamba env create -f environment.yml
+              mamba env create -f environment.yml --override-channels -c conda-forge
             fi
             source activate borsar
 
