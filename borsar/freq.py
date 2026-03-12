@@ -112,7 +112,7 @@ def compute_rest_psd(raw, events=None, event_id=None, tmin=None, tmax=None,
                 event_id = [event_id]
         else:
             event_id = np.unique(events[:, -1])
-        events_of_interest = np.in1d(events[:, -1], event_id)
+        events_of_interest = np.isin(events[:, -1], event_id)
         events = events[events_of_interest]
 
         psd_dict = {ev: list() for ev in event_id}
@@ -224,7 +224,7 @@ def compute_psd(inst, tmin=None, tmax=None, winlen=None, step=None, padto=None,
             # check which epochs were selected
             chosen_events = (list(event_id.values())
                              if isinstance(event_id, dict) else event_id)
-            msk = np.in1d(inst.events[:, -1], chosen_events)
+            msk = np.isin(inst.events[:, -1], chosen_events)
             this_inst = inst[msk]
 
             events = this_inst.events

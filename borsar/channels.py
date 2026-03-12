@@ -71,7 +71,7 @@ def select_channels(inst, select='all'):
         frontal_idx = np.where(frontal & not_too_low)[0]
         if 'asy' in select:
             hmlg = homologous_pairs(inst)
-            sel = np.in1d(hmlg['left'], frontal_idx)
+            sel = np.isin(hmlg['left'], frontal_idx)
             return {side: hmlg[side][sel] for side in ['left', 'right']}
         else:
             return frontal_idx
