@@ -571,8 +571,8 @@ class Clusters(object):
                                          **kwargs)
 
     def plot(self, picks=None, dims=None, set_light=True, vmin=None,
-             vmax=None, mark_kwargs=None, figure_size=None, cluster_idx=None,
-             **kwargs):
+             vmax=None, mark_clst_prop=0.5, mark_kwargs=None,
+             figure_size=None, cluster_idx=None, **kwargs):
         '''
         Plot cluster.
 
@@ -589,8 +589,12 @@ class Clusters(object):
         vmax : float, optional
             Value mapped to maximum in the colormap. Inferred from data by
             default.
-        title : str, optional
-            Optional title for the figure.
+        mark_clst_prop : float
+            Mark elements that exceed this proportion in the reduced cluster range.
+            For example if 4 frequency bins are reduced using ``freq=(8, 12)``
+            then if ``mark_clst_prop`` is ``0.5`` only channels contributing
+            at least 2 frequency bins (4 bins * 0.5 proportion) in this range
+            will be marked in the topomap. Defaults to ``0.5``.
         mark_kwargs : dict | None, optional
             Keyword arguments for ``Topo.mark_channels``. For example:
             ``mark_kwargs={'markersize'=3}`` to change the size of the markers.
@@ -637,9 +641,11 @@ class Clusters(object):
                                     figure_size=figure_size,
                                     set_light=set_light, **kwargs)
         else:
-            return plot_cluster_chan(self, picks, dims=dims, vmin=vmin,
-                                     vmax=vmax, mark_kwargs=mark_kwargs,
-                                     **kwargs)
+            return plot_cluster_chan(
+                self, picks, dims=dims, vmin=vmin, vmax=vmax,
+                mark_clst_prop=mark_clst_prop, mark_kwargs=mark_kwargs,
+                **kwargs
+            )
 
     @property
     def cluster_polarity(self):

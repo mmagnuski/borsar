@@ -9,7 +9,6 @@ from ..viz import Topo
 
 # - [ ] add intensity label to line/topo/heatmap plot
 # - [ ] add intensity label to brain plot
-# - [x] rename ax to out (it can be Axes, Topo or Brain now)
 def plot_cluster_contribution(clst, dims, picks=None, axis=None, **kwargs):
     '''
     Plot contribution of clusters along specified dimension.
