@@ -195,12 +195,13 @@ def plot_cluster_chan(clst, picks=None, dims=None, vmin=None, vmax=None,
             if len(clst.dimnames) > 1:
                 dims = clst.dimnames[1:]
             else:
-                raise ValueError('Addressed a spatial dimension when it is the'
-                                 ' only one present. Addressing a spatial '
-                                 'dimension allows to aggregate it and show'
-                                 'results on the remaining dimensions. When'
-                                 ' no other dimension is present, this is not'
-                                 ' possible and thus the result is undefined.')
+                raise ValueError(
+                    'Addressed a spatial dimension when it is the only one '
+                    'present. Addressing a spatial dimension allows to aggreg'
+                    'ate it and show results on the remaining dimensions. When'
+                    ' no other dimension is present, this is not possible and'
+                    ' thus the result is undefined.'
+                )
 
     dim_idx = _handle_dims(clst, dims)
     dims = [clst.dimnames[ix] for ix in dim_idx]  # because chan can be added
