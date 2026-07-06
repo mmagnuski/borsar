@@ -465,6 +465,15 @@ def has_numba():
         return False
 
 
+def has_xarray():
+    """Check if xarray is available."""
+    try:
+        import xarray
+        return True
+    except ImportError:
+        return False
+
+
 def _get_test_data_dir():
     '''Get test data directory.'''
     from . import __path__ as borsar_dir
