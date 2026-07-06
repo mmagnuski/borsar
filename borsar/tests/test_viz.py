@@ -12,7 +12,7 @@ import pytest
 
 from borsar.channels import select_channels
 from borsar.freq import compute_rest_psd
-from borsar.utils import find_range, _get_test_data_dir
+from borsar.utils import find_range, _get_test_data_dir, has_xarray
 from borsar.viz import Topo, _extract_topo_channels, heatmap, highlight
 from borsar._heatmap import _create_cluster_contour, _add_image_mask
 from borsar._vizutils import color_limits
@@ -275,6 +275,28 @@ def test_heatmap():
         assert 'w' in line_colors
     if msk[1].any():
         assert 'r' in line_colors
+
+    plt.close('all')
+
+
+@pytest.mark.skipif(not has_xarray(), reason="requires xarray")
+def test_heatmap_uses_xarray_coords():
+    import xarray as xr
+
+    data = np.arange(12, dtype='float').reshape(3, 4)
+    x = np.linspace(0.1, 0.4, num=4)
+    y = np.array([8., 10., 12.])
+    xarr = xr.DataArray(
+        data, dims=('frequency', 'time'),
+        coords={'frequency': y, 'time': x}
+    )
+
+    ax = heatmap(xarr, colorbar=False)
+    np.testing.assert_allclose(
+        ax.images[0].get_extent(), [0.05, 0.45, 7., 13.]
+    )
+    assert ax.get_xlabel() == 'time'
+    assert ax.get_ylabel() == 'frequency'
 
     plt.close('all')
 
