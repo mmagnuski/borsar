@@ -238,7 +238,11 @@ def test_topo_grid():
     plt.close(topo.axes[0].figure)
 
 
-def test_heatmap():
+def test_heatmap(monkeypatch):
+    monkeypatch.setattr(
+        'borsar._heatmap.has_xarray',
+        lambda: pytest.fail('NumPy inputs should not trigger xarray checks.')
+    )
     data = np.random.random((5, 6))
     x = np.linspace(10, 12, num=6)
     y = np.linspace(3, 9, num=5)
@@ -291,7 +295,8 @@ def test_heatmap_uses_xarray_coords():
         coords={'frequency': y, 'time': x}
     )
 
-    ax = heatmap(xarr, colorbar=False)
+    mask = xarr > 5
+    ax = heatmap(xarr, mask=mask, outlines=True, colorbar=False)
     np.testing.assert_allclose(
         ax.images[0].get_extent(), [0.05, 0.45, 7., 13.]
     )

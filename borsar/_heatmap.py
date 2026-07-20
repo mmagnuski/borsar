@@ -57,7 +57,7 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ----------
     array : 2d numpy array | xarray.DataArray
         The array to be plotted as heatmap.
-    mask : 2d boolean array
+    mask : 2d boolean numpy array | xarray.DataArray
         Matrix specifying which pixels to unmask. Masking is done with
         transparency.
     axis : matplotlib axis
@@ -89,8 +89,13 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         The handle to the colorbar.
     '''
     x_label, y_label = None, None
-    if not isinstance(array, np.ndarray) and has_xarray():
+    may_use_xarray = (
+        not isinstance(array, np.ndarray)
+        or (mask is not None and not isinstance(mask, np.ndarray))
+    )
+    if may_use_xarray and has_xarray():
         from xarray import DataArray
+
         if isinstance(array, DataArray):
             x_label, y_label = array.dims[-1], array.dims[-2]
             if x_axis is None and x_label in array.coords:
@@ -98,6 +103,9 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             if y_axis is None and y_label in array.coords:
                 y_axis = array.coords[y_label].values
             array = array.values
+
+        if isinstance(mask, DataArray):
+            mask = mask.values
 
     if vmin is None and vmax is None:
         vmin, vmax = color_limits(array)
