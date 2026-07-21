@@ -19,7 +19,7 @@ jobs:
           name: Install CI tools
           command: |
             apt-get update
-            apt-get install -y curl
+            apt-get install -y curl gettext-base gnupg
       - run:
           name: Create conda env
           command: |
@@ -28,7 +28,13 @@ jobs:
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
               mamba env create -f environment_mpl.yml
             else
-              mamba env create -f environment.yml
+              if [ "<< parameters.mne_version >>" == "1.8.0" ]; then
+                export SCIPY_SPEC="<1.17"
+              else
+                export SCIPY_SPEC=""
+              fi
+              envsubst < environment.template.yml > environment_ci.yml
+              mamba env create -f environment_ci.yml
             fi
             source activate borsar
 

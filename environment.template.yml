@@ -1,0 +1,31 @@
+name: borsar
+channels:
+- conda-forge
+dependencies:
+- python=3.13
+- pip
+- mkl
+- numpy
+# MNE 1.8 imports ``scipy.special.sph_harm``, removed in SciPy 1.17.
+- scipy${SCIPY_SPEC}
+- matplotlib
+- pandas
+- xlrd
+- scikit-learn
+- scikit-image
+- h5py
+# dev/testing libraries:
+- statsmodels
+- pytest
+- pytest-cov
+- psutil
+- numpydoc
+- flake8
+# likely not needed:
+- joblib
+- pip:
+  - h5io
+  - pydocstyle
+  - codespell
+  - sphinx_gallery
+  - sphinx_bootstrap_theme
