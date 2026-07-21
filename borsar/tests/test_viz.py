@@ -306,6 +306,52 @@ def test_heatmap_uses_xarray_coords():
     plt.close('all')
 
 
+@pytest.mark.skipif(not has_xarray(), reason="requires xarray")
+@pytest.mark.parametrize(
+    ('coords', 'x_axis', 'y_axis', 'expected_extent'),
+    [
+        ({}, None, None, [-0.5, 3.5, -0.5, 2.5]),
+        ({'time': [10., 20., 30., 40.]}, None, None,
+         [5., 45., -0.5, 2.5]),
+        ({'frequency': [8., 10., 12.], 'time': [0.1, 0.2, 0.3, 0.4]},
+         np.array([1., 3., 5., 7.]), np.array([20., 21., 22.]),
+         [0., 8., 19.5, 22.5]),
+    ]
+)
+def test_heatmap_xarray_incomplete_coords(coords, x_axis, y_axis,
+                                          expected_extent):
+    """Use defaults for missing xarray coordinates and honor explicit axes."""
+    import xarray as xr
+
+    xarr = xr.DataArray(
+        np.arange(12, dtype='float').reshape(3, 4),
+        dims=('frequency', 'time'), coords=coords
+    )
+
+    ax = heatmap(xarr, x_axis=x_axis, y_axis=y_axis, colorbar=False)
+
+    np.testing.assert_allclose(ax.images[0].get_extent(), expected_extent)
+    assert ax.get_xlabel() == 'time'
+    assert ax.get_ylabel() == 'frequency'
+    plt.close(ax.figure)
+
+
+@pytest.mark.skipif(not has_xarray(), reason="requires xarray")
+def test_heatmap_accepts_xarray_mask_for_numpy_data():
+    """An xarray mask should be accepted even when data is a NumPy array."""
+    import xarray as xr
+
+    data = np.arange(12, dtype='float').reshape(3, 4)
+    mask = xr.DataArray(data > 5, dims=('frequency', 'time'))
+
+    ax = heatmap(data, mask=mask, colorbar=False)
+
+    assert len(ax.images) == 2
+    assert ax.get_xlabel() == ''
+    assert ax.get_ylabel() == ''
+    plt.close(ax.figure)
+
+
 def test_utils():
     clim = color_limits(np.random.randint(0, high=2, dtype='bool'))
     assert clim == (0., 1.)
