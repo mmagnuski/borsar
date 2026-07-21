@@ -24,15 +24,16 @@ jobs:
           name: Create conda env
           command: |
             mamba update -n base -c conda-forge conda
+            conda config --set channel_priority strict
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba env create --strict-channel-priority -f environment_mpl.yml
+              mamba env create -f environment_mpl.yml
             else
-              mamba env create --strict-channel-priority -f environment.yml
+              mamba env create -f environment.yml
             fi
             source activate borsar
 
             if [ << parameters.use_numba >> == "yes" ]; then
-              mamba install --strict-channel-priority numba -y;
+              mamba install numba -y;
             fi
             if [ << parameters.mne_version >> == "current" ]; then
               pip install mne
