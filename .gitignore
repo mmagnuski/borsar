@@ -68,3 +68,6 @@ target/
 
 # no additional testing data will be added to the repo
 borsar/data/
+
+# Pixi resolves this locally; do not commit the machine-generated lock file.
+pixi.lock
