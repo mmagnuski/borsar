@@ -2,13 +2,13 @@ name: borsar
 channels:
 - conda-forge
 dependencies:
-- python=3.13
+- python=${PYTHON_VERSION}
 - pip
 - mkl
-- numpy
-# MNE 1.8 imports ``scipy.special.sph_harm``, removed in SciPy 1.17.
+- numpy${NUMPY_SPEC}
+# MNE 1.4 and 1.8 import ``scipy.special.sph_harm``, removed in SciPy 1.17.
 - scipy${SCIPY_SPEC}
-- matplotlib
+- matplotlib${MATPLOTLIB_SPEC}
 - pandas
 - xlrd
 - scikit-learn
