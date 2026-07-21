@@ -481,7 +481,7 @@ def _get_test_data_dir():
 
 
 def download_test_data():
-    '''Download additional test data from dropbox.'''
+    '''Download and extract the additional test data used by the test suite.'''
     import pooch
     import zipfile
 
@@ -500,10 +500,9 @@ def download_test_data():
     download_link = ('https://www.dropbox.com/sh/l4scs37524lb3pa/'
                      'AABCak4jORjgridWwHlwjhMHa?dl=1')
 
-    # download the file
-    hash = ('43afe405bb842170e883e460ca1fc6a4e5c6ac4c0a7af0ccc52405f'
-            'b0d70b31c')  # noqa: E501
-    pooch.retrieve(url=download_link, known_hash=hash,
+    # Dropbox generates the ZIP archive for this shared folder on demand, so
+    # its checksum is not stable even when its contents have not changed.
+    pooch.retrieve(url=download_link, known_hash=None,
                    path=data_dir, fname=fname)
 
     # unzip and extract
