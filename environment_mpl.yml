@@ -1,8 +1,10 @@
 name: borsar
 channels:
-- defaults
+- conda-forge
 dependencies:
-- python=3.13
+# MNE-Python 1.4 is tested in CI with this environment.  It does not support
+# the Python 3.13 environment used by the current-MNE jobs.
+- python=3.11
 - pip
 - mkl
 - numpy
@@ -23,7 +25,6 @@ dependencies:
 # likely not needed:
 - joblib
 - pip:
-  - mne
   - h5io
   - pydocstyle
   - codespell

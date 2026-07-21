@@ -22,7 +22,6 @@ dependencies:
 # likely not needed:
 - joblib
 - pip:
-  - mne
   - h5io
   - pydocstyle
   - codespell

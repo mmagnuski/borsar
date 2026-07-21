@@ -5,6 +5,7 @@ jobs:
   build:
     docker:
       - image: condaforge/mambaforge:latest
+    resource_class: large
     parameters:
       mne_version:
         type: string
@@ -15,18 +16,23 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install CI tools
+          command: |
+            apt-get update
+            apt-get install -y curl
+      - run:
           name: Create conda env
           command: |
             mamba update -n base -c conda-forge conda
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba env create -f environment_mpl.yml --override-channels -c conda-forge
+              mamba env create --strict-channel-priority -f environment_mpl.yml
             else
-              mamba env create -f environment.yml --override-channels -c conda-forge
+              mamba env create --strict-channel-priority -f environment.yml
             fi
             source activate borsar
 
             if [ << parameters.use_numba >> == "yes" ]; then
-              mamba install numba -y;
+              mamba install --strict-channel-priority numba -y;
             fi
             if [ << parameters.mne_version >> == "current" ]; then
               pip install mne
@@ -38,8 +44,6 @@ jobs:
       - run:
           name: Run tests
           command: |
-            apt update
-            apt-get -y install curl gnupg
             source activate borsar
             python -m pytest --cov=borsar borsar/ \
                              --cov-report xml:"./coverage.xml"
