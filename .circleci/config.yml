@@ -25,17 +25,21 @@ jobs:
           command: |
             mamba update -n base -c conda-forge conda
             conda config --set channel_priority strict
+            export PYTHON_VERSION="3.13"
+            export NUMPY_SPEC=""
+            export SCIPY_SPEC=""
+            export MATPLOTLIB_SPEC=""
+
             if [ "<< parameters.mne_version >>" == "1.4.0" ]; then
-              mamba env create -f environment_mpl.yml
-            else
-              if [ "<< parameters.mne_version >>" == "1.8.0" ]; then
-                export SCIPY_SPEC="<1.17"
-              else
-                export SCIPY_SPEC=""
-              fi
-              envsubst < environment.template.yml > environment_ci.yml
-              mamba env create -f environment_ci.yml
+              export PYTHON_VERSION="3.11"
+              export NUMPY_SPEC="<2"
+              export SCIPY_SPEC="<1.17"
+              export MATPLOTLIB_SPEC="=3.9"
+            elif [ "<< parameters.mne_version >>" == "1.8.0" ]; then
+              export SCIPY_SPEC="<1.17"
             fi
+            envsubst < environment.template.yml > environment_ci.yml
+            mamba env create -f environment_ci.yml
             source activate borsar
 
             if [ << parameters.use_numba >> == "yes" ]; then
