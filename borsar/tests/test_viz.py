@@ -171,8 +171,24 @@ def test_outlines():
     for c1, c2 in zip(cntr, correct_cntr):
         np.testing.assert_equal(c1, c2)
 
-    # TODO - add test for outlines with extent
     cntr = _create_cluster_contour(data, extent=(0, 10, 5.25, 7.75))
+    correct_extent = [[(x + 0.5) * 2., (y + 0.5) * 0.5 + 5.25]
+                      for x, y in correct_cntr]
+    for c1, c2 in zip(cntr, correct_extent):
+        np.testing.assert_equal(c1, c2)
+
+
+@pytest.mark.parametrize(
+    ('data', 'n_contours'),
+    [(np.zeros((3, 3), dtype=bool), 0),
+     (np.ones((3, 3), dtype=bool), 1),
+     (np.eye(2, dtype=bool), 2),
+     (np.pad(np.zeros((1, 1), dtype=bool), 1,
+             constant_values=True), 2)])
+def test_outline_edge_cases(data, n_contours):
+    contours = _create_cluster_contour(data)
+
+    assert len(contours) == n_contours
 
 
 def test_topo_simulated_data():
