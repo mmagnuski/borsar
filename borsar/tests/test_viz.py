@@ -335,6 +335,33 @@ def test_heatmap_uses_xarray_coords():
 
 
 @pytest.mark.skipif(not has_xarray(), reason="requires xarray")
+def test_heatmap_uses_string_xarray_coords_as_ticklabels():
+    import xarray as xr
+
+    x_labels = np.array(['left', 'center-left', 'center-right', 'right'])
+    y_labels = np.array(['low', 'middle', 'high'])
+    xarr = xr.DataArray(
+        np.arange(12, dtype='float').reshape(3, 4),
+        dims=('frequency', 'position'),
+        coords={'frequency': y_labels, 'position': x_labels}
+    )
+
+    ax = heatmap(xarr, colorbar=False)
+
+    np.testing.assert_allclose(ax.images[0].get_extent(),
+                               [-0.5, 3.5, -0.5, 2.5])
+    np.testing.assert_array_equal(ax.get_xticks(), np.arange(4))
+    np.testing.assert_array_equal(ax.get_yticks(), np.arange(3))
+    assert ([tick.get_text() for tick in ax.get_xticklabels()]
+            == x_labels.tolist())
+    assert ([tick.get_text() for tick in ax.get_yticklabels()]
+            == y_labels.tolist())
+    assert ax.get_xlabel() == 'position'
+    assert ax.get_ylabel() == 'frequency'
+    plt.close(ax.figure)
+
+
+@pytest.mark.skipif(not has_xarray(), reason="requires xarray")
 def test_heatmap_xarray_incomplete_coords():
     """Use available xarray coordinates unless explicit axes are passed."""
     import xarray as xr
