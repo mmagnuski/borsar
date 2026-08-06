@@ -7,6 +7,7 @@ v0.2.0 (future 2024)
 
 - ENH: control ``bar_height`` in ``borsar.viz.highlight``
 - ENH: use xarray dimension coordinates as default axes in ``borsar.viz.heatmap``
+- ENH: speed up cluster contour creation for heatmap outlines
 - ENH: allow to plot cluster contribution in source space (``borsar.cluster.plot_cluster_contribution``)
 - ENH: support 1d no-adjacency numba clustering (``borsar.cluster.label_numba._cluster_1d_numba`` - accessed through ``borsar.cluster.label._get_cluster_fun`` or ``borsar.cluster.label.find_clusters``)
 
