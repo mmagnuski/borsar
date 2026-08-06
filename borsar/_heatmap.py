@@ -67,6 +67,20 @@ def _get_cmap_and_color_limits(array, cmap, center, vmin, vmax):
     return cmap, vmin, vmax
 
 
+def _prepare_axis(axis, n_elements):
+    if axis is None:
+        return np.arange(n_elements), None
+
+    axis = np.asarray(axis)
+    is_string = axis.dtype.kind in 'SU'
+    if axis.dtype.kind == 'O':
+        is_string = all(isinstance(value, (str, np.str_)) for value in axis)
+
+    if is_string:
+        return np.arange(n_elements), axis
+    return axis, None
+
+
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap=None, alpha=0.75,
             vmin=None, vmax=None, center='auto', line_kwargs=None, **kwargs):
@@ -139,8 +153,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         array, cmap, center, vmin, vmax)
     n_rows, n_cols = array.shape
 
-    x_axis = np.arange(n_cols) if x_axis is None else x_axis
-    y_axis = np.arange(n_rows) if y_axis is None else y_axis
+    x_axis, x_ticklabels = _prepare_axis(x_axis, n_cols)
+    y_axis, y_ticklabels = _prepare_axis(y_axis, n_rows)
 
     # set extents
     x_step = np.diff(x_axis)[0]
@@ -156,6 +170,12 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
                         axis=axis, alpha=alpha, **kwargs)
 
     img = out if mask is None else out[0]
+    if x_ticklabels is not None:
+        img.axes.set_xticks(x_axis)
+        img.axes.set_xticklabels(x_ticklabels)
+    if y_ticklabels is not None:
+        img.axes.set_yticks(y_axis)
+        img.axes.set_yticklabels(y_ticklabels)
     if x_label is not None:
         img.axes.set_xlabel(x_label)
         img.axes.set_ylabel(y_label)
