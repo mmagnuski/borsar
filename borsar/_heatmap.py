@@ -212,19 +212,17 @@ def _create_cluster_contour(mask, extent=None):
     Returns
     -------
     contours : list
-        List of contours, one per cluster. Each controur is a list of two numpy
-        arrays: ``[x_contours, y_contours]``.
+        List of contour boundaries. Each contour is a list of two numpy arrays:
+        ``[x_contours, y_contours]``.
     '''
-    from scipy.ndimage import correlate
-
     orig_mask_shape = mask.shape
-    mask_int = np.pad(mask.astype('int'), ((1, 1), (1, 1)), 'constant')
-    kernels = {'upper': np.array([[-1], [1], [0]]),
-               'lower': np.array([[0], [1], [-1]]),
-               'left': np.array([[-1, 1, 0]]),
-               'right': np.array([[0, 1, -1]])}
-    lines = {k: (correlate(mask_int, v) == 1).astype('int')
-             for k, v in kernels.items()}
+    padded = np.pad(mask.astype(bool, copy=False), 1)
+    lines = {edge: np.zeros_like(padded, dtype=np.int8)
+             for edge in ('upper', 'lower', 'left', 'right')}
+    lines['upper'][1:] = padded[1:] & ~padded[:-1]
+    lines['lower'][:-1] = padded[:-1] & ~padded[1:]
+    lines['left'][:, 1:] = padded[:, 1:] & ~padded[:, :-1]
+    lines['right'][:, :-1] = padded[:, :-1] & ~padded[:, 1:]
 
     search_order = {'upper': ['right', 'left', 'upper'],
                     'right': ['lower', 'upper', 'right'],
@@ -237,16 +235,19 @@ def _create_cluster_contour(mask, extent=None):
     finish_modifiers = {'upper': [-0.5, 0.5], 'right': [0.5, 0.5],
                         'lower': [0.5, -0.5], 'left': [-0.5, -0.5]}
 
-    # current index - upmost upper line
-    upper_lines = np.where(lines['upper'])
+    # Each contour contains at least one upper edge. Find all candidates once;
+    # tracing a contour marks any other upper edges it consumes as visited.
+    upper_lines = np.column_stack(np.where(lines['upper']))
     outlines = list()
 
-    while len(upper_lines[0]) > 0:
-        current_index = np.array([x[0] for x in upper_lines])
+    for upper_line in upper_lines:
+        if lines['upper'][tuple(upper_line)] < 1:
+            continue
+
+        current_index = upper_line.copy()
         closed_shape = False
         current_edge = 'upper'
         edge_points = [tuple(current_index + [-0.5, -0.5])]
-        direction = movement_direction[current_edge]
 
         while not closed_shape:
             new_edge = None
@@ -282,11 +283,8 @@ def _create_cluster_contour(mask, extent=None):
 
             current_index += direction
 
-        # TODO: this should be done at runtime
-        x = np.array([l[1] for l in edge_points])
-        y = np.array([l[0] for l in edge_points])
-        outlines.append([x, y])
-        upper_lines = np.where(lines['upper'] > 0)
+        edge_points = np.asarray(edge_points)
+        outlines.append([edge_points[:, 1], edge_points[:, 0]])
 
     _correct_all_outlines(outlines, orig_mask_shape, extent=extent)
     return outlines
