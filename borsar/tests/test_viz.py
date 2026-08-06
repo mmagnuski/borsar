@@ -283,6 +283,34 @@ def test_heatmap(monkeypatch):
     plt.close('all')
 
 
+@pytest.mark.parametrize(
+    ('data', 'cmap', 'clim'),
+    [
+        (np.array([[1., 2.], [3., 4.]]), 'inferno', (1., 4.)),
+        (np.array([[-4., -3.], [-2., -1.]]), 'Blues_r', (-4., -1.)),
+        (np.array([[-4., -1.], [2., 3.]]), 'RdBu_r', (-4., 4.)),
+        (np.array([[np.nan, 1.], [2., 3.]]), 'inferno', (1., 3.)),
+    ]
+)
+def test_heatmap_color_defaults(data, cmap, clim):
+    ax = heatmap(data, colorbar=False)
+    image = ax.images[0]
+
+    assert image.get_cmap().name == cmap
+    assert image.get_clim() == clim
+    plt.close(ax.figure)
+
+
+def test_heatmap_center():
+    data = np.array([[1., 2.], [3., 5.]])
+    ax = heatmap(data, center=2., colorbar=False)
+    image = ax.images[0]
+
+    assert image.get_cmap().name == 'RdBu_r'
+    assert image.get_clim() == (-1., 5.)
+    plt.close(ax.figure)
+
+
 @pytest.mark.skipif(not has_xarray(), reason="requires xarray")
 def test_heatmap_uses_xarray_coords():
     import xarray as xr
@@ -358,9 +386,11 @@ def test_heatmap_accepts_xarray_mask_for_numpy_data():
     plt.close(ax.figure)
 
 
-def test_utils():
-    clim = color_limits(np.random.randint(0, high=2, dtype='bool'))
-    assert clim == (0., 1.)
+def test_color_limits():
+    data = np.array([-1., np.nan, 2.])
+
+    assert color_limits(data) == (-1., 2.)
+    assert color_limits(data, center=0.) == (-2., 2.)
 
 
 def compare_box_and_slice(x, box, slc):

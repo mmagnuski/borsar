@@ -15,13 +15,16 @@ def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
 
 
 # - [ ] add some option mne 3d brain cmap dict-style
-def color_limits(data):
+def color_limits(data, center=None):
     '''Set color limits from data.
 
     Parameters
     ----------
     data : numpy array
         Data to set colorlimits for.
+    center : float | None
+        Center of a symmetric color range. When ``None``, use the observed
+        data range.
 
     Returns
     -------
@@ -30,8 +33,9 @@ def color_limits(data):
     vmax : float
         Maximum value for the colormap.
     '''
-    if data.dtype == 'bool':
-        return 0., 1.
+    vmin, vmax = np.nanmin(data), np.nanmax(data)
+    if center is not None:
+        span = max(center - vmin, vmax - center)
+        vmin, vmax = center - span, center + span
 
-    vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
-    return -vmax, vmax
+    return vmin, vmax

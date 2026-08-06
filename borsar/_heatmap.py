@@ -46,10 +46,30 @@ def _add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# - [ ] multiple masks, multiple outline_colors, multiple alpha?
+def _get_cmap_and_color_limits(array, cmap, center, vmin, vmax):
+    data_min, data_max = np.nanmin(array), np.nanmax(array)
+    if center == 'auto':
+        center = 0. if data_min < 0 < data_max else None
+    elif isinstance(center, str):
+        raise ValueError("center has to be 'auto', a number, or None.")
+
+    if cmap is None:
+        if center is not None:
+            cmap = 'RdBu_r'
+        elif data_min >= 0:
+            cmap = 'inferno'
+        elif data_max <= 0:
+            cmap = 'Blues_r'
+
+    if vmin is None and vmax is None:
+        vmin, vmax = color_limits(array, center=center)
+
+    return cmap, vmin, vmax
+
+
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
-            outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
-            vmin=None, vmax=None, line_kwargs=None, **kwargs):
+            outlines=False, colorbar=True, cmap=None, alpha=0.75,
+            vmin=None, vmax=None, center='auto', line_kwargs=None, **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -70,14 +90,22 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         whether to draw outlines of the clusters defined by the mask.
     colorbar : boolean
         Whether to add a colorbar to the image.
-    cmap : str
-        Colormap to use. Defaults to ``'RdBu_r'``.
+    cmap : str | None
+        Colormap to use. By default, ``'RdBu_r'`` is used for data containing
+        both negative and positive values. It is also used when a numeric
+        center is specified (see the ``center`` argument). ``'inferno'`` is
+        used for nonnegative data and ``'Blues_r'`` for nonpositive data.
     alpha : float
         Mask transparency.
     vmin : float | None
         Minimum value for the colormap.
     vmax : float | None
         Maximum value for the colormap.
+    center : 'auto' | float | None
+        Center of a symmetric color range. The default (``center='auto'``)
+        centers the range on zero when the data contain both negative and
+        positive values; otherwise no centering is done. Pass a number to set
+        the center explicitly or ``None`` to disable centering.
     line_kwargs : dict
         Dictionary of additional parameters for outlines.
 
@@ -107,8 +135,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         if isinstance(mask, DataArray):
             mask = mask.values
 
-    if vmin is None and vmax is None:
-        vmin, vmax = color_limits(array)
+    cmap, vmin, vmax = _get_cmap_and_color_limits(
+        array, cmap, center, vmin, vmax)
     n_rows, n_cols = array.shape
 
     x_axis = np.arange(n_cols) if x_axis is None else x_axis
