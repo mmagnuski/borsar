@@ -266,6 +266,9 @@ def test_heatmap(monkeypatch):
     # currently just smoke tests
     heatmap(data)
     heatmap(data, x_axis=x)
+    ax = heatmap(data, mask=None, outlines=True, colorbar=False)
+    assert isinstance(ax, plt.Axes)
+    assert len(ax.lines) == 0
     out1 = heatmap(data, x_axis=x, y_axis=y)
     out2 = heatmap(data, x_axis=x, y_axis=y, colorbar=False)
     assert isinstance(out2, plt.Axes)

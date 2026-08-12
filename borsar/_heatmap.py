@@ -101,7 +101,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     y_axis : 1d array
         Y axis coordinates - 1d array of y axis bin names.
     outlines : boolean
-        whether to draw outlines of the clusters defined by the mask.
+        Whether to draw outlines of the clusters defined by the mask. Ignored
+        when ``mask`` is ``None``.
     colorbar : boolean
         Whether to add a colorbar to the image.
     cmap : str | None
@@ -181,7 +182,7 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         img.axes.set_ylabel(y_label)
 
     # add outlines if necessary
-    if outlines:
+    if outlines and mask is not None:
         mask = mask[np.newaxis, :] if mask.ndim == 2 else mask
         n_masks = mask.shape[0]
 
