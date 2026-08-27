@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 from .utils import has_xarray
 from ._vizutils import add_colorbar_to_axis, color_limits
@@ -81,6 +82,16 @@ def _prepare_axis(axis, n_elements):
     return axis, None
 
 
+def _index_tick_formatter(labels):
+    def format_tick(value, _position):
+        index = int(round(value))
+        if np.isclose(value, index) and 0 <= index < len(labels):
+            return str(labels[index])
+        return ''
+
+    return FuncFormatter(format_tick)
+
+
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, cmap=None, alpha=0.75,
             vmin=None, vmax=None, center='auto', line_kwargs=None, **kwargs):
@@ -97,9 +108,11 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     axis : matplotlib axis
         Axis to draw in.
     x_axis : 1d array
-        X axis coordinates - 1d array of x axis bin names.
+        X axis coordinates or bin labels. String labels are applied at the
+        automatically selected tick positions.
     y_axis : 1d array
-        Y axis coordinates - 1d array of y axis bin names.
+        Y axis coordinates or bin labels. String labels are applied at the
+        automatically selected tick positions.
     outlines : boolean
         Whether to draw outlines of the clusters defined by the mask. Ignored
         when ``mask`` is ``None``.
@@ -172,11 +185,11 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
     img = out if mask is None else out[0]
     if x_ticklabels is not None:
-        img.axes.set_xticks(x_axis)
-        img.axes.set_xticklabels(x_ticklabels)
+        img.axes.xaxis.set_major_formatter(
+            _index_tick_formatter(x_ticklabels))
     if y_ticklabels is not None:
-        img.axes.set_yticks(y_axis)
-        img.axes.set_yticklabels(y_ticklabels)
+        img.axes.yaxis.set_major_formatter(
+            _index_tick_formatter(y_ticklabels))
     if x_label is not None:
         img.axes.set_xlabel(x_label)
         img.axes.set_ylabel(y_label)

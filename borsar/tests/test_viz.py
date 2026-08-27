@@ -357,24 +357,38 @@ def test_heatmap_uses_xarray_coords():
 def test_heatmap_uses_string_xarray_coords_as_ticklabels():
     import xarray as xr
 
-    x_labels = np.array(['left', 'center-left', 'center-right', 'right'])
-    y_labels = np.array(['low', 'middle', 'high'])
+    data = np.arange(1200, dtype='float').reshape(30, 40)
+    x_labels = np.array([f'x-{idx}' for idx in range(data.shape[1])])
+    y_labels = np.array([f'y-{idx}' for idx in range(data.shape[0])])
     xarr = xr.DataArray(
-        np.arange(12, dtype='float').reshape(3, 4),
+        data,
         dims=('frequency', 'position'),
         coords={'frequency': y_labels, 'position': x_labels}
     )
 
+    default_ax = heatmap(data, colorbar=False)
     ax = heatmap(xarr, colorbar=False)
 
     np.testing.assert_allclose(ax.images[0].get_extent(),
-                               [-0.5, 3.5, -0.5, 2.5])
-    np.testing.assert_array_equal(ax.get_xticks(), np.arange(4))
-    np.testing.assert_array_equal(ax.get_yticks(), np.arange(3))
+                               [-0.5, 39.5, -0.5, 29.5])
+    np.testing.assert_array_equal(ax.get_xticks(), default_ax.get_xticks())
+    np.testing.assert_array_equal(ax.get_yticks(), default_ax.get_yticks())
+
+    def expected_labels(ticks, labels):
+        expected = []
+        for tick in ticks:
+            index = int(round(tick))
+            label = labels[index] if (np.isclose(tick, index)
+                                      and 0 <= index < len(labels)) else ''
+            expected.append(label)
+        return expected
+
     assert ([tick.get_text() for tick in ax.get_xticklabels()]
-            == x_labels.tolist())
+            == expected_labels(ax.get_xticks(), x_labels))
     assert ([tick.get_text() for tick in ax.get_yticklabels()]
-            == y_labels.tolist())
+            == expected_labels(ax.get_yticks(), y_labels))
+    assert len(ax.get_xticks()) < len(x_labels)
+    assert len(ax.get_yticks()) < len(y_labels)
     assert ax.get_xlabel() == 'position'
     assert ax.get_ylabel() == 'frequency'
     plt.close(ax.figure)
