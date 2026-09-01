@@ -22,9 +22,9 @@ download_test_data()
 # Let's first create the info object:
 
 import mne
-mntg = mne.channels.make_standard_montage('easycap-M1')
-info = mne.create_info(mntg.ch_names, sfreq=250., ch_types='eeg')
-info = info.set_montage(mntg)
+montage = mne.channels.make_standard_montage('easycap-M1')
+info = mne.create_info(montage.ch_names, sfreq=250., ch_types='eeg')
+info = info.set_montage(montage)
 
 ###############################################################################
 # Now we read the file.
@@ -42,7 +42,7 @@ clst = read_cluster(fname, info=info)
 # First let's plot the topography of the second cluster's effect in frequency
 # range from 8 to 8.5 Hz:
 
-topo = clst.plot(cluster_idx=1, freq=[8, 8.5])
+topo = clst.plot(picks=1, freq=[8, 8.5])
 
 ###############################################################################
 # We can also see how specific frequencies contribute to each cluster by the
